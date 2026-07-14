@@ -1,0 +1,3089 @@
+#include "core/output-manager.hpp"
+
+#include "core/diagnostics.hpp"
+#include "core/oauth-provider.hpp"
+#include "core/secret-store.hpp"
+#include "core/youtube-api-warning.hpp"
+#include "core/youtube-broadcast-selector.hpp"
+
+#include <obs-frontend-api.h>
+#include <obs-module.h>
+#include <media-io/video-io.h>
+#include <util/config-file.h>
+
+#include <QDateTime>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QMetaObject>
+#include <QPointer>
+#include <QDir>
+#include <QFileInfo>
+#include <QRegularExpression>
+#include <QSettings>
+#include <QStringList>
+#include <QTimer>
+#include <QUrlQuery>
+
+#include <cstring>
+#include <initializer_list>
+#include <utility>
+
+
+namespace dsk {
+
+namespace {
+
+constexpr int PlatformApiTimeoutMs = 20 * 1000;
+constexpr uint32_t DskVideoCanvasFlags = ACTIVATE | SCENE_REF | EPHEMERAL;
+
+} // namespace
+
+struct OutputManager::Session {
+	quint64 serial = 0;
+	QString targetId;
+	obs_output_t *output = nullptr;
+	obs_service_t *service = nullptr;
+	qint64 startedAtMs = 0;
+	QString sharedEncoderKey;
+	bool pendingRelease = false;
+	int releasePolls = 0;
+};
+
+struct OutputManager::SharedEncoderSet {
+	QString key;
+	obs_encoder_t *videoEncoder = nullptr;
+	obs_encoder_t *audioEncoder = nullptr;
+	int refs = 0;
+};
+
+static void copyTargetFields(OutputTarget &to, const OutputTarget &from, bool copySceneRoutes = true)
+{
+	to.id = from.id;
+	to.name = from.name;
+	to.platformId = from.platformId;
+	to.authMode = from.authMode;
+	to.authAccountName = from.authAccountName;
+	to.authCredentialRef = from.authCredentialRef;
+	to.oauthClientId = from.oauthClientId;
+	to.oauthClientSecret = from.oauthClientSecret;
+	to.oauthClientSecretRef = from.oauthClientSecretRef;
+	to.oauthRefreshToken = from.oauthRefreshToken;
+	to.oauthRefreshTokenRef = from.oauthRefreshTokenRef;
+	to.serverUrl = from.serverUrl;
+	to.streamKey = from.streamKey;
+	to.encoderGroup = from.encoderGroup;
+	to.useSharedEncoder = from.useSharedEncoder;
+	to.autoStartWithObs = from.autoStartWithObs;
+	to.autoStopWithObs = from.autoStopWithObs;
+	to.reconnectEnabled = from.reconnectEnabled;
+	to.reconnectMaxRetries = from.reconnectMaxRetries;
+	to.reconnectDelaySeconds = from.reconnectDelaySeconds;
+	to.videoBitrateKbps = from.videoBitrateKbps;
+	to.audioBitrateKbps = from.audioBitrateKbps;
+	to.keyframeSeconds = from.keyframeSeconds;
+	to.videoEncoderId = from.videoEncoderId;
+	to.audioEncoderId = from.audioEncoderId;
+	to.sceneMode = from.sceneMode;
+	to.sceneName = from.sceneName;
+	to.sceneUuid = from.sceneUuid;
+	to.sceneRoutes.clear();
+	if (copySceneRoutes) {
+		for (const auto &route : from.sceneRoutes)
+			to.sceneRoutes.push_back(route);
+	}
+	to.enabled = from.enabled;
+	to.startWithAll = from.startWithAll;
+	to.state = from.state;
+	to.lastError = from.lastError;
+}
+
+static QString videoOutputSummary(video_t *video)
+{
+	if (!video)
+		return QStringLiteral("unavailable");
+
+	const video_output_info *info = video_output_get_info(video);
+	if (!info)
+		return QStringLiteral("unavailable");
+
+	const double fps = info->fps_den ? double(info->fps_num) / double(info->fps_den) : 0.0;
+	return QStringLiteral("%1x%2 %3 fps %4")
+		.arg(info->width)
+		.arg(info->height)
+		.arg(fps, 0, 'f', 2)
+		.arg(QString::fromUtf8(get_video_format_name(info->format)));
+}
+
+static bool videoEncoderAvailable(const QString &encoderId)
+{
+	if (encoderId.trimmed().isEmpty())
+		return false;
+	const QByteArray id = encoderId.trimmed().toUtf8();
+	return obs_encoder_get_display_name(id.constData()) && obs_get_encoder_type(id.constData()) == OBS_ENCODER_VIDEO;
+}
+
+static QString normalizedSettingsPath(const QString &path)
+{
+	return QDir::cleanPath(QFileInfo(path).absoluteFilePath());
+}
+
+static QString firstAvailableVideoEncoder(std::initializer_list<const char *> encoderIds, const QString &fallback = QStringLiteral("obs_x264"))
+{
+	for (const char *encoderId : encoderIds) {
+		const QString candidate = QString::fromUtf8(encoderId);
+		if (videoEncoderAvailable(candidate))
+			return candidate;
+	}
+	return fallback;
+}
+
+static QString obsSelectionToH264Encoder(const QString &selectedEncoder)
+{
+	const QString encoder = selectedEncoder.trimmed();
+	if (encoder.isEmpty())
+		return QStringLiteral("obs_x264");
+
+	const QString lower = encoder.toLower();
+	if (lower.contains(QStringLiteral("nvenc")))
+		return firstAvailableVideoEncoder({"obs_nvenc_h264_tex", "ffmpeg_nvenc"});
+	if (lower.contains(QStringLiteral("amf")) || lower.startsWith(QStringLiteral("amd")))
+		return firstAvailableVideoEncoder({"h264_texture_amf", "amd_amf_h264", "obs_x264"});
+	if (lower.contains(QStringLiteral("qsv")))
+		return firstAvailableVideoEncoder({"obs_qsv11_v2", "obs_qsv11", "obs_x264"});
+	if (lower.contains(QStringLiteral("videotoolbox")) || lower.startsWith(QStringLiteral("apple_")))
+		return firstAvailableVideoEncoder({"com.apple.videotoolbox.videoencoder.ave.avc", "obs_x264"});
+	if (lower == QStringLiteral("x264") || lower == QStringLiteral("x264_lowcpu"))
+		return QStringLiteral("obs_x264");
+
+	if (videoEncoderAvailable(encoder)) {
+		const QByteArray id = encoder.toUtf8();
+		const char *codec = obs_get_encoder_codec(id.constData());
+		if (codec && QString::fromUtf8(codec).compare(QStringLiteral("h264"), Qt::CaseInsensitive) == 0)
+			return encoder;
+	}
+
+	return firstAvailableVideoEncoder({"obs_x264"});
+}
+
+static bool isNativeNvencEncoder(const QString &encoderId)
+{
+	return encoderId.startsWith(QStringLiteral("obs_nvenc_"));
+}
+
+static bool isFfmpegNvencEncoder(const QString &encoderId)
+{
+	return encoderId == QStringLiteral("ffmpeg_nvenc") || encoderId == QStringLiteral("ffmpeg_hevc_nvenc");
+}
+
+static void ensureCredentialRefs(OutputTarget &target)
+{
+	if (!target.streamKey.isEmpty() && target.authCredentialRef.isEmpty())
+		target.authCredentialRef = SecretStore::streamKeyCredentialRef(target.id);
+	if (!target.oauthClientSecret.isEmpty() && target.oauthClientSecretRef.isEmpty())
+		target.oauthClientSecretRef = SecretStore::oauthClientSecretCredentialRef(target.id);
+	if (!target.oauthRefreshToken.isEmpty() && target.oauthRefreshTokenRef.isEmpty())
+		target.oauthRefreshTokenRef = SecretStore::oauthRefreshTokenCredentialRef(target.id);
+}
+
+static bool stageCredentialForReassignedTarget(QString &secret, QString &credentialRef,
+					       const QString &replacementRef, QString *warning)
+{
+	if (!secret.isEmpty()) {
+		credentialRef = replacementRef;
+		return true;
+	}
+	if (credentialRef.trimmed().isEmpty())
+		return true;
+	if (!SecretStore::isOwnedCredentialRef(credentialRef)) {
+		if (warning)
+			*warning = QStringLiteral("A saved credential reference outside the DSK namespace was not copied.");
+		return false;
+	}
+
+	SecretStore secrets;
+	QString loadedSecret;
+	QString error;
+	const SecretReadResult result = secrets.readSecretResult(credentialRef, &loadedSecret, &error);
+	if (result == SecretReadResult::Found && !loadedSecret.isEmpty()) {
+		secret = loadedSecret;
+		credentialRef = replacementRef;
+		return true;
+	}
+
+	if (warning) {
+		*warning = result == SecretReadResult::NotFound
+			? QStringLiteral("Credential %1 was not found; its old reference was preserved.").arg(credentialRef)
+			: QStringLiteral("Credential %1 could not be copied: %2").arg(credentialRef, error);
+	}
+	return false;
+}
+
+static QSet<QString> credentialRefsForTarget(const OutputTarget &target)
+{
+	QSet<QString> refs;
+	for (const QString &ref : {target.authCredentialRef, target.oauthClientSecretRef, target.oauthRefreshTokenRef}) {
+		if (!ref.trimmed().isEmpty())
+			refs.insert(ref.trimmed());
+	}
+	return refs;
+}
+
+static QStringList deleteUnreferencedTargetSecrets(const OutputTarget &target,
+						    const QVector<OutputTarget> &remainingTargets)
+{
+	QStringList failures;
+	QSet<QString> retainedRefs;
+	for (const auto &remaining : remainingTargets)
+		retainedRefs.unite(credentialRefsForTarget(remaining));
+
+	SecretStore secrets;
+	for (const QString &ref : credentialRefsForTarget(target)) {
+		if (retainedRefs.contains(ref))
+			continue;
+		if (!SecretStore::isOwnedCredentialRef(ref)) {
+			logWarning(QStringLiteral("Refusing to delete a credential outside the DSK namespace."));
+			continue;
+		}
+		QString error;
+		if (!secrets.deleteSecret(ref, &error)) {
+			logWarning(QString("Failed to delete DSK credential %1: %2").arg(ref, error));
+			failures.push_back(QStringLiteral("%1 (%2)").arg(ref, error));
+		}
+	}
+	return failures;
+}
+
+static void releaseOutputAndService(obs_output_t *output, obs_service_t *service)
+{
+	// obs_output_set_service keeps a non-owning pointer to the creator-owned
+	// service. Destroy the output while that pointer is still valid, then drop
+	// the service reference returned by obs_service_create.
+	if (output)
+		obs_output_release(output);
+	if (service)
+		obs_service_release(service);
+}
+
+static quint64 outputSessionSerial(obs_output_t *output)
+{
+	const char *rawName = output ? obs_output_get_name(output) : nullptr;
+	const QString name = rawName ? QString::fromUtf8(rawName) : QString();
+	const QString marker = QStringLiteral("_session_");
+	const int markerIndex = name.lastIndexOf(marker);
+	if (markerIndex < 0)
+		return 0;
+	bool ok = false;
+	const quint64 serial = name.mid(markerIndex + marker.size()).toULongLong(&ok);
+	return ok ? serial : 0;
+}
+
+static QString outputStopCodeText(int code)
+{
+	switch (code) {
+	case OBS_OUTPUT_SUCCESS:
+		return "Stopped.";
+	case OBS_OUTPUT_BAD_PATH:
+		return "Bad output path or server URL.";
+	case OBS_OUTPUT_CONNECT_FAILED:
+		return "Connection failed.";
+	case OBS_OUTPUT_INVALID_STREAM:
+		return "Invalid stream. Check the stream key and platform ingest server.";
+	case OBS_OUTPUT_ERROR:
+		return "Output error.";
+	case OBS_OUTPUT_DISCONNECTED:
+		return "Disconnected.";
+	case OBS_OUTPUT_UNSUPPORTED:
+		return "Unsupported output.";
+	case OBS_OUTPUT_NO_SPACE:
+		return "No space left.";
+	case OBS_OUTPUT_ENCODE_ERROR:
+		return "Encoder error.";
+	case OBS_OUTPUT_HDR_DISABLED:
+		return "HDR output is disabled.";
+	default:
+		return QString("Output stopped with code %1.").arg(code);
+	}
+}
+
+static QString outputStopMessage(int code, const QString &lastError)
+{
+	QString message = outputStopCodeText(code);
+	if (!lastError.trimmed().isEmpty())
+		message = QString("%1 %2").arg(message, lastError.trimmed());
+	return message;
+}
+
+static QByteArray formBody(const QUrlQuery &query)
+{
+	return query.toString(QUrl::FullyEncoded).toUtf8();
+}
+
+static QString stripHtml(const QString &value)
+{
+	QString cleaned = value;
+	cleaned.remove(QRegularExpression(QStringLiteral("<[^>]*>")));
+	return cleaned.simplified();
+}
+
+static bool isQuotaExceededText(const QString &value)
+{
+	const QString lower = value.toLower();
+	return lower.contains(QStringLiteral("quota")) || lower.contains(QStringLiteral("dailylimitexceeded"));
+}
+
+static bool canContinuePlatformStart(const OutputTarget &target, const TargetRuntimeStatus &runtime)
+{
+	return target.state == TargetState::Starting || target.state == TargetState::Live || runtimeTransportIsRunning(runtime);
+}
+
+static QString platformHttpError(const HttpResponse &response)
+{
+	if (!response.transportError.isEmpty())
+		return response.transportError;
+	if (response.statusCode >= 200 && response.statusCode < 300)
+		return {};
+
+	QString detail = stripHtml(QString::fromUtf8(response.body).left(500).trimmed());
+	const QJsonDocument document = QJsonDocument::fromJson(response.body);
+	if (document.isObject()) {
+		const QJsonObject error = document.object().value("error").toObject();
+		const QString message = error.value("message").toString();
+		if (!message.isEmpty())
+			detail = stripHtml(message);
+	}
+
+	if (isQuotaExceededText(detail)) {
+		return QStringLiteral(
+			"YouTube API quota exceeded. RTMP is connected, but DSK cannot switch the YouTube broadcast from preparing to live until quota resets. Enable Auto-start in YouTube Studio or retry with a Google Cloud project that still has quota.");
+	}
+
+	const QString status = response.statusCode > 0 ? QStringLiteral("HTTP %1").arg(response.statusCode)
+						    : QStringLiteral("HTTP request failed");
+	return detail.isEmpty() ? status : QStringLiteral("%1: %2").arg(status, detail);
+}
+
+static void dskOutputStopCallback(void *data, calldata_t *params)
+{
+	auto *manager = static_cast<OutputManager *>(data);
+	if (!manager)
+		return;
+
+	auto *output = static_cast<obs_output_t *>(calldata_ptr(params, "output"));
+	const quint64 sessionSerial = outputSessionSerial(output);
+	const int code = static_cast<int>(calldata_int(params, "code"));
+	const char *lastError = calldata_string(params, "last_error");
+	const QString errorText = lastError ? QString::fromUtf8(lastError) : QString();
+
+	QPointer<OutputManager> guard(manager);
+	QMetaObject::invokeMethod(manager, [guard, output, sessionSerial, code, errorText]() {
+		if (!guard)
+			return;
+		guard->handleOutputStopped(output, sessionSerial, code, errorText);
+	}, Qt::QueuedConnection);
+}
+
+static void dispatchOutputSignal(OutputManager *manager, obs_output_t *output, const QString &signalName,
+				 int reconnectDelaySeconds = 0)
+{
+	if (!manager || !output)
+		return;
+
+	const quint64 sessionSerial = outputSessionSerial(output);
+	QPointer<OutputManager> guard(manager);
+	QMetaObject::invokeMethod(manager, [guard, output, sessionSerial, signalName, reconnectDelaySeconds]() {
+		if (!guard)
+			return;
+		guard->handleOutputSignal(output, sessionSerial, signalName, reconnectDelaySeconds);
+	}, Qt::QueuedConnection);
+}
+
+static void dskOutputStartingCallback(void *data, calldata_t *params)
+{
+	dispatchOutputSignal(static_cast<OutputManager *>(data), static_cast<obs_output_t *>(calldata_ptr(params, "output")),
+			     QStringLiteral("starting"));
+}
+
+static void dskOutputStartCallback(void *data, calldata_t *params)
+{
+	dispatchOutputSignal(static_cast<OutputManager *>(data), static_cast<obs_output_t *>(calldata_ptr(params, "output")),
+			     QStringLiteral("start"));
+}
+
+static void dskOutputActivateCallback(void *data, calldata_t *params)
+{
+	dispatchOutputSignal(static_cast<OutputManager *>(data), static_cast<obs_output_t *>(calldata_ptr(params, "output")),
+			     QStringLiteral("activate"));
+}
+
+static void dskOutputReconnectCallback(void *data, calldata_t *params)
+{
+	dispatchOutputSignal(static_cast<OutputManager *>(data), static_cast<obs_output_t *>(calldata_ptr(params, "output")),
+			     QStringLiteral("reconnect"), static_cast<int>(calldata_int(params, "timeout_sec")));
+}
+
+static void dskOutputReconnectSuccessCallback(void *data, calldata_t *params)
+{
+	dispatchOutputSignal(static_cast<OutputManager *>(data), static_cast<obs_output_t *>(calldata_ptr(params, "output")),
+			     QStringLiteral("reconnect_success"));
+}
+
+static void dskOutputStoppingCallback(void *data, calldata_t *params)
+{
+	dispatchOutputSignal(static_cast<OutputManager *>(data), static_cast<obs_output_t *>(calldata_ptr(params, "output")),
+			     QStringLiteral("stopping"));
+}
+
+static void dskOutputDeactivateCallback(void *data, calldata_t *params)
+{
+	dispatchOutputSignal(static_cast<OutputManager *>(data), static_cast<obs_output_t *>(calldata_ptr(params, "output")),
+			     QStringLiteral("deactivate"));
+}
+
+static void connectOutputSignals(obs_output_t *output, OutputManager *manager)
+{
+	if (!output || !manager)
+		return;
+	signal_handler_t *handler = obs_output_get_signal_handler(output);
+	signal_handler_connect(handler, "starting", dskOutputStartingCallback, manager);
+	signal_handler_connect(handler, "start", dskOutputStartCallback, manager);
+	signal_handler_connect(handler, "activate", dskOutputActivateCallback, manager);
+	signal_handler_connect(handler, "reconnect", dskOutputReconnectCallback, manager);
+	signal_handler_connect(handler, "reconnect_success", dskOutputReconnectSuccessCallback, manager);
+	signal_handler_connect(handler, "stopping", dskOutputStoppingCallback, manager);
+	signal_handler_connect(handler, "deactivate", dskOutputDeactivateCallback, manager);
+	signal_handler_connect(handler, "stop", dskOutputStopCallback, manager);
+}
+
+static void disconnectOutputSignals(obs_output_t *output, OutputManager *manager)
+{
+	if (!output || !manager)
+		return;
+	signal_handler_t *handler = obs_output_get_signal_handler(output);
+	signal_handler_disconnect(handler, "starting", dskOutputStartingCallback, manager);
+	signal_handler_disconnect(handler, "start", dskOutputStartCallback, manager);
+	signal_handler_disconnect(handler, "activate", dskOutputActivateCallback, manager);
+	signal_handler_disconnect(handler, "reconnect", dskOutputReconnectCallback, manager);
+	signal_handler_disconnect(handler, "reconnect_success", dskOutputReconnectSuccessCallback, manager);
+	signal_handler_disconnect(handler, "stopping", dskOutputStoppingCallback, manager);
+	signal_handler_disconnect(handler, "deactivate", dskOutputDeactivateCallback, manager);
+	signal_handler_disconnect(handler, "stop", dskOutputStopCallback, manager);
+}
+
+OutputManager::OutputManager(QObject *parent)
+	: QObject(parent),
+	  http_(new HttpClient(this))
+{
+	loadSettingsFromCurrentProfile();
+}
+
+void OutputManager::loadSettingsFromCurrentProfile()
+{
+	loadedSettingsPath_ = normalizedSettingsPath(store_.settingsPath());
+	PluginSettings settings = store_.load();
+	const QString settingsLoadWarning = store_.lastLoadWarning();
+	if (!settingsLoadWarning.isEmpty()) {
+		QTimer::singleShot(0, this, [this, settingsLoadWarning]() { emit statusMessage(settingsLoadWarning); });
+	}
+	targets_.reserve(settings.targets.size());
+	for (const auto &target : settings.targets) {
+		targets_.resize(targets_.size() + 1);
+		copyTargetFields(targets_.last(), target);
+	}
+	bool migratedTargets = false;
+	QSet<QString> loadedTargetIds;
+	struct DuplicateCredentialMigration {
+		QString newId;
+		OutputTarget previous;
+	};
+	QVector<DuplicateCredentialMigration> duplicateCredentialMigrations;
+	QVector<OutputTarget> publisherManagedCredentialMigrations;
+	QStringList credentialMigrationWarnings;
+	for (auto &target : targets_) {
+		if (target.id.trimmed().isEmpty() || loadedTargetIds.contains(target.id)) {
+			OutputTarget previous;
+			copyTargetFields(previous, target);
+			const QString previousId = target.id;
+			do {
+				target.id = newTargetId();
+			} while (loadedTargetIds.contains(target.id));
+			duplicateCredentialMigrations.push_back({target.id, previous});
+
+			QString warning;
+			if (!stageCredentialForReassignedTarget(target.streamKey,
+							       target.authCredentialRef,
+							       SecretStore::streamKeyCredentialRef(target.id),
+							       &warning))
+				credentialMigrationWarnings.push_back(warning);
+			warning.clear();
+			if (!stageCredentialForReassignedTarget(target.oauthClientSecret,
+							       target.oauthClientSecretRef,
+							       SecretStore::oauthClientSecretCredentialRef(target.id),
+							       &warning))
+				credentialMigrationWarnings.push_back(warning);
+			warning.clear();
+			if (!stageCredentialForReassignedTarget(target.oauthRefreshToken,
+							       target.oauthRefreshTokenRef,
+							       SecretStore::oauthRefreshTokenCredentialRef(target.id),
+							       &warning))
+				credentialMigrationWarnings.push_back(warning);
+			logWarning(QStringLiteral("Reassigned duplicate or empty target id '%1' to '%2'.")
+					   .arg(previousId, target.id));
+			migratedTargets = true;
+		}
+		OutputTarget publisherManagedPrevious;
+		copyTargetFields(publisherManagedPrevious, target);
+		if (migratePublisherManagedOAuthCredentials(target)) {
+			publisherManagedCredentialMigrations.push_back(std::move(publisherManagedPrevious));
+			migratedTargets = true;
+		}
+		loadedTargetIds.insert(target.id);
+		if (isYouTubeApiWarningText(target.lastError)) {
+			target.lastError.clear();
+			migratedTargets = true;
+		}
+		const QString cleanSceneName = target.sceneName.trimmed();
+		const QString cleanSceneUuid = target.sceneUuid.trimmed();
+		if (target.sceneName != cleanSceneName || target.sceneUuid != cleanSceneUuid)
+			migratedTargets = true;
+		target.sceneName = cleanSceneName;
+		target.sceneUuid = cleanSceneUuid;
+
+		QVector<TargetSceneRoute> cleanRoutes;
+		cleanRoutes.reserve(target.sceneRoutes.size());
+		QSet<QString> routeKeys;
+		for (auto route : target.sceneRoutes) {
+			const TargetSceneRoute original = route;
+			route.obsSceneName = route.obsSceneName.trimmed();
+			route.obsSceneUuid = route.obsSceneUuid.trimmed();
+			route.outputSceneName = route.outputSceneName.trimmed();
+			route.outputSceneUuid = route.outputSceneUuid.trimmed();
+			if (route.obsSceneName != original.obsSceneName || route.obsSceneUuid != original.obsSceneUuid ||
+			    route.outputSceneName != original.outputSceneName || route.outputSceneUuid != original.outputSceneUuid)
+				migratedTargets = true;
+			if (route.obsSceneName.isEmpty() || route.outputSceneName.isEmpty()) {
+				migratedTargets = true;
+				continue;
+			}
+			const QString routeKey = route.obsSceneUuid.isEmpty()
+						 ? QStringLiteral("name:%1").arg(route.obsSceneName)
+						 : QStringLiteral("uuid:%1").arg(route.obsSceneUuid);
+			if (routeKeys.contains(routeKey)) {
+				migratedTargets = true;
+				continue;
+			}
+			routeKeys.insert(routeKey);
+			cleanRoutes.push_back(std::move(route));
+		}
+		if (cleanRoutes.size() != target.sceneRoutes.size())
+			migratedTargets = true;
+		target.sceneRoutes = std::move(cleanRoutes);
+		// Any legacy plaintext secret must be rewritten even when an older file
+		// already contains a credential reference.
+		if (!target.streamKey.isEmpty() || !target.oauthClientSecret.isEmpty() ||
+		    !target.oauthRefreshToken.isEmpty())
+			migratedTargets = true;
+	}
+	layouts_.initializeVerticalScenes(settings.verticalScenes, settings.activeVerticalSceneId, settings.verticalLayout);
+	persistedVerticalLayout_ = layouts_.verticalLayout();
+	persistedVerticalScenes_ = layouts_.verticalScenes();
+	persistedActiveVerticalSceneId_ = layouts_.activeVerticalSceneId();
+	followObsScene_ = settings.followObsScene;
+	sceneLinks_ = std::move(settings.sceneLinks);
+	bool migratedLinks = false;
+	QSet<QString> sceneLinkKeys;
+	for (int i = sceneLinks_.size() - 1; i >= 0; --i) {
+		auto &link = sceneLinks_[i];
+		const QString cleanSceneName = link.sceneName.trimmed();
+		const QString cleanSceneUuid = link.sceneUuid.trimmed();
+		const QString cleanVerticalSceneId = link.verticalSceneId.trimmed();
+		const QString cleanLegacyTemplateId = link.legacyTemplateId.trimmed();
+		if (link.sceneName != cleanSceneName || link.sceneUuid != cleanSceneUuid ||
+		    link.verticalSceneId != cleanVerticalSceneId || link.legacyTemplateId != cleanLegacyTemplateId)
+			migratedLinks = true;
+		link.sceneName = cleanSceneName;
+		link.sceneUuid = cleanSceneUuid;
+		link.verticalSceneId = cleanVerticalSceneId;
+		link.legacyTemplateId = cleanLegacyTemplateId;
+		if (link.sceneName.isEmpty()) {
+			sceneLinks_.removeAt(i);
+			migratedLinks = true;
+			continue;
+		}
+		if (link.verticalSceneId.isEmpty()) {
+			if (link.legacyTemplateId.isEmpty()) {
+				sceneLinks_.removeAt(i);
+				migratedLinks = true;
+				continue;
+			} else {
+				link.verticalSceneId = layouts_.activeVerticalSceneId();
+				link.legacyTemplateId.clear();
+			}
+			migratedLinks = true;
+		}
+		const QString linkKey = link.sceneUuid.isEmpty()
+					? QStringLiteral("name:%1").arg(link.sceneName)
+					: QStringLiteral("uuid:%1").arg(link.sceneUuid);
+		if (sceneLinkKeys.contains(linkKey)) {
+			sceneLinks_.removeAt(i);
+			migratedLinks = true;
+			continue;
+		}
+		sceneLinkKeys.insert(linkKey);
+	}
+	if (migratedTargets || migratedLinks) {
+		if (save()) {
+			for (const auto &migration : duplicateCredentialMigrations) {
+				if (OutputTarget *target = findTarget(migration.newId)) {
+					if (migration.previous.streamKey.isEmpty())
+						target->streamKey.clear();
+					if (migration.previous.oauthClientSecret.isEmpty())
+						target->oauthClientSecret.clear();
+					if (migration.previous.oauthRefreshToken.isEmpty())
+						target->oauthRefreshToken.clear();
+				}
+			}
+			for (const auto &previous : publisherManagedCredentialMigrations) {
+				const QStringList cleanupFailures = deleteUnreferencedTargetSecrets(previous, targets_);
+				if (!cleanupFailures.isEmpty())
+					credentialMigrationWarnings.push_back(
+						QStringLiteral("Obsolete publisher OAuth credentials could not be removed: %1")
+							.arg(cleanupFailures.join(QStringLiteral(", "))));
+			}
+		} else {
+			for (const auto &migration : duplicateCredentialMigrations) {
+				if (OutputTarget *target = findTarget(migration.newId)) {
+					target->authCredentialRef = migration.previous.authCredentialRef;
+					target->oauthClientSecretRef = migration.previous.oauthClientSecretRef;
+					target->oauthRefreshTokenRef = migration.previous.oauthRefreshTokenRef;
+					target->streamKey = migration.previous.streamKey;
+					target->oauthClientSecret = migration.previous.oauthClientSecret;
+					target->oauthRefreshToken = migration.previous.oauthRefreshToken;
+				}
+			}
+			for (const auto &previous : publisherManagedCredentialMigrations) {
+				if (OutputTarget *target = findTarget(previous.id)) {
+					target->oauthClientId = previous.oauthClientId;
+					target->oauthClientSecret = previous.oauthClientSecret;
+					target->oauthClientSecretRef = previous.oauthClientSecretRef;
+					target->oauthRefreshToken = previous.oauthRefreshToken;
+					target->oauthRefreshTokenRef = previous.oauthRefreshTokenRef;
+				}
+			}
+		}
+	}
+	if (!credentialMigrationWarnings.isEmpty()) {
+		const QString warning = QStringLiteral("DSK migrated target credentials, but some items need attention: %1")
+					.arg(credentialMigrationWarnings.join(QStringLiteral(" ")));
+		logWarning(warning);
+		QTimer::singleShot(0, this, [this, warning]() { emit statusMessage(warning); });
+	}
+}
+
+OutputManager::~OutputManager()
+{
+	prepareForUnload();
+}
+
+void OutputManager::abortPlatformRequests()
+{
+	if (http_)
+		http_->abortAll();
+}
+
+void OutputManager::releaseAllSharedEncoders()
+{
+	for (auto *set : sharedEncoders_) {
+		if (set->videoEncoder)
+			obs_encoder_release(set->videoEncoder);
+		if (set->audioEncoder)
+			obs_encoder_release(set->audioEncoder);
+		delete set;
+	}
+	sharedEncoders_.clear();
+}
+
+void OutputManager::reloadForCurrentProfile()
+{
+	if (shuttingDown_ || unloadPrepared_)
+		return;
+
+	SettingsStore nextStore;
+	const QString nextSettingsPath = normalizedSettingsPath(nextStore.settingsPath());
+	if (nextSettingsPath.compare(loadedSettingsPath_, Qt::CaseInsensitive) == 0) {
+		refreshSceneIdentities();
+		emit targetsChanged();
+		emit verticalLayoutChanged();
+		return;
+	}
+
+	logInfo(QStringLiteral("Reloading DSK settings for the current OBS profile."));
+	abortPlatformRequests();
+	releaseAllSessionsNow();
+	releaseObsSceneReferences();
+	releaseAllSharedEncoders();
+
+	targets_.clear();
+	runtimeStatuses_.clear();
+	runtimeTargetIds_.clear();
+	pendingPersistentRemovalIds_.clear();
+	pendingRuntimeRemovalIds_.clear();
+	sceneLinks_.clear();
+	layouts_ = LayoutManager();
+	persistedVerticalLayout_ = VerticalLayout();
+	persistedVerticalScenes_.clear();
+	persistedActiveVerticalSceneId_.clear();
+	followObsScene_ = false;
+	suppressNextObsAutoStart_ = false;
+	suppressNextObsAutoStop_ = false;
+	suppressObsAutoStartUntilMs_ = 0;
+	suppressObsAutoStopUntilMs_ = 0;
+	store_ = std::move(nextStore);
+	loadedSettingsPath_.clear();
+
+	loadSettingsFromCurrentProfile();
+	refreshSceneIdentities();
+	emit targetsChanged();
+	emit verticalLayoutChanged();
+	emit statusMessage(QStringLiteral("Loaded DSK settings for the current OBS profile."));
+}
+
+void OutputManager::prepareForSceneCollectionChange()
+{
+	if (shuttingDown_ || unloadPrepared_)
+		return;
+
+	QVector<QString> targetIds;
+	for (const Session *session : sessions_) {
+		if (!session)
+			continue;
+		const OutputTarget *target = findTarget(session->targetId);
+		if (target && (target->encoderGroup == EncoderGroup::DskVertical || targetUsesSceneCanvas(*target)))
+			targetIds.push_back(target->id);
+	}
+
+	for (const QString &targetId : targetIds) {
+		Session *session = sessionForTarget(targetId);
+		if (!session)
+			continue;
+		const int index = sessions_.indexOf(session);
+		if (index < 0)
+			continue;
+
+		if (session->output) {
+			disconnectOutputSignals(session->output, this);
+			if (obs_output_active(session->output))
+				obs_output_force_stop(session->output);
+			releaseOutputAndService(session->output, session->service);
+			releaseSharedEncoders(session->sharedEncoderKey);
+		}
+		delete session;
+		sessions_.removeAt(index);
+		releaseTargetSceneCanvas(targetId);
+
+		if (OutputTarget *target = findTarget(targetId)) {
+			target->state = TargetState::Stopped;
+			target->lastError.clear();
+			resetRuntimeStatus(targetId);
+		}
+		finalizePendingRemoval(targetId);
+		logInfo(QString("Stopped scene-dependent output %1 before OBS scene collection cleanup.").arg(targetId));
+	}
+
+	releaseObsSceneReferences();
+	if (!targetIds.isEmpty()) {
+		emit statusMessage(QStringLiteral("Stopped DSK vertical/separate-scene outputs before changing the OBS scene collection."));
+		emit targetsChanged();
+	}
+}
+
+void OutputManager::prepareForUnload()
+{
+	if (unloadPrepared_)
+		return;
+	unloadPrepared_ = true;
+	shuttingDown_ = true;
+	disconnect(this, nullptr, nullptr, nullptr);
+	abortPlatformRequests();
+	releaseAllSessionsNow();
+	releaseObsSceneReferences();
+	releaseAllSharedEncoders();
+}
+
+void OutputManager::releaseObsSceneReferences()
+{
+#ifdef DSK_ENABLE_OBS_CANVAS_API
+	releaseAllSceneCanvases();
+	if (!shuttingDown_ && sessionUsesCanvasKey(QStringLiteral("dsk-vertical"))) {
+		logWarning(QStringLiteral("Deferred DSK Vertical canvas release while a vertical output is active."));
+		return;
+	}
+	if (verticalCanvas_) {
+		obs_canvas_set_channel(verticalCanvas_, 0, nullptr);
+		verticalScene_.release();
+		obs_canvas_release(verticalCanvas_);
+		verticalCanvas_ = nullptr;
+	}
+#endif
+	verticalScene_.release();
+}
+
+const QVector<OutputTarget> &OutputManager::targets() const
+{
+	return targets_;
+}
+
+const PlatformPresetRegistry &OutputManager::platforms() const
+{
+	return platforms_;
+}
+
+LayoutManager &OutputManager::layouts()
+{
+	return layouts_;
+}
+
+const LayoutManager &OutputManager::layouts() const
+{
+	return layouts_;
+}
+
+bool OutputManager::followObsScene() const
+{
+	return followObsScene_;
+}
+
+const QVector<SceneLayoutLink> &OutputManager::sceneLinks() const
+{
+	return sceneLinks_;
+}
+
+QStringList OutputManager::obsSceneNames() const
+{
+	QStringList names;
+	obs_frontend_source_list scenes = {};
+	obs_frontend_get_scenes(&scenes);
+	for (size_t i = 0; i < scenes.sources.num; ++i) {
+		obs_source_t *source = scenes.sources.array[i];
+		const char *name = source ? obs_source_get_name(source) : nullptr;
+		if (name && *name)
+			names.push_back(QString::fromUtf8(name));
+	}
+	obs_frontend_source_list_free(&scenes);
+	names.removeDuplicates();
+	names.sort(Qt::CaseInsensitive);
+	return names;
+}
+
+QString OutputManager::effectiveOutputSceneName(const OutputTarget &target) const
+{
+	if (target.sceneMode == TargetSceneMode::FixedScene)
+		return resolvedObsSceneName(target.sceneUuid, target.sceneName);
+
+	if (target.sceneMode == TargetSceneMode::LinkedScene) {
+		const QString obsScene = currentObsSceneName();
+		const QString obsSceneUuid = currentObsSceneUuid();
+		for (const auto &route : target.sceneRoutes) {
+			const bool matches = route.obsSceneUuid.trimmed().isEmpty()
+						     ? route.obsSceneName.trimmed() == obsScene
+						     : !obsSceneUuid.isEmpty() && route.obsSceneUuid.trimmed() == obsSceneUuid;
+			if (matches)
+				return resolvedObsSceneName(route.outputSceneUuid, route.outputSceneName);
+		}
+		return resolvedObsSceneName(target.sceneUuid, target.sceneName);
+	}
+
+	return {};
+}
+
+bool OutputManager::addTarget(const OutputTarget &target)
+{
+	OutputTarget copy;
+	copyTargetFields(copy, target);
+	if (!copy.sceneName.trimmed().isEmpty()) {
+		const QString resolvedUuid = obsSceneUuidForName(copy.sceneName);
+		if (!resolvedUuid.isEmpty())
+			copy.sceneUuid = resolvedUuid;
+		else
+			copy.sceneUuid = copy.sceneUuid.trimmed();
+	}
+	for (auto &route : copy.sceneRoutes) {
+		const QString obsUuid = obsSceneUuidForName(route.obsSceneName);
+		const QString outputUuid = obsSceneUuidForName(route.outputSceneName);
+		if (!obsUuid.isEmpty())
+			route.obsSceneUuid = obsUuid;
+		if (!outputUuid.isEmpty())
+			route.outputSceneUuid = outputUuid;
+	}
+	if (copy.id.isEmpty() || findTarget(copy.id)) {
+		do {
+			copy.id = newTargetId();
+		} while (findTarget(copy.id));
+	}
+	targets_.push_back(copy);
+	if (!save()) {
+		targets_.removeLast();
+		emit statusMessage(QStringLiteral("Failed to add target. Settings were not changed."));
+		emit targetsChanged();
+		return false;
+	}
+	emit targetsChanged();
+	return true;
+}
+
+bool OutputManager::mutateTargetForUi(const QString &id, const std::function<void(OutputTarget &)> &mutator)
+{
+	OutputTarget *target = findTarget(id);
+	if (!target)
+		return false;
+	if (pendingPersistentRemovalIds_.contains(id) || pendingRuntimeRemovalIds_.contains(id)) {
+		emit statusMessage(QStringLiteral("Target removal is pending."));
+		return false;
+	}
+	const TargetRuntimeStatus runtime = runtimeStatusForTarget(id);
+	if (sessionForTarget(id) || runtimeHasSession(runtime) || runtimeTransportIsBusy(runtime)) {
+		emit statusMessage(QStringLiteral("Stop this target before editing its settings."));
+		emit targetsChanged();
+		return false;
+	}
+
+	OutputTarget previous;
+	copyTargetFields(previous, *target);
+	logInfo(QString("Applying target UI edit: %1").arg(id));
+	mutator(*target);
+	target->id = previous.id;
+	target->state = previous.state;
+	target->lastError = previous.lastError;
+	if (target->sceneName.trimmed() != previous.sceneName.trimmed() || target->sceneUuid.trimmed().isEmpty())
+		target->sceneUuid = obsSceneUuidForName(target->sceneName);
+	if (!save()) {
+		copyTargetFields(*target, previous);
+		emit targetsChanged();
+		logWarning(QString("Target UI edit could not be saved: %1").arg(id));
+		return false;
+	}
+	const QStringList cleanupFailures = deleteUnreferencedTargetSecrets(previous, targets_);
+	if (!cleanupFailures.isEmpty())
+		emit statusMessage(QStringLiteral("Target was saved, but obsolete credentials need cleanup: %1")
+					   .arg(cleanupFailures.join(QStringLiteral(", "))));
+
+	logInfo(QString("Target UI edit saved: %1").arg(id));
+	emit targetsChanged();
+	return true;
+}
+
+void OutputManager::removeTarget(const QString &id)
+{
+	if (!findTarget(id) || pendingPersistentRemovalIds_.contains(id))
+		return;
+	if (runtimeTargetIds_.contains(id)) {
+		removeRuntimeTarget(id);
+		return;
+	}
+
+	if (sessionForTarget(id)) {
+		pendingPersistentRemovalIds_.insert(id);
+		emit statusMessage(QStringLiteral("Stopping target before removal."));
+		stopTarget(id);
+		return;
+	}
+	finalizeTargetRemoval(id, false);
+}
+
+void OutputManager::setTargetEnabled(const QString &id, bool enabled)
+{
+	OutputTarget *target = findTarget(id);
+	if (!target || target->enabled == enabled)
+		return;
+
+	const bool previousEnabled = target->enabled;
+	target->enabled = enabled;
+	if (!runtimeTargetIds_.contains(id) && !save()) {
+		target->enabled = previousEnabled;
+		emit targetsChanged();
+		return;
+	}
+	// This flag controls future bulk/automatic starts. Stopping or starting a
+	// live route remains an explicit action in Stream Controls.
+	emit targetsChanged();
+}
+
+QString OutputManager::addRuntimeTarget(const OutputTarget &target)
+{
+	OutputTarget copy;
+	copyTargetFields(copy, target, false);
+	if (copy.id.isEmpty() || findTarget(copy.id)) {
+		do {
+			copy.id = newTargetId();
+		} while (findTarget(copy.id));
+	}
+	const QString id = copy.id;
+	targets_.push_back(std::move(copy));
+	runtimeTargetIds_.insert(id);
+	logInfo(QString("Runtime target added: %1").arg(id));
+	return id;
+}
+
+void OutputManager::removeRuntimeTarget(const QString &id)
+{
+	if (!runtimeTargetIds_.contains(id) || pendingRuntimeRemovalIds_.contains(id))
+		return;
+	if (sessionForTarget(id)) {
+		pendingRuntimeRemovalIds_.insert(id);
+		stopTarget(id);
+		return;
+	}
+	finalizeTargetRemoval(id, true);
+}
+
+bool OutputManager::finalizePendingRemoval(const QString &id)
+{
+	if (pendingRuntimeRemovalIds_.contains(id))
+		return finalizeTargetRemoval(id, true);
+	if (pendingPersistentRemovalIds_.contains(id))
+		return finalizeTargetRemoval(id, false);
+	return false;
+}
+
+bool OutputManager::finalizeTargetRemoval(const QString &id, bool runtimeTarget)
+{
+	if (sessionForTarget(id))
+		return false;
+
+	int index = -1;
+	for (int i = 0; i < targets_.size(); ++i) {
+		if (targets_[i].id == id) {
+			index = i;
+			break;
+		}
+	}
+	if (index < 0) {
+		pendingPersistentRemovalIds_.remove(id);
+		pendingRuntimeRemovalIds_.remove(id);
+		return false;
+	}
+
+	OutputTarget removed;
+	copyTargetFields(removed, targets_[index]);
+	targets_.removeAt(index);
+	if (!runtimeTarget && !save()) {
+		targets_.insert(index, OutputTarget{});
+		copyTargetFields(targets_[index], removed);
+		pendingPersistentRemovalIds_.remove(id);
+		emit statusMessage(QStringLiteral("Failed to remove target. Settings were not changed."));
+		emit targetsChanged();
+		return false;
+	}
+
+	pendingPersistentRemovalIds_.remove(id);
+	pendingRuntimeRemovalIds_.remove(id);
+	runtimeTargetIds_.remove(id);
+	runtimeStatuses_.remove(id);
+	releaseTargetSceneCanvas(id);
+	if (!runtimeTarget) {
+		const QStringList cleanupFailures = deleteUnreferencedTargetSecrets(removed, targets_);
+		if (!cleanupFailures.isEmpty())
+			emit statusMessage(QStringLiteral("Target was removed, but obsolete credentials need cleanup: %1")
+						   .arg(cleanupFailures.join(QStringLiteral(", "))));
+	}
+	emit targetsChanged();
+	return true;
+}
+
+bool OutputManager::startTarget(const QString &id)
+{
+	OutputTarget *target = findTarget(id);
+	if (!target)
+		return false;
+	const TargetRuntimeStatus runtime = runtimeStatusForTarget(id);
+	if (runtimeTransportIsRunning(runtime) || target->state == TargetState::Live || target->state == TargetState::Starting)
+		return true;
+	if (runtime.transport == TransportState::Stopping || sessionForTarget(id)) {
+		target->state = TargetState::Stopping;
+		target->lastError = QStringLiteral("Output is still stopping. Try again in a moment.");
+		setRuntimeTransport(id, runtimeStatusForTarget(id).sessionSerial, TransportState::Stopping, target->lastError);
+		logWarning(QString("%1: %2").arg(target->name, target->lastError));
+		if (!runtimeTargetIds_.contains(id))
+			emit targetsChanged();
+		return false;
+	}
+
+	target->state = TargetState::Starting;
+	target->lastError.clear();
+	resetRuntimeStatus(id);
+	ensureRuntimeStatus(id).platform = isYouTubeTarget(*target) ? PlatformLiveState::Unknown : PlatformLiveState::NotApplicable;
+	setRuntimeTransport(id, 0, TransportState::Starting, QStringLiteral("Connecting"));
+	if (!runtimeTargetIds_.contains(id))
+		emit targetsChanged();
+
+	if (!hydrateTargetSecrets(*target)) {
+		if (!runtimeTargetIds_.contains(id))
+			emit targetsChanged();
+		return false;
+	}
+	if (!validateTarget(*target)) {
+		if (!runtimeTargetIds_.contains(id))
+			emit targetsChanged();
+		return false;
+	}
+
+	const bool ok = startIndependentTarget(*target);
+
+	if (!runtimeTargetIds_.contains(id))
+		emit targetsChanged();
+	return ok;
+}
+
+void OutputManager::stopTarget(const QString &id)
+{
+	if (OutputTarget *target = findTarget(id)) {
+		const TargetRuntimeStatus runtime = runtimeStatusForTarget(id);
+		if (runtime.transport == TransportState::Idle && !sessionForTarget(id) && target->state == TargetState::Stopped) {
+			return;
+		}
+		target->state = TargetState::Stopping;
+		setRuntimeTransport(id, runtimeStatusForTarget(id).sessionSerial, TransportState::Stopping, QStringLiteral("Stopping"));
+		if (!runtimeTargetIds_.contains(id))
+			emit targetsChanged();
+		releaseSession(id, true);
+		if (sessionForTarget(id)) {
+			target->lastError.clear();
+			logInfo(QString("Stopping %1").arg(target->name));
+			if (!runtimeTargetIds_.contains(id))
+				emit targetsChanged();
+			return;
+		}
+		target->state = TargetState::Stopped;
+		target->lastError.clear();
+		resetRuntimeStatus(id);
+		if (!runtimeTargetIds_.contains(id))
+			save();
+		logInfo(QString("Stopped %1").arg(target->name));
+		if (!runtimeTargetIds_.contains(id))
+			emit targetsChanged();
+	}
+}
+
+void OutputManager::startAll()
+{
+	const QVector<QString> ids = startAllTargetIds(targets_);
+	int started = 0;
+	int failed = 0;
+	for (const auto &id : ids) {
+		if (startTarget(id))
+			++started;
+		else
+			++failed;
+	}
+	if (failed > 0)
+		emit statusMessage(QStringLiteral("Start All: %1 started, %2 failed.").arg(started).arg(failed));
+}
+
+void OutputManager::stopAll()
+{
+	QVector<QString> ids;
+	ids.reserve(targets_.size());
+	for (const auto &target : targets_)
+		ids.push_back(target.id);
+	for (const auto &id : ids)
+		stopTarget(id);
+}
+
+void OutputManager::suppressNextObsAutoStart()
+{
+	suppressNextObsAutoStart_ = true;
+	suppressObsAutoStartUntilMs_ = QDateTime::currentMSecsSinceEpoch() + 60000;
+}
+
+void OutputManager::suppressNextObsAutoStop()
+{
+	suppressNextObsAutoStop_ = true;
+	suppressObsAutoStopUntilMs_ = QDateTime::currentMSecsSinceEpoch() + 5000;
+}
+
+void OutputManager::clearNextObsAutoStartSuppression()
+{
+	suppressNextObsAutoStart_ = false;
+	suppressObsAutoStartUntilMs_ = 0;
+}
+
+void OutputManager::clearNextObsAutoStopSuppression()
+{
+	suppressNextObsAutoStop_ = false;
+	suppressObsAutoStopUntilMs_ = 0;
+}
+
+bool OutputManager::shouldSuppressObsAutoStart()
+{
+	const qint64 now = QDateTime::currentMSecsSinceEpoch();
+	const bool suppress = suppressNextObsAutoStart_ || (suppressObsAutoStartUntilMs_ > now);
+	clearNextObsAutoStartSuppression();
+	return suppress;
+}
+
+bool OutputManager::shouldSuppressObsAutoStop()
+{
+	const qint64 now = QDateTime::currentMSecsSinceEpoch();
+	const bool suppress = suppressNextObsAutoStop_ || (suppressObsAutoStopUntilMs_ > now);
+	clearNextObsAutoStopSuppression();
+	return suppress;
+}
+
+void OutputManager::handleObsStreamingStarted()
+{
+	if (shouldSuppressObsAutoStart()) {
+		logInfo("OBS streaming started by DSK individual control; skipping auto-start targets.");
+		return;
+	}
+
+	QVector<QString> ids;
+	ids.reserve(targets_.size());
+	for (const auto &target : targets_) {
+		if (target.enabled && target.autoStartWithObs)
+			ids.push_back(target.id);
+	}
+	for (const auto &id : ids)
+		startTarget(id);
+}
+
+void OutputManager::handleObsStreamingStopped()
+{
+	if (shouldSuppressObsAutoStop()) {
+		logInfo("OBS streaming stopped by DSK individual control; skipping auto-stop targets.");
+		return;
+	}
+
+	QVector<QString> ids;
+	ids.reserve(targets_.size());
+	for (const auto &target : targets_) {
+		if (target.autoStopWithObs)
+			ids.push_back(target.id);
+	}
+	for (const auto &id : ids)
+		stopTarget(id);
+}
+
+void OutputManager::handleObsSceneChanged()
+{
+	bool applied = false;
+	if (followObsScene_)
+		applied = applyLinkedScene(currentObsSceneName());
+	refreshLinkedSceneCanvases();
+	if (!applied)
+		emit verticalLayoutChanged();
+}
+
+void OutputManager::refreshSceneIdentities()
+{
+	QVector<OutputTarget> previousTargets;
+	previousTargets.reserve(targets_.size());
+	for (const auto &target : targets_) {
+		previousTargets.resize(previousTargets.size() + 1);
+		copyTargetFields(previousTargets.last(), target);
+	}
+	const QVector<SceneLayoutLink> previousLinks = sceneLinks_;
+	bool changed = false;
+
+	const auto syncSceneIdentity = [this, &changed](QString &name, QString &uuid) {
+		const QString cleanName = name.trimmed();
+		const QString cleanUuid = uuid.trimmed();
+		if (name != cleanName || uuid != cleanUuid)
+			changed = true;
+		name = cleanName;
+		uuid = cleanUuid;
+		if (name.isEmpty()) {
+			if (!uuid.isEmpty()) {
+				const QString resolvedName = resolvedObsSceneName(uuid, {});
+				if (!resolvedName.isEmpty()) {
+					name = resolvedName;
+					changed = true;
+				}
+			}
+			return;
+		}
+		if (uuid.isEmpty()) {
+			const QString resolvedUuid = obsSceneUuidForName(name);
+			if (!resolvedUuid.isEmpty()) {
+				uuid = resolvedUuid;
+				changed = true;
+			}
+			return;
+		}
+
+		const QString resolvedName = resolvedObsSceneName(uuid, {});
+		if (!resolvedName.isEmpty() && resolvedName != name) {
+			name = resolvedName;
+			changed = true;
+		}
+	};
+
+	for (auto &target : targets_) {
+		syncSceneIdentity(target.sceneName, target.sceneUuid);
+		for (auto &route : target.sceneRoutes) {
+			syncSceneIdentity(route.obsSceneName, route.obsSceneUuid);
+			syncSceneIdentity(route.outputSceneName, route.outputSceneUuid);
+		}
+	}
+	for (auto &link : sceneLinks_)
+		syncSceneIdentity(link.sceneName, link.sceneUuid);
+
+	if (!changed)
+		return;
+	if (!save()) {
+		targets_.clear();
+		targets_.reserve(previousTargets.size());
+		for (const auto &target : previousTargets) {
+			targets_.resize(targets_.size() + 1);
+			copyTargetFields(targets_.last(), target);
+		}
+		sceneLinks_ = previousLinks;
+		emit statusMessage(QStringLiteral("Failed to migrate OBS scene identities. Existing scene settings were kept."));
+		return;
+	}
+
+	emit targetsChanged();
+	emit verticalLayoutChanged();
+}
+
+void OutputManager::setFollowObsScene(bool follow)
+{
+	if (followObsScene_ == follow)
+		return;
+	const bool previous = followObsScene_;
+	followObsScene_ = follow;
+	if (!save()) {
+		followObsScene_ = previous;
+		emit statusMessage(QStringLiteral("Failed to save OBS scene link setting."));
+		return;
+	}
+	if (followObsScene_)
+		handleObsSceneChanged();
+}
+
+void OutputManager::upsertSceneLink(const SceneLayoutLink &link)
+{
+	SceneLayoutLink clean = link;
+	clean.sceneName = clean.sceneName.trimmed();
+	const QString resolvedUuid = obsSceneUuidForName(clean.sceneName);
+	if (!resolvedUuid.isEmpty())
+		clean.sceneUuid = resolvedUuid;
+	else
+		clean.sceneUuid = clean.sceneUuid.trimmed();
+	if (clean.sceneName.isEmpty() || (clean.verticalSceneId.isEmpty() && clean.legacyTemplateId.isEmpty()))
+		return;
+	const QVector<SceneLayoutLink> previous = sceneLinks_;
+
+	for (auto &existing : sceneLinks_) {
+		const bool matches = !clean.sceneUuid.isEmpty() && !existing.sceneUuid.trimmed().isEmpty()
+					     ? existing.sceneUuid.trimmed() == clean.sceneUuid
+					     : existing.sceneName.trimmed() == clean.sceneName;
+		if (matches) {
+			existing.sceneName = clean.sceneName;
+			existing.sceneUuid = clean.sceneUuid;
+			existing.verticalSceneId = clean.verticalSceneId;
+			existing.legacyTemplateId = clean.legacyTemplateId;
+			if (!save()) {
+				sceneLinks_ = previous;
+				emit statusMessage(QStringLiteral("Failed to save vertical scene link."));
+			}
+			return;
+		}
+	}
+	sceneLinks_.push_back(clean);
+	if (!save()) {
+		sceneLinks_ = previous;
+		emit statusMessage(QStringLiteral("Failed to save vertical scene link."));
+	}
+}
+
+void OutputManager::removeSceneLink(const QString &sceneName, const QString &sceneUuid)
+{
+	const QString cleanName = sceneName.trimmed();
+	const QString cleanUuid = sceneUuid.trimmed().isEmpty() ? obsSceneUuidForName(cleanName) : sceneUuid.trimmed();
+	for (int i = 0; i < sceneLinks_.size(); ++i) {
+		const bool matches = !cleanUuid.isEmpty() && !sceneLinks_[i].sceneUuid.trimmed().isEmpty()
+					     ? sceneLinks_[i].sceneUuid.trimmed() == cleanUuid
+					     : sceneLinks_[i].sceneName.trimmed() == cleanName;
+		if (matches) {
+			const QVector<SceneLayoutLink> previous = sceneLinks_;
+			sceneLinks_.removeAt(i);
+			if (!save()) {
+				sceneLinks_ = previous;
+				emit statusMessage(QStringLiteral("Failed to remove vertical scene link."));
+			}
+			return;
+		}
+	}
+}
+
+bool OutputManager::setTargetSceneMode(const QString &id, TargetSceneMode mode, const QString &fallbackSceneName)
+{
+	OutputTarget *target = findTarget(id);
+	if (!target)
+		return false;
+	if (sessionForTarget(id)) {
+		emit statusMessage(QStringLiteral("Stop this target before changing its output scene mode."));
+		emit targetsChanged();
+		return false;
+	}
+
+	const TargetSceneMode previousMode = target->sceneMode;
+	const QString previousName = target->sceneName;
+	const QString previousUuid = target->sceneUuid;
+	target->sceneMode = mode;
+	target->sceneName = fallbackSceneName.trimmed();
+	const QString resolvedUuid = obsSceneUuidForName(target->sceneName);
+	target->sceneUuid = !resolvedUuid.isEmpty() ? resolvedUuid
+						 : target->sceneName == previousName ? previousUuid : QString();
+
+	const bool saved = save();
+	if (!saved) {
+		target->sceneMode = previousMode;
+		target->sceneName = previousName;
+		target->sceneUuid = previousUuid;
+		emit statusMessage(QStringLiteral("Failed to save output scene settings."));
+	} else if (target->sceneMode == TargetSceneMode::FollowObs) {
+		releaseTargetSceneCanvas(id);
+	}
+	refreshLinkedSceneCanvases();
+	emit targetsChanged();
+	return saved;
+}
+
+bool OutputManager::upsertTargetSceneRoute(const QString &id, const QString &obsSceneName, const QString &outputSceneName)
+{
+	const QString cleanObsScene = obsSceneName.trimmed();
+	const QString cleanOutputScene = outputSceneName.trimmed();
+	const QString cleanObsSceneUuid = obsSceneUuidForName(cleanObsScene);
+	const QString cleanOutputSceneUuid = obsSceneUuidForName(cleanOutputScene);
+	if (cleanObsScene.isEmpty())
+		return false;
+
+	OutputTarget *target = findTarget(id);
+	if (!target)
+		return false;
+	if (sessionForTarget(id)) {
+		emit statusMessage(QStringLiteral("Stop this target before changing its scene routes."));
+		emit targetsChanged();
+		return false;
+	}
+	const QVector<TargetSceneRoute> previous = target->sceneRoutes;
+
+	for (int i = target->sceneRoutes.size() - 1; i >= 0; --i) {
+		if (target->sceneRoutes[i].obsSceneName.trimmed().isEmpty() ||
+		    target->sceneRoutes[i].outputSceneName.trimmed().isEmpty())
+			target->sceneRoutes.removeAt(i);
+	}
+	for (int i = 0; i < target->sceneRoutes.size(); ++i) {
+		auto &route = target->sceneRoutes[i];
+		const bool matches = !cleanObsSceneUuid.isEmpty() && !route.obsSceneUuid.trimmed().isEmpty()
+					     ? route.obsSceneUuid.trimmed() == cleanObsSceneUuid
+					     : route.obsSceneName.trimmed() == cleanObsScene;
+		if (!matches)
+			continue;
+		if (cleanOutputScene.isEmpty()) {
+			target->sceneRoutes.removeAt(i);
+		} else {
+			route.obsSceneName = cleanObsScene;
+			route.obsSceneUuid = cleanObsSceneUuid;
+			route.outputSceneName = cleanOutputScene;
+			route.outputSceneUuid = cleanOutputSceneUuid;
+		}
+		const bool saved = save();
+		if (!saved) {
+			target->sceneRoutes = previous;
+			emit statusMessage(QStringLiteral("Failed to save output scene route."));
+		}
+		refreshLinkedSceneCanvases();
+		emit targetsChanged();
+		return saved;
+	}
+
+	if (!cleanOutputScene.isEmpty())
+		target->sceneRoutes.push_back({cleanObsScene, cleanObsSceneUuid, cleanOutputScene, cleanOutputSceneUuid});
+
+	const bool saved = save();
+	if (!saved) {
+		target->sceneRoutes = previous;
+		emit statusMessage(QStringLiteral("Failed to save output scene route."));
+	}
+	refreshLinkedSceneCanvases();
+	emit targetsChanged();
+	return saved;
+}
+
+OutputStats OutputManager::statsForTarget(const QString &id) const
+{
+	OutputStats stats;
+	for (const auto *session : sessions_) {
+		if (!session || session->targetId != id || !session->output)
+			continue;
+
+		stats.active = obs_output_active(session->output);
+		stats.durationMs = session->startedAtMs > 0 ? QDateTime::currentMSecsSinceEpoch() - session->startedAtMs : 0;
+		stats.totalBytes = obs_output_get_total_bytes(session->output);
+		stats.totalFrames = obs_output_get_total_frames(session->output);
+		stats.droppedFrames = obs_output_get_frames_dropped(session->output);
+		stats.congestion = obs_output_get_congestion(session->output);
+		break;
+	}
+	return stats;
+}
+
+TargetRuntimeStatus OutputManager::runtimeStatusForTarget(const QString &id) const
+{
+	TargetRuntimeStatus status = runtimeStatuses_.value(id);
+	if (status.targetId.isEmpty())
+		status.targetId = id;
+	return status;
+}
+
+bool OutputManager::sessionMatches(const QString &targetId, quint64 sessionSerial) const
+{
+	if (sessionSerial == 0)
+		return true;
+	const Session *session = sessionForTarget(targetId);
+	return session && session->serial == sessionSerial;
+}
+
+TargetRuntimeStatus &OutputManager::ensureRuntimeStatus(const QString &targetId)
+{
+	TargetRuntimeStatus &status = runtimeStatuses_[targetId];
+	if (status.targetId.isEmpty())
+		status.targetId = targetId;
+	return status;
+}
+
+void OutputManager::resetRuntimeStatus(const QString &targetId)
+{
+	TargetRuntimeStatus &status = ensureRuntimeStatus(targetId);
+	status = {};
+	status.targetId = targetId;
+	status.lastChangedAtMs = QDateTime::currentMSecsSinceEpoch();
+	emit targetRuntimeChanged(targetId);
+}
+
+void OutputManager::updateRuntimeStats(const QString &targetId)
+{
+	TargetRuntimeStatus &status = ensureRuntimeStatus(targetId);
+	const OutputStats stats = statsForTarget(targetId);
+	status.totalBytes = stats.totalBytes;
+	status.totalFrames = stats.totalFrames;
+	status.droppedFrames = stats.droppedFrames;
+	status.congestion = stats.congestion;
+}
+
+void OutputManager::setRuntimeTransport(const QString &targetId, quint64 sessionSerial, TransportState state,
+					const QString &message, int reconnectDelaySeconds)
+{
+	if (!sessionMatches(targetId, sessionSerial))
+		return;
+	TargetRuntimeStatus &status = ensureRuntimeStatus(targetId);
+	status.sessionSerial = sessionSerial;
+	status.transport = state;
+	status.reconnectDelaySeconds = reconnectDelaySeconds;
+	status.lastChangedAtMs = QDateTime::currentMSecsSinceEpoch();
+	if (!message.trimmed().isEmpty()) {
+		status.transportMessage = message.trimmed();
+		status.lastUserMessage = message.trimmed();
+	}
+	updateRuntimeStats(targetId);
+	emit targetRuntimeChanged(targetId);
+}
+
+void OutputManager::setRuntimePlatform(const QString &targetId, quint64 sessionSerial, PlatformLiveState state,
+				       const QString &message, const QString &technicalError)
+{
+	if (!sessionMatches(targetId, sessionSerial))
+		return;
+	TargetRuntimeStatus &status = ensureRuntimeStatus(targetId);
+	status.sessionSerial = sessionSerial;
+	status.platform = state;
+	status.lastChangedAtMs = QDateTime::currentMSecsSinceEpoch();
+	if (!message.trimmed().isEmpty()) {
+		status.platformMessage = message.trimmed();
+		status.lastUserMessage = message.trimmed();
+	}
+	if (!technicalError.trimmed().isEmpty())
+		status.lastTechnicalError = technicalError.trimmed();
+	updateRuntimeStats(targetId);
+	emit targetRuntimeChanged(targetId);
+}
+
+bool OutputManager::save()
+{
+	const QString currentSettingsPath = normalizedSettingsPath(store_.settingsPath());
+	if (!loadedSettingsPath_.isEmpty() &&
+	    currentSettingsPath.compare(loadedSettingsPath_, Qt::CaseInsensitive) != 0) {
+		const QString error = QStringLiteral("OBS profile changed before DSK settings were reloaded. The save was blocked to protect both profiles.");
+		logError(error);
+		emit statusMessage(error);
+		return false;
+	}
+
+	QVector<OutputTarget> persistentTargets;
+	persistentTargets.reserve(targets_.size() - runtimeTargetIds_.size());
+	for (const auto &target : targets_) {
+		if (runtimeTargetIds_.contains(target.id))
+			continue;
+		persistentTargets.resize(persistentTargets.size() + 1);
+		copyTargetFields(persistentTargets.last(), target);
+		ensureCredentialRefs(persistentTargets.last());
+	}
+
+	QString error;
+	if (!store_.save(persistentTargets,
+			 layouts_.verticalLayout(),
+			 layouts_.verticalScenes(),
+			 layouts_.activeVerticalSceneId(),
+			 followObsScene_,
+			 sceneLinks_,
+			 &error)) {
+		logError(QString("Failed to save settings: %1").arg(error));
+		emit statusMessage(QString("Failed to save DSK settings: %1").arg(error));
+		return false;
+	}
+
+	for (const auto &saved : persistentTargets) {
+		OutputTarget *target = findTarget(saved.id);
+		if (!target)
+			continue;
+		target->authCredentialRef = saved.authCredentialRef;
+		target->oauthClientSecretRef = saved.oauthClientSecretRef;
+		target->oauthRefreshTokenRef = saved.oauthRefreshTokenRef;
+	}
+	persistedVerticalLayout_ = layouts_.verticalLayout();
+	persistedVerticalScenes_ = layouts_.verticalScenes();
+	persistedActiveVerticalSceneId_ = layouts_.activeVerticalSceneId();
+	return true;
+}
+
+bool OutputManager::saveVerticalLayout()
+{
+	if (!save()) {
+		layouts_.initializeVerticalScenes(persistedVerticalScenes_,
+					  persistedActiveVerticalSceneId_,
+					  persistedVerticalLayout_);
+		QString refreshError;
+		if (!refreshVerticalCanvasScene(&refreshError) && !refreshError.isEmpty())
+			logWarning(QStringLiteral("Failed to restore the saved DSK Vertical scene: %1").arg(refreshError));
+		emit verticalLayoutChanged();
+		return false;
+	}
+
+	QString refreshError;
+	if (!refreshVerticalCanvasScene(&refreshError) && !refreshError.isEmpty()) {
+		logWarning(QStringLiteral("Saved DSK Vertical layout but could not refresh its live canvas: %1").arg(refreshError));
+		emit statusMessage(QStringLiteral("Vertical layout saved, but live preview refresh failed: %1").arg(refreshError));
+	}
+	emit verticalLayoutChanged();
+	return true;
+}
+
+QString OutputManager::createVerticalScene(const QString &name)
+{
+	const QString id = layouts_.createVerticalScene(name);
+	if (id.isEmpty() || !saveVerticalLayout())
+		return {};
+	return id;
+}
+
+bool OutputManager::removeVerticalScene(const QString &id)
+{
+	const QVector<SceneLayoutLink> previousLinks = sceneLinks_;
+	if (!layouts_.removeVerticalScene(id))
+		return false;
+	for (int i = sceneLinks_.size() - 1; i >= 0; --i) {
+		if (sceneLinks_[i].verticalSceneId == id)
+			sceneLinks_.removeAt(i);
+	}
+	if (saveVerticalLayout())
+		return true;
+	sceneLinks_ = previousLinks;
+	emit verticalLayoutChanged();
+	return false;
+}
+
+bool OutputManager::renameVerticalScene(const QString &id, const QString &name)
+{
+	return layouts_.renameVerticalScene(id, name) && saveVerticalLayout();
+}
+
+bool OutputManager::moveVerticalScene(const QString &id, int offset)
+{
+	return layouts_.moveVerticalScene(id, offset) && saveVerticalLayout();
+}
+
+EncoderProfile OutputManager::effectiveProfileForTarget(const OutputTarget &target) const
+{
+	EncoderProfile profile = encoders_.profileFor(target.encoderGroup);
+	if (target.videoBitrateKbps > 0)
+		profile.videoBitrateKbps = target.videoBitrateKbps;
+	if (target.audioBitrateKbps > 0)
+		profile.audioBitrateKbps = target.audioBitrateKbps;
+	if (target.keyframeSeconds > 0)
+		profile.keyframeSeconds = target.keyframeSeconds;
+	if (!target.videoEncoderId.trimmed().isEmpty())
+		profile.videoEncoderId = target.videoEncoderId.trimmed();
+	else
+		profile.videoEncoderId = defaultVideoEncoderId();
+	if (!target.audioEncoderId.trimmed().isEmpty())
+		profile.audioEncoderId = target.audioEncoderId.trimmed();
+	return profile;
+}
+
+QString OutputManager::defaultVideoEncoderId() const
+{
+	char *profilePath = obs_frontend_get_current_profile_path();
+	if (profilePath) {
+		const QString basicIniPath = QDir(QString::fromUtf8(profilePath)).filePath(QStringLiteral("basic.ini"));
+		bfree(profilePath);
+
+		QSettings basic(basicIniPath, QSettings::IniFormat);
+		const QString outputMode = basic.value(QStringLiteral("Output/Mode"), QStringLiteral("Simple")).toString();
+		if (outputMode.compare(QStringLiteral("Advanced"), Qt::CaseInsensitive) == 0) {
+			const QString advancedEncoder = basic.value(QStringLiteral("AdvOut/Encoder"), QStringLiteral("obs_x264")).toString();
+			return obsSelectionToH264Encoder(advancedEncoder);
+		}
+
+		return obsSelectionToH264Encoder(
+			basic.value(QStringLiteral("SimpleOutput/StreamEncoder"), QStringLiteral("x264")).toString());
+	}
+
+	return firstAvailableVideoEncoder({"obs_nvenc_h264_tex", "ffmpeg_nvenc", "h264_texture_amf", "obs_qsv11_v2", "obs_x264"});
+}
+
+QString OutputManager::sharedEncoderKey(const OutputTarget &target, const EncoderProfile &profile) const
+{
+	return QString("%1|%2|%3x%4|v%5|a%6|kf%7|%8|%9")
+		.arg(encoderGroupToString(profile.group))
+		.arg(sceneCanvasKeyForTarget(target))
+		.arg(profile.width)
+		.arg(profile.height)
+		.arg(profile.videoBitrateKbps)
+		.arg(profile.audioBitrateKbps)
+		.arg(profile.keyframeSeconds)
+		.arg(profile.videoEncoderId.isEmpty() ? QStringLiteral("obs_x264") : profile.videoEncoderId)
+		.arg(profile.audioEncoderId.isEmpty() ? QStringLiteral("ffmpeg_aac") : profile.audioEncoderId);
+}
+
+OutputManager::SharedEncoderSet *OutputManager::acquireSharedEncoders(const OutputTarget &target, const EncoderProfile &profile, video_t *video, QString *errorMessage)
+{
+	const QString key = sharedEncoderKey(target, profile);
+	if (auto *existing = sharedEncoders_.value(key, nullptr)) {
+		++existing->refs;
+		return existing;
+	}
+
+	auto *set = new SharedEncoderSet;
+	set->key = key;
+	set->videoEncoder = createVideoEncoder(target, profile);
+	if (!set->videoEncoder) {
+		if (errorMessage)
+			*errorMessage = "Failed to create shared video encoder.";
+		delete set;
+		return nullptr;
+	}
+	set->audioEncoder = createAudioEncoder(target, profile);
+	if (!set->audioEncoder) {
+		obs_encoder_release(set->videoEncoder);
+		if (errorMessage)
+			*errorMessage = "Failed to create shared audio encoder.";
+		delete set;
+		return nullptr;
+	}
+
+	obs_encoder_set_video(set->videoEncoder, video);
+	obs_encoder_set_audio(set->audioEncoder, obs_get_audio());
+	set->refs = 1;
+	sharedEncoders_.insert(key, set);
+	return set;
+}
+
+void OutputManager::releaseSharedEncoders(const QString &key)
+{
+	if (key.isEmpty())
+		return;
+	auto *set = sharedEncoders_.value(key, nullptr);
+	if (!set)
+		return;
+	--set->refs;
+	if (set->refs > 0)
+		return;
+
+	sharedEncoders_.remove(key);
+	if (set->videoEncoder)
+		obs_encoder_release(set->videoEncoder);
+	if (set->audioEncoder)
+		obs_encoder_release(set->audioEncoder);
+	delete set;
+}
+
+OutputTarget *OutputManager::findTarget(const QString &id)
+{
+	for (auto &target : targets_) {
+		if (target.id == id)
+			return &target;
+	}
+	return nullptr;
+}
+
+const OutputTarget *OutputManager::findTarget(const QString &id) const
+{
+	for (const auto &target : targets_) {
+		if (target.id == id)
+			return &target;
+	}
+	return nullptr;
+}
+
+bool OutputManager::validateTarget(OutputTarget &target)
+{
+	QString error;
+	if (!validateOutputTargetConfig(target, &error, false))
+		return setTargetError(target, error);
+	return true;
+}
+
+bool OutputManager::hydrateTargetSecrets(OutputTarget &target)
+{
+	SecretStore secrets;
+	QString error;
+	if (target.streamKey.trimmed().isEmpty() && !target.authCredentialRef.trimmed().isEmpty()) {
+		if (!SecretStore::isOwnedCredentialRef(target.authCredentialRef))
+			return setTargetError(target, QStringLiteral("Saved stream key reference is outside the DSK credential namespace."));
+		QString secret;
+		if (!secrets.readSecret(target.authCredentialRef, &secret, &error))
+			return setTargetError(target, QString("Failed to read saved stream key: %1").arg(error));
+		target.streamKey = secret;
+	}
+	if (target.authMode == TargetAuthMode::YouTubeOAuth && target.oauthClientSecret.trimmed().isEmpty() &&
+	    !target.oauthClientSecretRef.trimmed().isEmpty()) {
+		if (!SecretStore::isOwnedCredentialRef(target.oauthClientSecretRef))
+			return setTargetError(target, QStringLiteral("Saved OAuth client secret reference is outside the DSK credential namespace."));
+		QString secret;
+		if (!secrets.readSecret(target.oauthClientSecretRef, &secret, &error))
+			return setTargetError(target, QString("Failed to read saved OAuth client secret: %1").arg(error));
+		target.oauthClientSecret = secret;
+	}
+	if (target.authMode == TargetAuthMode::YouTubeOAuth && target.oauthRefreshToken.trimmed().isEmpty() &&
+	    !target.oauthRefreshTokenRef.trimmed().isEmpty()) {
+		if (!SecretStore::isOwnedCredentialRef(target.oauthRefreshTokenRef))
+			return setTargetError(target, QStringLiteral("Saved OAuth refresh token reference is outside the DSK credential namespace."));
+		QString secret;
+		if (!secrets.readSecret(target.oauthRefreshTokenRef, &secret, &error))
+			return setTargetError(target, QString("Failed to read saved OAuth refresh token: %1").arg(error));
+		target.oauthRefreshToken = secret;
+	}
+	return true;
+}
+
+bool OutputManager::startIndependentTarget(OutputTarget &target)
+{
+	const quint64 sessionSerial = nextSessionSerial_++;
+	const EncoderProfile profile = effectiveProfileForTarget(target);
+	QString videoError;
+	video_t *video = videoForTarget(target, profile, &videoError);
+	if (!video)
+		return setTargetError(target, videoError.isEmpty() ? "Video output is unavailable." : videoError);
+	logInfo(QString("Video output for %1: profile=%2x%3 group=%4 actual=%5")
+			.arg(target.name,
+			     QString::number(profile.width),
+			     QString::number(profile.height),
+			     encoderGroupToString(profile.group),
+			     videoOutputSummary(video)));
+	if (isYouTubeTarget(target) && profile.group == EncoderGroup::DskVertical) {
+		const video_output_info *info = video_output_get_info(video);
+		if (!info || info->height <= info->width) {
+			logWarning(QString("YouTube vertical preflight failed for %1: actual video output is %2.")
+					   .arg(target.name, videoOutputSummary(video)));
+		} else {
+			logInfo(QString("YouTube vertical preflight OK for %1: sending portrait video %2.")
+					.arg(target.name, videoOutputSummary(video)));
+		}
+	}
+
+	obs_service_t *service = createService(target);
+	if (!service)
+		return setTargetError(target, "Failed to create RTMP service.");
+
+	obs_output_t *output = createOutput(target, service, sessionSerial);
+	if (!output) {
+		obs_service_release(service);
+		return setTargetError(target, "Failed to create output.");
+	}
+
+	QString sharedKey;
+	if (target.useSharedEncoder) {
+		QString sharedError;
+		SharedEncoderSet *shared = acquireSharedEncoders(target, profile, video, &sharedError);
+		if (!shared) {
+			releaseOutputAndService(output, service);
+			return setTargetError(target, sharedError.isEmpty() ? "Failed to create shared encoders." : sharedError);
+		}
+		sharedKey = shared->key;
+		obs_output_set_video_encoder(output, shared->videoEncoder);
+		obs_output_set_audio_encoder(output, shared->audioEncoder, 0);
+	} else {
+		obs_encoder_t *videoEncoder = createVideoEncoder(target, profile);
+		if (!videoEncoder) {
+			releaseOutputAndService(output, service);
+			return setTargetError(target, "Failed to create video encoder.");
+		}
+
+		obs_encoder_t *audioEncoder = createAudioEncoder(target, profile);
+		if (!audioEncoder) {
+			obs_encoder_release(videoEncoder);
+			releaseOutputAndService(output, service);
+			return setTargetError(target, "Failed to create audio encoder.");
+		}
+
+		obs_encoder_set_video(videoEncoder, video);
+		obs_encoder_set_audio(audioEncoder, obs_get_audio());
+		obs_output_set_video_encoder(output, videoEncoder);
+		obs_output_set_audio_encoder(output, audioEncoder, 0);
+		obs_encoder_release(videoEncoder);
+		obs_encoder_release(audioEncoder);
+	}
+
+	connectOutputSignals(output, this);
+	if (!obs_output_start(output)) {
+		disconnectOutputSignals(output, this);
+		releaseOutputAndService(output, service);
+		releaseSharedEncoders(sharedKey);
+		return setTargetError(target, "OBS rejected the independent output start request.");
+	}
+
+	auto *session = new Session;
+	session->serial = sessionSerial;
+	session->targetId = target.id;
+	session->output = output;
+	session->service = service;
+	session->startedAtMs = QDateTime::currentMSecsSinceEpoch();
+	session->sharedEncoderKey = sharedKey;
+	sessions_.push_back(session);
+
+	target.state = TargetState::Starting;
+	target.lastError.clear();
+	TargetRuntimeStatus &runtime = ensureRuntimeStatus(target.id);
+	runtime.sessionSerial = session->serial;
+	runtime.startedAtMs = session->startedAtMs;
+	runtime.platform = isYouTubeTarget(target) ? PlatformLiveState::Unknown : PlatformLiveState::NotApplicable;
+	setRuntimeTransport(target.id, session->serial, TransportState::Starting, QStringLiteral("Connecting"));
+	logInfo(QString("Started %1 with %2 at %3x%4 using %5, key %6")
+			.arg(target.name, encoderGroupToString(target.encoderGroup))
+			.arg(profile.width)
+			.arg(profile.height)
+			.arg(profile.videoEncoderId.isEmpty() ? QStringLiteral("obs_x264") : profile.videoEncoderId)
+			.arg(maskedKey(target.streamKey)));
+	if (!runtimeTargetIds_.contains(target.id))
+		emit statusMessage(QString("Starting %1").arg(target.name));
+	maybeStartYouTubeBroadcast(target.id, session->serial);
+	return true;
+}
+
+void OutputManager::maybeStartYouTubeBroadcast(const QString &targetId, quint64 sessionSerial, int attempt)
+{
+	OutputTarget *target = findTarget(targetId);
+	if (!target || !canContinuePlatformStart(*target, runtimeStatusForTarget(targetId)) ||
+	    !sessionMatches(targetId, sessionSerial))
+		return;
+	if (target->platformId.compare(QStringLiteral("youtube"), Qt::CaseInsensitive) != 0)
+		return;
+	if (target->authMode != TargetAuthMode::YouTubeOAuth) {
+		setRuntimePlatform(targetId, sessionSerial, PlatformLiveState::NeedsManualStart,
+				   QStringLiteral("Start in YouTube Studio after RTMP signal is active"));
+		emit statusMessage(QString("%1: YouTube signal is active. Connect YouTube login to auto-start the broadcast.").arg(target->name));
+		return;
+	}
+
+	const qint64 startedAtMs = runtimeStatusForTarget(targetId).startedAtMs;
+	const bool timedOut = startedAtMs > 0 && QDateTime::currentMSecsSinceEpoch() - startedAtMs > 120000;
+	if (attempt > 20 || timedOut) {
+		setTargetApiWarning(targetId, QStringLiteral("YouTube API start failed: YouTube stream did not become active."), sessionSerial);
+		return;
+	}
+
+	const OAuthClientCredentials credentials = oauthEffectiveClientCredentials(
+		target->authMode, target->oauthClientId, target->oauthClientSecret);
+	if (!credentials.isComplete()) {
+		setTargetApiWarning(targetId, QStringLiteral("YouTube API start unavailable: Google OAuth application credentials are missing."), sessionSerial);
+		return;
+	}
+
+	if (target->oauthRefreshToken.trimmed().isEmpty()) {
+		setTargetApiWarning(targetId, QStringLiteral("YouTube API start unavailable: reconnect YouTube login to save an OAuth refresh token."), sessionSerial);
+		return;
+	}
+
+	setRuntimePlatform(targetId, sessionSerial, PlatformLiveState::RtmpSignalOnly,
+			   QStringLiteral("Checking YouTube Live start"));
+	refreshYouTubeAccessToken(targetId, sessionSerial, attempt);
+}
+
+void OutputManager::refreshYouTubeAccessToken(const QString &targetId, quint64 sessionSerial, int attempt)
+{
+	OutputTarget *target = findTarget(targetId);
+	if (!target || !canContinuePlatformStart(*target, runtimeStatusForTarget(targetId)) ||
+	    !sessionMatches(targetId, sessionSerial))
+		return;
+	const OAuthClientCredentials credentials = oauthEffectiveClientCredentials(
+		target->authMode, target->oauthClientId, target->oauthClientSecret);
+	if (!credentials.isComplete()) {
+		setTargetApiWarning(targetId, QStringLiteral("YouTube token refresh failed: Google OAuth application credentials are missing."), sessionSerial);
+		return;
+	}
+
+	QUrlQuery body;
+	body.addQueryItem(QStringLiteral("grant_type"), QStringLiteral("refresh_token"));
+	body.addQueryItem(QStringLiteral("client_id"), credentials.clientId);
+	body.addQueryItem(QStringLiteral("client_secret"), credentials.clientSecret);
+	body.addQueryItem(QStringLiteral("refresh_token"), target->oauthRefreshToken);
+
+	HttpRequest request;
+	request.url = QUrl(QStringLiteral("https://oauth2.googleapis.com/token"));
+	request.method = QByteArrayLiteral("POST");
+	request.timeoutMs = PlatformApiTimeoutMs;
+	request.headers.push_back({QByteArrayLiteral("Content-Type"), QByteArrayLiteral("application/x-www-form-urlencoded")});
+	request.body = formBody(body);
+	http_->send(std::move(request), [this, targetId, sessionSerial, attempt](HttpResponse response) {
+		const QString error = platformHttpError(response);
+		OutputTarget *target = findTarget(targetId);
+		if (!target || !sessionMatches(targetId, sessionSerial) ||
+		    !canContinuePlatformStart(*target, runtimeStatusForTarget(targetId)))
+			return;
+		if (!error.isEmpty()) {
+			setTargetApiWarning(targetId, QString("YouTube token refresh failed: %1").arg(error), sessionSerial);
+			return;
+		}
+
+		const QJsonDocument document = QJsonDocument::fromJson(response.body);
+		const QString accessToken = document.object().value(QStringLiteral("access_token")).toString();
+		if (accessToken.isEmpty()) {
+			setTargetApiWarning(targetId, QStringLiteral("YouTube token refresh failed: access token missing."), sessionSerial);
+			return;
+		}
+		listYouTubeBroadcasts(targetId, sessionSerial, accessToken, attempt);
+	});
+}
+
+void OutputManager::listYouTubeBroadcasts(const QString &targetId, quint64 sessionSerial, const QString &accessToken, int attempt)
+{
+	OutputTarget *target = findTarget(targetId);
+	if (!target || !canContinuePlatformStart(*target, runtimeStatusForTarget(targetId)) ||
+	    !sessionMatches(targetId, sessionSerial))
+		return;
+	setRuntimePlatform(targetId, sessionSerial, PlatformLiveState::RtmpSignalOnly,
+			   QStringLiteral("Finding YouTube broadcast"));
+
+	QUrl url(QStringLiteral("https://www.googleapis.com/youtube/v3/liveBroadcasts"));
+	QUrlQuery query;
+	query.addQueryItem(QStringLiteral("part"), QStringLiteral("id,snippet,contentDetails,status"));
+	query.addQueryItem(QStringLiteral("broadcastStatus"), QStringLiteral("all"));
+	query.addQueryItem(QStringLiteral("broadcastType"), QStringLiteral("all"));
+	query.addQueryItem(QStringLiteral("maxResults"), QStringLiteral("50"));
+	url.setQuery(query);
+
+	HttpRequest request;
+	request.url = url;
+	request.timeoutMs = PlatformApiTimeoutMs;
+	request.headers.push_back({QByteArrayLiteral("Authorization"), QByteArrayLiteral("Bearer ") + accessToken.toUtf8()});
+	http_->send(std::move(request), [this, targetId, sessionSerial, accessToken, attempt](HttpResponse response) {
+		const QString error = platformHttpError(response);
+		OutputTarget *target = findTarget(targetId);
+		if (!target || !sessionMatches(targetId, sessionSerial) ||
+		    !canContinuePlatformStart(*target, runtimeStatusForTarget(targetId)))
+			return;
+		if (!error.isEmpty()) {
+			setTargetApiWarning(targetId, QString("YouTube broadcast lookup failed: %1").arg(error), sessionSerial);
+			return;
+		}
+
+		const QJsonDocument document = QJsonDocument::fromJson(response.body);
+		const QJsonArray items = document.object().value(QStringLiteral("items")).toArray();
+		if (items.isEmpty()) {
+			setTargetApiWarning(targetId, QStringLiteral("YouTube broadcast lookup found no broadcasts."), sessionSerial);
+			return;
+		}
+		listYouTubeStreams(targetId, sessionSerial, accessToken, attempt, items);
+	});
+}
+
+void OutputManager::listYouTubeStreams(const QString &targetId, quint64 sessionSerial, const QString &accessToken, int attempt, const QJsonArray &broadcasts)
+{
+	OutputTarget *target = findTarget(targetId);
+	if (!target || !canContinuePlatformStart(*target, runtimeStatusForTarget(targetId)) ||
+	    !sessionMatches(targetId, sessionSerial))
+		return;
+
+	QStringList streamIds;
+	for (const QJsonValue &value : broadcasts) {
+		const QJsonObject broadcast = value.toObject();
+		const QString streamId = broadcast.value(QStringLiteral("contentDetails")).toObject().value(QStringLiteral("boundStreamId")).toString();
+		if (!streamId.isEmpty() && !streamIds.contains(streamId))
+			streamIds.push_back(streamId);
+	}
+
+	if (streamIds.isEmpty()) {
+		setTargetApiWarning(targetId, QStringLiteral("YouTube broadcast lookup found no bound stream."), sessionSerial);
+		return;
+	}
+
+	QUrl url(QStringLiteral("https://www.googleapis.com/youtube/v3/liveStreams"));
+	QUrlQuery query;
+	query.addQueryItem(QStringLiteral("part"), QStringLiteral("id,cdn,status"));
+	query.addQueryItem(QStringLiteral("id"), streamIds.join(','));
+	query.addQueryItem(QStringLiteral("maxResults"), QStringLiteral("50"));
+	url.setQuery(query);
+
+	HttpRequest request;
+	request.url = url;
+	request.timeoutMs = PlatformApiTimeoutMs;
+	request.headers.push_back({QByteArrayLiteral("Authorization"), QByteArrayLiteral("Bearer ") + accessToken.toUtf8()});
+	http_->send(std::move(request), [this, targetId, sessionSerial, accessToken, attempt, broadcasts](HttpResponse response) {
+		const QString error = platformHttpError(response);
+		OutputTarget *target = findTarget(targetId);
+		if (!target || !canContinuePlatformStart(*target, runtimeStatusForTarget(targetId)) ||
+		    !sessionMatches(targetId, sessionSerial))
+			return;
+		if (!error.isEmpty()) {
+			setTargetApiWarning(targetId, QString("YouTube stream status lookup failed: %1").arg(error), sessionSerial);
+			return;
+		}
+
+		QHash<QString, QJsonObject> streamsById;
+		const QJsonArray streams = QJsonDocument::fromJson(response.body).object().value(QStringLiteral("items")).toArray();
+		for (const QJsonValue &value : streams) {
+			const QJsonObject stream = value.toObject();
+			streamsById.insert(stream.value(QStringLiteral("id")).toString(), stream);
+		}
+
+		const YouTubeBroadcastSelection selection =
+			selectYouTubeBroadcast(broadcasts, streamsById, target->streamKey);
+		if (selection.state == YouTubeBroadcastSelectionState::MultipleActiveBroadcasts) {
+			setTargetApiWarning(targetId, QStringLiteral("YouTube broadcast start blocked: multiple active broadcasts were found. Configure this target's stream key or stop the extra broadcast."), sessionSerial);
+			return;
+		}
+		if (selection.state == YouTubeBroadcastSelectionState::MultipleStreamKeyMatches) {
+			setTargetApiWarning(targetId, QStringLiteral("YouTube broadcast start blocked: multiple active broadcasts matched this target's stream key. Stop the extra broadcast or bind a different stream."), sessionSerial);
+			return;
+		}
+		if (selection.state == YouTubeBroadcastSelectionState::NoStreamKeyMatch) {
+			setTargetApiWarning(targetId, QStringLiteral("YouTube broadcast start blocked: no active broadcast matched this target's stream key."), sessionSerial);
+			return;
+		}
+		const QJsonObject selectedBroadcast = selection.broadcast;
+
+		if (!selectedBroadcast.isEmpty()) {
+			const QString lifecycle = selectedBroadcast.value(QStringLiteral("status")).toObject().value(QStringLiteral("lifeCycleStatus")).toString();
+			if (lifecycle == QStringLiteral("live")) {
+				clearTargetApiWarning(targetId);
+				setRuntimePlatform(targetId, sessionSerial, PlatformLiveState::Live, QStringLiteral("YouTube broadcast is live"));
+				emit statusMessage(QString("%1: YouTube broadcast is already live.").arg(target->name));
+				return;
+			}
+
+			const QString broadcastId = selectedBroadcast.value(QStringLiteral("id")).toString();
+			if (lifecycle == QStringLiteral("testStarting") || lifecycle == QStringLiteral("liveStarting")) {
+				setRuntimePlatform(targetId, sessionSerial, PlatformLiveState::LiveStarting,
+						   QStringLiteral("YouTube is switching to live"));
+				emit statusMessage(QString("%1: YouTube broadcast is %2. Waiting...").arg(target->name, lifecycle));
+				QTimer::singleShot(3000, this, [this, targetId, sessionSerial, attempt]() {
+					maybeStartYouTubeBroadcast(targetId, sessionSerial, attempt + 1);
+				});
+				return;
+			}
+
+			const QJsonObject contentDetails = selectedBroadcast.value(QStringLiteral("contentDetails")).toObject();
+			const QJsonObject monitorStream = contentDetails.value(QStringLiteral("monitorStream")).toObject();
+			const bool monitorStreamEnabled =
+				!monitorStream.contains(QStringLiteral("enableMonitorStream")) ||
+				monitorStream.value(QStringLiteral("enableMonitorStream")).toBool(true);
+			const QString nextStatus =
+				monitorStreamEnabled && lifecycle != QStringLiteral("testing") ? QStringLiteral("testing") : QStringLiteral("live");
+			setRuntimePlatform(targetId,
+					   sessionSerial,
+					   nextStatus == QStringLiteral("testing") ? PlatformLiveState::Testing : PlatformLiveState::LiveStarting,
+					   nextStatus == QStringLiteral("testing") ? QStringLiteral("YouTube monitor is testing")
+									      : QStringLiteral("YouTube is switching to live"));
+			transitionYouTubeBroadcast(targetId, accessToken, broadcastId, nextStatus, sessionSerial, attempt);
+			return;
+		}
+
+		setRuntimePlatform(targetId, sessionSerial, PlatformLiveState::WaitingForSignal,
+				   QStringLiteral("RTMP connected - waiting for YouTube signal"));
+		emit statusMessage(QString("%1: Waiting for YouTube stream signal...").arg(target->name));
+		QTimer::singleShot(5000, this, [this, targetId, sessionSerial, attempt]() {
+			maybeStartYouTubeBroadcast(targetId, sessionSerial, attempt + 1);
+		});
+	});
+}
+
+void OutputManager::transitionYouTubeBroadcast(const QString &targetId, const QString &accessToken, const QString &broadcastId,
+					       const QString &broadcastStatus, quint64 sessionSerial, int attempt)
+{
+	OutputTarget *target = findTarget(targetId);
+	if (!target || !canContinuePlatformStart(*target, runtimeStatusForTarget(targetId)) ||
+	    !sessionMatches(targetId, sessionSerial) || broadcastId.isEmpty() ||
+	    broadcastStatus.isEmpty())
+		return;
+
+	QUrl url(QStringLiteral("https://www.googleapis.com/youtube/v3/liveBroadcasts/transition"));
+	QUrlQuery query;
+	query.addQueryItem(QStringLiteral("part"), QStringLiteral("id,snippet,contentDetails,status"));
+	query.addQueryItem(QStringLiteral("id"), broadcastId);
+	query.addQueryItem(QStringLiteral("broadcastStatus"), broadcastStatus);
+	url.setQuery(query);
+
+	HttpRequest request;
+	request.url = url;
+	request.method = QByteArrayLiteral("POST");
+	request.timeoutMs = PlatformApiTimeoutMs;
+	request.headers.push_back({QByteArrayLiteral("Authorization"), QByteArrayLiteral("Bearer ") + accessToken.toUtf8()});
+	http_->send(std::move(request), [this, targetId, sessionSerial, broadcastStatus, attempt](HttpResponse response) {
+		const QString error = platformHttpError(response);
+		OutputTarget *target = findTarget(targetId);
+		if (!target || !sessionMatches(targetId, sessionSerial) ||
+		    !canContinuePlatformStart(*target, runtimeStatusForTarget(targetId)))
+			return;
+		if (!error.isEmpty()) {
+			setTargetApiWarning(targetId, QString("YouTube broadcast %1 failed: %2").arg(broadcastStatus, error), sessionSerial);
+			return;
+		}
+
+		if (broadcastStatus == QStringLiteral("testing")) {
+			setRuntimePlatform(targetId, sessionSerial, PlatformLiveState::Testing, QStringLiteral("YouTube monitor is testing"));
+			emit statusMessage(QString("%1: YouTube monitor is testing. Switching to live...").arg(target->name));
+			QTimer::singleShot(3000, this, [this, targetId, sessionSerial, attempt]() {
+				maybeStartYouTubeBroadcast(targetId, sessionSerial, attempt + 1);
+			});
+			return;
+		}
+
+		setRuntimePlatform(targetId, sessionSerial, PlatformLiveState::LiveStarting,
+				   QStringLiteral("YouTube accepted the live transition - confirming status"));
+		emit statusMessage(QString("%1: YouTube accepted the live transition. Confirming...").arg(target->name));
+		QTimer::singleShot(3000, this, [this, targetId, sessionSerial, attempt]() {
+			maybeStartYouTubeBroadcast(targetId, sessionSerial, attempt + 1);
+		});
+	});
+}
+
+void OutputManager::setTargetApiWarning(const QString &targetId, const QString &message, quint64 sessionSerial)
+{
+	OutputTarget *target = findTarget(targetId);
+	if (!target || !sessionMatches(targetId, sessionSerial))
+		return;
+	const bool changed = target->lastError != message;
+	target->lastError = message;
+	const TargetRuntimeStatus runtime = runtimeStatusForTarget(targetId);
+	setRuntimePlatform(targetId,
+			   sessionSerial,
+			   platformStateForYouTubeApiWarningText(message),
+			   runtimeTransportIsRunning(runtime) || target->state == TargetState::Live ? userFacingYouTubeApiWarningText(message)
+												    : QString(),
+			   message);
+	logWarning(QString("%1: %2").arg(target->name, message));
+	if (!runtimeTargetIds_.contains(targetId))
+		emit statusMessage(QString("%1: %2").arg(target->name, userFacingYouTubeApiWarningText(message)));
+	if (changed && !runtimeTargetIds_.contains(targetId))
+		emit targetsChanged();
+}
+
+void OutputManager::clearTargetApiWarning(const QString &targetId)
+{
+	OutputTarget *target = findTarget(targetId);
+	if (!target)
+		return;
+	if (!isYouTubeApiWarningText(target->lastError))
+		return;
+	target->lastError.clear();
+	const quint64 serial = runtimeStatusForTarget(targetId).sessionSerial;
+	if (runtimeTransportIsRunning(runtimeStatusForTarget(targetId)) || target->state == TargetState::Live)
+		setRuntimePlatform(targetId, serial, PlatformLiveState::RtmpSignalOnly,
+				   QStringLiteral("RTMP connected - checking YouTube Live"));
+	if (!runtimeTargetIds_.contains(targetId))
+		emit targetsChanged();
+}
+
+bool OutputManager::setTargetError(OutputTarget &target, const QString &message)
+{
+	target.state = TargetState::Error;
+	target.lastError = message;
+	TargetRuntimeStatus &status = ensureRuntimeStatus(target.id);
+	status.sessionSerial = 0;
+	status.transport = TransportState::Failed;
+	status.platform = isYouTubeTarget(target) ? PlatformLiveState::Failed : PlatformLiveState::NotApplicable;
+	status.lastChangedAtMs = QDateTime::currentMSecsSinceEpoch();
+	status.lastUserMessage = message;
+	status.lastTechnicalError = message;
+	logWarning(QString("%1: %2").arg(target.name, message));
+	if (!runtimeTargetIds_.contains(target.id))
+		emit statusMessage(QString("%1: %2").arg(target.name, message));
+	emit targetRuntimeChanged(target.id);
+	return false;
+}
+
+void OutputManager::handleOutputSignal(obs_output_t *output, quint64 expectedSerial, const QString &signalName,
+				       int reconnectDelaySeconds)
+{
+	if (!output || expectedSerial == 0)
+		return;
+
+	Session *matched = nullptr;
+	for (Session *session : sessions_) {
+		if (session && session->output == output && session->serial == expectedSerial) {
+			matched = session;
+			break;
+		}
+	}
+	if (!matched)
+		return;
+
+	OutputTarget *target = findTarget(matched->targetId);
+	if (!target)
+		return;
+
+	const quint64 serial = matched->serial;
+	if (signalName == QStringLiteral("starting")) {
+		target->state = TargetState::Starting;
+		setRuntimeTransport(target->id, serial, TransportState::Starting, QStringLiteral("Connecting"));
+	} else if (signalName == QStringLiteral("start")) {
+		target->state = TargetState::Live;
+		setRuntimeTransport(target->id, serial, TransportState::Connected, QStringLiteral("RTMP sending"));
+		const PlatformLiveState platform = runtimeStatusForTarget(target->id).platform;
+		if (isYouTubeTarget(*target) &&
+		    (platform == PlatformLiveState::Unknown || platform == PlatformLiveState::RtmpSignalOnly))
+			setRuntimePlatform(target->id, serial, PlatformLiveState::RtmpSignalOnly,
+					   QStringLiteral("RTMP connected - checking YouTube Live"));
+	} else if (signalName == QStringLiteral("activate")) {
+		target->state = TargetState::Live;
+		setRuntimeTransport(target->id, serial, TransportState::Active, QStringLiteral("RTMP sending"));
+		const PlatformLiveState platform = runtimeStatusForTarget(target->id).platform;
+		if (isYouTubeTarget(*target) &&
+		    (platform == PlatformLiveState::Unknown || platform == PlatformLiveState::RtmpSignalOnly))
+			setRuntimePlatform(target->id, serial, PlatformLiveState::RtmpSignalOnly,
+					   QStringLiteral("RTMP connected - checking YouTube Live"));
+	} else if (signalName == QStringLiteral("reconnect")) {
+		target->state = TargetState::Live;
+		setRuntimeTransport(target->id,
+				    serial,
+				    TransportState::Reconnecting,
+				    reconnectDelaySeconds > 0 ? QStringLiteral("Reconnecting in %1 sec").arg(reconnectDelaySeconds)
+							      : QStringLiteral("Reconnecting"),
+				    reconnectDelaySeconds);
+	} else if (signalName == QStringLiteral("reconnect_success")) {
+		target->state = TargetState::Live;
+		setRuntimeTransport(target->id, serial, TransportState::Connected, QStringLiteral("RTMP reconnected"));
+	} else if (signalName == QStringLiteral("stopping")) {
+		target->state = TargetState::Stopping;
+		setRuntimeTransport(target->id, serial, TransportState::Stopping, QStringLiteral("Stopping"));
+	} else if (signalName == QStringLiteral("deactivate")) {
+		updateRuntimeStats(target->id);
+	}
+
+	if (!runtimeTargetIds_.contains(target->id))
+		emit targetsChanged();
+}
+
+void OutputManager::handleOutputStopped(obs_output_t *output, quint64 expectedSerial, int code,
+					const QString &lastError)
+{
+	if (!output || expectedSerial == 0)
+		return;
+
+	QString targetId;
+	Session *stoppedSession = nullptr;
+	for (Session *session : sessions_) {
+		if (session && session->output == output && session->serial == expectedSerial) {
+			targetId = session->targetId;
+			stoppedSession = session;
+			break;
+		}
+	}
+	if (targetId.isEmpty())
+		return;
+
+	OutputTarget *target = findTarget(targetId);
+	if (target) {
+		const quint64 serial = stoppedSession ? stoppedSession->serial : runtimeStatusForTarget(targetId).sessionSerial;
+		if (code == OBS_OUTPUT_SUCCESS) {
+			target->state = TargetState::Stopped;
+			target->lastError.clear();
+			resetRuntimeStatus(targetId);
+			logInfo(QString("Stopped %1").arg(target->name));
+			if (!runtimeTargetIds_.contains(target->id))
+				emit statusMessage(QString("Stopped %1").arg(target->name));
+		} else {
+			const QString message = outputStopMessage(code, lastError);
+			target->state = TargetState::Stopped;
+			target->lastError = message;
+			setRuntimeTransport(targetId, serial, TransportState::Failed, message);
+			setRuntimePlatform(targetId, serial, isYouTubeTarget(*target) ? PlatformLiveState::Failed : PlatformLiveState::NotApplicable,
+					   message, message);
+			logWarning(QString("%1 failed: %2").arg(target->name, message));
+			if (!runtimeTargetIds_.contains(target->id))
+				emit statusMessage(QString("%1 failed: %2").arg(target->name, message));
+		}
+	}
+
+	releaseSession(stoppedSession, false);
+	if (!runtimeTargetIds_.contains(targetId))
+		emit targetsChanged();
+}
+
+OutputManager::Session *OutputManager::sessionForTarget(const QString &id) const
+{
+	for (Session *session : sessions_) {
+		if (session && session->targetId == id)
+			return session;
+	}
+	return nullptr;
+}
+
+void OutputManager::releaseSession(const QString &id, bool requestStop)
+{
+	releaseSession(id, requestStop, 0);
+}
+
+void OutputManager::releaseSession(const QString &id, bool requestStop, quint64 expectedSerial)
+{
+	for (int i = sessions_.size() - 1; i >= 0; --i) {
+		Session *session = sessions_[i];
+		if (!session || session->targetId != id)
+			continue;
+		if (expectedSerial != 0 && session->serial != expectedSerial)
+			continue;
+
+		releaseSession(session, requestStop);
+		break;
+	}
+}
+
+void OutputManager::releaseSession(Session *session, bool requestStop)
+{
+	const int i = sessions_.indexOf(session);
+	if (i < 0 || !session)
+		return;
+
+	const QString targetId = session->targetId;
+	const quint64 sessionSerial = session->serial;
+	if (session->output) {
+		const bool active = obs_output_active(session->output);
+		if (shuttingDown_) {
+			disconnectOutputSignals(session->output, this);
+			if (active)
+				obs_output_force_stop(session->output);
+			logInfo(QString("Releasing output resources for %1 during shutdown").arg(targetId));
+			releaseOutputAndService(session->output, session->service);
+			releaseSharedEncoders(session->sharedEncoderKey);
+			session->output = nullptr;
+			session->service = nullptr;
+			delete session;
+			sessions_.removeAt(i);
+			return;
+		}
+		if (requestStop && session->pendingRelease)
+			return;
+		if (requestStop && active) {
+			logInfo(QString("Stopping runtime output for %1").arg(targetId));
+			obs_output_stop(session->output);
+			session->pendingRelease = true;
+			session->releasePolls = 0;
+			QTimer::singleShot(1000, this, [this, targetId, sessionSerial]() { releaseSession(targetId, false, sessionSerial); });
+			return;
+		}
+		if (requestStop && !session->pendingRelease) {
+			session->pendingRelease = true;
+			session->releasePolls = 0;
+			QTimer::singleShot(1000, this, [this, targetId, sessionSerial]() { releaseSession(targetId, false, sessionSerial); });
+			return;
+		}
+		if (session->output) {
+			if (obs_output_active(session->output)) {
+				if (++session->releasePolls >= 5) {
+					logWarning(QString("Force stopping output for %1 after delayed release wait.").arg(targetId));
+					obs_output_force_stop(session->output);
+					session->releasePolls = 0;
+				}
+				QTimer::singleShot(1000, this, [this, targetId, sessionSerial]() { releaseSession(targetId, false, sessionSerial); });
+				return;
+			}
+			logInfo(QString("Releasing output resources for %1").arg(targetId));
+			disconnectOutputSignals(session->output, this);
+			releaseOutputAndService(session->output, session->service);
+			releaseSharedEncoders(session->sharedEncoderKey);
+			session->output = nullptr;
+			session->service = nullptr;
+		}
+	}
+
+	delete session;
+	sessions_.removeAt(i);
+	releaseTargetSceneCanvas(targetId);
+
+	if (OutputTarget *target = findTarget(targetId)) {
+		if (finalizePendingRemoval(targetId))
+			return;
+		if (target->state == TargetState::Stopping && !sessionForTarget(targetId)) {
+			target->state = TargetState::Stopped;
+			target->lastError.clear();
+			resetRuntimeStatus(targetId);
+			if (!runtimeTargetIds_.contains(targetId))
+				emit targetsChanged();
+		}
+	}
+}
+
+void OutputManager::releaseAllSessionsNow()
+{
+	for (int i = sessions_.size() - 1; i >= 0; --i) {
+		Session *session = sessions_[i];
+		if (!session) {
+			sessions_.removeAt(i);
+			continue;
+		}
+
+		if (session->output) {
+			disconnectOutputSignals(session->output, this);
+			if (obs_output_active(session->output))
+				obs_output_force_stop(session->output);
+			logInfo(QString("Releasing output resources for %1 during reset or shutdown").arg(session->targetId));
+			releaseOutputAndService(session->output, session->service);
+			releaseSharedEncoders(session->sharedEncoderKey);
+			session->output = nullptr;
+			session->service = nullptr;
+		}
+		delete session;
+		sessions_.removeAt(i);
+	}
+}
+
+obs_service_t *OutputManager::createService(const OutputTarget &target)
+{
+	obs_data_t *serviceSettings = obs_data_create();
+	obs_data_set_string(serviceSettings, "server", target.serverUrl.toUtf8().constData());
+	obs_data_set_string(serviceSettings, "key", target.streamKey.toUtf8().constData());
+
+	const QByteArray serviceName = QString("dsk_service_%1").arg(target.id).toUtf8();
+	obs_service_t *service = obs_service_create("rtmp_custom", serviceName.constData(), serviceSettings, nullptr);
+	obs_data_release(serviceSettings);
+	return service;
+}
+
+obs_output_t *OutputManager::createOutput(const OutputTarget &target, obs_service_t *service, quint64 sessionSerial)
+{
+	const char *outputType = obs_service_get_preferred_output_type(service);
+	if (!outputType || !*outputType)
+		outputType = "rtmp_output";
+
+	const QByteArray outputName = QString("dsk_output_%1_session_%2").arg(target.id).arg(sessionSerial).toUtf8();
+	obs_output_t *output = obs_output_create(outputType, outputName.constData(), nullptr, nullptr);
+	if (!output)
+		return nullptr;
+
+	obs_output_set_service(output, service);
+	obs_output_set_reconnect_settings(output, target.reconnectEnabled ? target.reconnectMaxRetries : 0, target.reconnectDelaySeconds);
+	applyProfileDelay(output);
+	return output;
+}
+
+obs_encoder_t *OutputManager::createVideoEncoder(const OutputTarget &target, const EncoderProfile &profile)
+{
+	const QString encoderId = profile.videoEncoderId.isEmpty() ? QStringLiteral("obs_x264") : profile.videoEncoderId;
+	obs_data_t *settings = obs_data_create();
+	obs_data_set_string(settings, "rate_control", "CBR");
+	obs_data_set_int(settings, "bitrate", profile.videoBitrateKbps);
+	obs_data_set_int(settings, "max_bitrate", profile.videoBitrateKbps);
+	obs_data_set_int(settings, "keyint_sec", profile.keyframeSeconds);
+	obs_data_set_string(settings, "profile", "high");
+
+	if (isNativeNvencEncoder(encoderId)) {
+		obs_data_set_string(settings, "preset", "p5");
+		obs_data_set_string(settings, "tune", "hq");
+		obs_data_set_string(settings, "multipass", "qres");
+		obs_data_set_bool(settings, "adaptive_quantization", true);
+		obs_data_set_bool(settings, "lookahead", false);
+		obs_data_set_int(settings, "bf", 2);
+	} else if (isFfmpegNvencEncoder(encoderId)) {
+		obs_data_set_string(settings, "preset2", "p5");
+		obs_data_set_string(settings, "tune", "hq");
+		obs_data_set_string(settings, "multipass", "qres");
+		obs_data_set_bool(settings, "psycho_aq", true);
+		obs_data_set_int(settings, "gpu", 0);
+		obs_data_set_int(settings, "bf", 2);
+	} else if (encoderId == QStringLiteral("obs_x264")) {
+		obs_data_set_string(settings, "preset", "veryfast");
+	}
+
+	const QByteArray encoderName = QString("dsk_video_%1_%2").arg(encoderGroupToString(profile.group), target.id).toUtf8();
+	obs_encoder_t *encoder = obs_video_encoder_create(encoderId.toUtf8().constData(), encoderName.constData(), settings, nullptr);
+	obs_data_release(settings);
+
+	if (encoder) {
+		obs_encoder_set_scaled_size(encoder, uint32_t(profile.width), uint32_t(profile.height));
+		obs_encoder_set_gpu_scale_type(encoder, OBS_SCALE_BICUBIC);
+	}
+
+	return encoder;
+}
+
+obs_encoder_t *OutputManager::createAudioEncoder(const OutputTarget &target, const EncoderProfile &profile)
+{
+	const QString encoderId = profile.audioEncoderId.isEmpty() ? QStringLiteral("ffmpeg_aac") : profile.audioEncoderId;
+	obs_data_t *settings = obs_data_create();
+	obs_data_set_int(settings, "bitrate", profile.audioBitrateKbps);
+
+	const QByteArray encoderName = QString("dsk_audio_%1_%2").arg(encoderGroupToString(profile.group), target.id).toUtf8();
+	obs_encoder_t *encoder = obs_audio_encoder_create(encoderId.toUtf8().constData(), encoderName.constData(), settings, 0, nullptr);
+	obs_data_release(settings);
+	return encoder;
+}
+
+bool OutputManager::ensureVerticalCanvasVideo(QString *errorMessage)
+{
+#ifdef DSK_ENABLE_OBS_CANVAS_API
+	obs_video_info info = {};
+	if (!obs_get_video_info(&info)) {
+		if (errorMessage)
+			*errorMessage = QStringLiteral("OBS video information is unavailable.");
+		return false;
+	}
+	if (layouts_.verticalLayout().width <= 0 || layouts_.verticalLayout().height <= 0) {
+		if (errorMessage)
+			*errorMessage = QStringLiteral("DSK Vertical canvas dimensions are invalid.");
+		return false;
+	}
+	info.base_width = uint32_t(layouts_.verticalLayout().width);
+	info.base_height = uint32_t(layouts_.verticalLayout().height);
+	info.output_width = uint32_t(layouts_.verticalLayout().width);
+	info.output_height = uint32_t(layouts_.verticalLayout().height);
+
+	if (verticalCanvas_ && obs_canvas_removed(verticalCanvas_)) {
+		obs_canvas_release(verticalCanvas_);
+		verticalCanvas_ = nullptr;
+	}
+	if (!verticalCanvas_) {
+		obs_frontend_canvas_list canvases = {};
+		obs_frontend_get_canvases(&canvases);
+		for (size_t i = 0; i < canvases.canvases.num; ++i) {
+			obs_canvas_t *candidate = canvases.canvases.array[i];
+			const char *name = obs_canvas_get_name(candidate);
+			if (name && strcmp(name, "DSK Vertical") == 0 && !obs_canvas_removed(candidate)) {
+				verticalCanvas_ = obs_canvas_get_ref(candidate);
+				break;
+			}
+		}
+		obs_frontend_canvas_list_free(&canvases);
+	}
+
+	obs_video_info currentInfo = {};
+	const bool hasVideo = verticalCanvas_ && obs_canvas_has_video(verticalCanvas_);
+	const bool hasMatchingInfo = verticalCanvas_ && obs_canvas_get_video_info(verticalCanvas_, &currentInfo) &&
+				     currentInfo.base_width == info.base_width &&
+				     currentInfo.base_height == info.base_height &&
+				     currentInfo.output_width == info.output_width &&
+				     currentInfo.output_height == info.output_height;
+	const bool hasMatchingFlags = verticalCanvas_ && obs_canvas_get_flags(verticalCanvas_) == DskVideoCanvasFlags;
+
+	if (verticalCanvas_ && (!hasVideo || !hasMatchingInfo || !hasMatchingFlags)) {
+		if (sessionUsesCanvasKey(QStringLiteral("dsk-vertical"))) {
+			if (errorMessage)
+				*errorMessage = QStringLiteral("DSK Vertical canvas is in use and cannot change its configuration.");
+			return false;
+		}
+		if (hasMatchingFlags && !obs_video_active() && obs_canvas_reset_video(verticalCanvas_, &info))
+			return true;
+
+		verticalScene_.release();
+		obs_canvas_set_channel(verticalCanvas_, 0, nullptr);
+		if (!obs_frontend_remove_canvas(verticalCanvas_)) {
+			if (errorMessage)
+				*errorMessage = QStringLiteral("Failed to replace the DSK Vertical canvas.");
+			return false;
+		}
+		obs_canvas_release(verticalCanvas_);
+		verticalCanvas_ = nullptr;
+	}
+
+	if (!verticalCanvas_)
+		verticalCanvas_ = obs_frontend_add_canvas("DSK Vertical", &info, DskVideoCanvasFlags);
+
+	if (!verticalCanvas_ || !obs_canvas_has_video(verticalCanvas_)) {
+		if (verticalCanvas_) {
+			obs_frontend_remove_canvas(verticalCanvas_);
+			obs_canvas_release(verticalCanvas_);
+			verticalCanvas_ = nullptr;
+		}
+		if (errorMessage)
+			*errorMessage = QStringLiteral("Failed to create DSK Vertical canvas video.");
+		return false;
+	}
+
+	if (errorMessage)
+		errorMessage->clear();
+	return true;
+#else
+	if (errorMessage)
+		*errorMessage = "DSK Vertical scene was built, but real 9:16 output needs OBS canvas API wiring.";
+	return false;
+#endif
+}
+
+bool OutputManager::refreshVerticalCanvasScene(QString *errorMessage)
+{
+#ifdef DSK_ENABLE_OBS_CANVAS_API
+	if (!verticalCanvas_) {
+		if (errorMessage)
+			errorMessage->clear();
+		return true;
+	}
+	if (!ensureVerticalCanvasVideo(errorMessage))
+		return false;
+
+	QString sceneError;
+	obs_source_t *source = verticalScene_.rebuild(layouts_.verticalLayout(), verticalCanvas_, &sceneError);
+	if (!source) {
+		if (errorMessage)
+			*errorMessage = sceneError.isEmpty() ? "Failed to build DSK Vertical scene." : sceneError;
+		return false;
+	}
+
+	if (verticalCanvas_)
+		obs_canvas_set_channel(verticalCanvas_, 0, source);
+	return true;
+#else
+	(void)errorMessage;
+	return true;
+#endif
+}
+
+bool OutputManager::targetUsesSceneCanvas(const OutputTarget &target) const
+{
+	return target.encoderGroup == EncoderGroup::DskHorizontal && target.sceneMode != TargetSceneMode::FollowObs;
+}
+
+QString OutputManager::sceneCanvasKeyForTarget(const OutputTarget &target) const
+{
+	if (targetUsesSceneCanvas(target))
+		return QStringLiteral("scene-target:%1").arg(target.id);
+	if (target.encoderGroup == EncoderGroup::DskVertical)
+		return QStringLiteral("dsk-vertical");
+	return QStringLiteral("obs-program");
+}
+
+bool OutputManager::sessionUsesCanvasKey(const QString &key) const
+{
+	for (const Session *session : sessions_) {
+		if (!session || !session->output)
+			continue;
+		const OutputTarget *target = findTarget(session->targetId);
+		if (target && sceneCanvasKeyForTarget(*target) == key)
+			return true;
+	}
+	return false;
+}
+
+bool OutputManager::ensureSceneCanvasForTarget(const OutputTarget &target, const EncoderProfile &profile, QString *errorMessage)
+{
+#ifdef DSK_ENABLE_OBS_CANVAS_API
+	if (!targetUsesSceneCanvas(target))
+		return true;
+
+	const QString sceneName = effectiveOutputSceneName(target);
+	if (sceneName.trimmed().isEmpty()) {
+		if (errorMessage)
+			*errorMessage = target.sceneMode == TargetSceneMode::LinkedScene
+				? QStringLiteral("Linked scene mode has no route for the current OBS scene and no fallback scene.")
+				: QStringLiteral("Fixed scene mode needs an OBS scene.");
+		return false;
+	}
+
+	obs_source_t *sceneSource = obs_get_source_by_name(sceneName.toUtf8().constData());
+	if (!sceneSource) {
+		if (errorMessage)
+			*errorMessage = QStringLiteral("OBS scene not found: %1").arg(sceneName);
+		return false;
+	}
+	if (!obs_scene_from_source(sceneSource)) {
+		if (errorMessage)
+			*errorMessage = QStringLiteral("Selected source is not an OBS scene: %1").arg(sceneName);
+		obs_source_release(sceneSource);
+		return false;
+	}
+
+	obs_video_info info = {};
+	if (!obs_get_video_info(&info) || profile.width <= 0 || profile.height <= 0) {
+		obs_source_release(sceneSource);
+		if (errorMessage)
+			*errorMessage = QStringLiteral("DSK scene canvas video settings are invalid.");
+		return false;
+	}
+	info.base_width = uint32_t(profile.width);
+	info.base_height = uint32_t(profile.height);
+	info.output_width = uint32_t(profile.width);
+	info.output_height = uint32_t(profile.height);
+
+	obs_canvas_t *canvas = sceneCanvases_.value(target.id, nullptr);
+	if (canvas && obs_canvas_removed(canvas)) {
+		obs_canvas_release(canvas);
+		sceneCanvases_.remove(target.id);
+		canvas = nullptr;
+	}
+
+	obs_video_info currentInfo = {};
+	const bool hasVideo = canvas && obs_canvas_has_video(canvas);
+	const bool hasMatchingInfo = canvas && obs_canvas_get_video_info(canvas, &currentInfo) &&
+				     currentInfo.base_width == info.base_width &&
+				     currentInfo.base_height == info.base_height &&
+				     currentInfo.output_width == info.output_width &&
+				     currentInfo.output_height == info.output_height;
+	const bool hasMatchingFlags = canvas && obs_canvas_get_flags(canvas) == DskVideoCanvasFlags;
+	if (canvas && (!hasVideo || !hasMatchingInfo || !hasMatchingFlags)) {
+		if (sessionUsesCanvasKey(sceneCanvasKeyForTarget(target))) {
+			obs_source_release(sceneSource);
+			if (errorMessage)
+				*errorMessage = QStringLiteral("This DSK scene canvas is in use and cannot change its configuration.");
+			return false;
+		}
+		if (!hasMatchingFlags || obs_video_active() || !obs_canvas_reset_video(canvas, &info)) {
+			obs_canvas_set_channel(canvas, 0, nullptr);
+			if (!obs_frontend_remove_canvas(canvas)) {
+				obs_source_release(sceneSource);
+				if (errorMessage)
+					*errorMessage = QStringLiteral("Failed to replace the DSK scene canvas.");
+				return false;
+			}
+			obs_canvas_release(canvas);
+			sceneCanvases_.remove(target.id);
+			canvas = nullptr;
+		}
+	}
+
+	if (!canvas) {
+		const QString canvasName = QStringLiteral("DSK Scene - %1").arg(target.name.isEmpty() ? target.id : target.name);
+		canvas = obs_frontend_add_canvas(canvasName.toUtf8().constData(), &info, DskVideoCanvasFlags);
+		if (!canvas || !obs_canvas_has_video(canvas)) {
+			if (canvas) {
+				obs_frontend_remove_canvas(canvas);
+				obs_canvas_release(canvas);
+			}
+			obs_source_release(sceneSource);
+			if (errorMessage)
+				*errorMessage = QStringLiteral("Failed to create DSK scene canvas video.");
+			return false;
+		}
+		sceneCanvases_.insert(target.id, canvas);
+	}
+
+	obs_canvas_set_channel(canvas, 0, sceneSource);
+	obs_source_release(sceneSource);
+	if (errorMessage)
+		errorMessage->clear();
+	return true;
+#else
+	(void)target;
+	(void)profile;
+	if (errorMessage)
+		*errorMessage = QStringLiteral("Separate scene output needs OBS canvas API wiring.");
+	return false;
+#endif
+}
+
+void OutputManager::releaseTargetSceneCanvas(const QString &targetId)
+{
+#ifdef DSK_ENABLE_OBS_CANVAS_API
+	if (!shuttingDown_ && sessionUsesCanvasKey(QStringLiteral("scene-target:%1").arg(targetId))) {
+		logWarning(QStringLiteral("Deferred release of an in-use DSK scene canvas for %1.").arg(targetId));
+		return;
+	}
+	obs_canvas_t *canvas = sceneCanvases_.take(targetId);
+	if (!canvas)
+		return;
+	obs_canvas_set_channel(canvas, 0, nullptr);
+	obs_frontend_remove_canvas(canvas);
+	obs_canvas_release(canvas);
+#else
+	(void)targetId;
+#endif
+}
+
+void OutputManager::releaseAllSceneCanvases()
+{
+#ifdef DSK_ENABLE_OBS_CANVAS_API
+	const auto ids = sceneCanvases_.keys();
+	for (const QString &id : ids)
+		releaseTargetSceneCanvas(id);
+#endif
+}
+
+void OutputManager::refreshLinkedSceneCanvases()
+{
+#ifdef DSK_ENABLE_OBS_CANVAS_API
+	for (Session *session : sessions_) {
+		if (!session || !session->output || !obs_output_active(session->output))
+			continue;
+		OutputTarget *target = findTarget(session->targetId);
+		if (!target || target->sceneMode != TargetSceneMode::LinkedScene || !targetUsesSceneCanvas(*target))
+			continue;
+		QString error;
+		if (!ensureSceneCanvasForTarget(*target, effectiveProfileForTarget(*target), &error) && !error.isEmpty())
+			logWarning(QString("Failed to refresh linked scene for %1: %2").arg(target->name, error));
+	}
+#endif
+}
+
+video_t *OutputManager::videoForTarget(const OutputTarget &target, const EncoderProfile &profile, QString *errorMessage)
+{
+	if (!targetUsesSceneCanvas(target))
+		return videoForEncoderGroup(target.encoderGroup, errorMessage);
+
+	if (!ensureSceneCanvasForTarget(target, profile, errorMessage))
+		return nullptr;
+
+#ifdef DSK_ENABLE_OBS_CANVAS_API
+	obs_canvas_t *canvas = sceneCanvases_.value(target.id, nullptr);
+	if (!canvas) {
+		if (errorMessage)
+			*errorMessage = QStringLiteral("DSK scene canvas is unavailable.");
+		return nullptr;
+	}
+	return obs_canvas_get_video(canvas);
+#else
+	(void)target;
+	(void)profile;
+	if (errorMessage)
+		*errorMessage = QStringLiteral("Separate scene output needs OBS canvas API wiring.");
+	return nullptr;
+#endif
+}
+
+video_t *OutputManager::videoForEncoderGroup(EncoderGroup group, QString *errorMessage)
+{
+	if (group == EncoderGroup::DskHorizontal)
+		return obs_get_video();
+
+	if (group == EncoderGroup::DskVertical) {
+#ifdef DSK_ENABLE_OBS_CANVAS_API
+		if (!ensureVerticalCanvasVideo(errorMessage))
+			return nullptr;
+
+		QString sceneError;
+		obs_source_t *source = verticalScene_.rebuild(layouts_.verticalLayout(), verticalCanvas_, &sceneError);
+		if (!source) {
+			if (errorMessage)
+				*errorMessage = sceneError.isEmpty() ? "Failed to build DSK Vertical scene." : sceneError;
+			return nullptr;
+		}
+
+		obs_canvas_set_channel(verticalCanvas_, 0, source);
+		return obs_canvas_get_video(verticalCanvas_);
+#else
+		if (errorMessage)
+			*errorMessage = "DSK Vertical scene was built, but real 9:16 output needs OBS canvas API wiring.";
+		return nullptr;
+#endif
+	}
+
+	return obs_get_video();
+}
+
+QString OutputManager::currentObsSceneName() const
+{
+	obs_source_t *scene = obs_frontend_get_current_scene();
+	if (!scene)
+		return {};
+
+	const char *name = obs_source_get_name(scene);
+	const QString result = name ? QString::fromUtf8(name) : QString();
+	obs_source_release(scene);
+	return result;
+}
+
+QString OutputManager::currentObsSceneUuid() const
+{
+	obs_source_t *scene = obs_frontend_get_current_scene();
+	if (!scene)
+		return {};
+
+	const char *uuid = obs_source_get_uuid(scene);
+	const QString result = uuid ? QString::fromUtf8(uuid) : QString();
+	obs_source_release(scene);
+	return result;
+}
+
+QString OutputManager::resolvedObsSceneName(const QString &sceneUuid, const QString &fallbackSceneName) const
+{
+	const QString cleanUuid = sceneUuid.trimmed();
+	if (cleanUuid.isEmpty())
+		return fallbackSceneName.trimmed();
+
+	obs_source_t *source = obs_get_source_by_uuid(cleanUuid.toUtf8().constData());
+	if (!source)
+		return {};
+	const char *name = obs_scene_from_source(source) ? obs_source_get_name(source) : nullptr;
+	const QString result = name ? QString::fromUtf8(name) : QString();
+	obs_source_release(source);
+	return result;
+}
+
+QString OutputManager::obsSceneUuidForName(const QString &sceneName) const
+{
+	const QString cleanName = sceneName.trimmed();
+	if (cleanName.isEmpty())
+		return {};
+
+	obs_source_t *source = obs_get_source_by_name(cleanName.toUtf8().constData());
+	if (!source)
+		return {};
+	const char *uuid = obs_scene_from_source(source) ? obs_source_get_uuid(source) : nullptr;
+	const QString result = uuid ? QString::fromUtf8(uuid) : QString();
+	obs_source_release(source);
+	return result;
+}
+
+bool OutputManager::applyLinkedScene(const QString &sceneName)
+{
+	if (sceneName.isEmpty())
+		return false;
+	const QString sceneUuid = currentObsSceneUuid();
+
+	for (const auto &link : sceneLinks_) {
+		const bool matches = link.sceneUuid.trimmed().isEmpty()
+					     ? link.sceneName.trimmed() == sceneName.trimmed()
+					     : !sceneUuid.isEmpty() && link.sceneUuid.trimmed() == sceneUuid;
+		if (!matches)
+			continue;
+
+		if (!link.verticalSceneId.isEmpty()) {
+			if (!layouts_.selectVerticalScene(link.verticalSceneId)) {
+				logWarning(QString("Failed to apply vertical scene link for %1: DSK scene is missing.")
+						   .arg(sceneName));
+				return false;
+			}
+		} else if (!link.legacyTemplateId.isEmpty()) {
+			layouts_.applyTemplate(link.legacyTemplateId);
+		} else {
+			return false;
+		}
+		if (!saveVerticalLayout())
+			return false;
+		emit statusMessage(QString("DSK vertical scene linked to %1").arg(sceneName));
+		return true;
+	}
+	return false;
+}
+
+void OutputManager::applyProfileDelay(obs_output_t *output)
+{
+	config_t *config = obs_frontend_get_profile_config();
+	if (!config)
+		return;
+
+	const bool useDelay = config_get_bool(config, "Output", "DelayEnable");
+	const bool preserveDelay = config_get_bool(config, "Output", "DelayPreserve");
+	const uint32_t delaySec = uint32_t(config_get_int(config, "Output", "DelaySec"));
+	obs_output_set_delay(output, useDelay ? delaySec : 0, preserveDelay ? OBS_OUTPUT_DELAY_PRESERVE : 0);
+}
+
+} // namespace dsk

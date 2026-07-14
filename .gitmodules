@@ -1,0 +1,9 @@
+[submodule "research/obs-aitum-multistream"]
+	path = research/obs-aitum-multistream
+	url = https://github.com/Aitum/obs-aitum-multistream.git
+[submodule "research/obs-multi-rtmp"]
+	path = research/obs-multi-rtmp
+	url = https://github.com/sorayuki/obs-multi-rtmp.git
+[submodule "research/obs-vertical-canvas"]
+	path = research/obs-vertical-canvas
+	url = https://github.com/Aitum/obs-vertical-canvas.git

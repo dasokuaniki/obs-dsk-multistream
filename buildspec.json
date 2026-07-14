@@ -1,0 +1,30 @@
+{
+  "name": "obs-dsk-multistream",
+  "version": "0.1.0",
+  "author": "DSK",
+  "website": "https://example.invalid/dsk-multistream",
+  "email": "",
+  "uuids": {
+    "windowsApp": "a06689c3-63fb-4c9d-a6f4-a59ee4c53f42f"
+  },
+  "dependencies": {
+    "obs-studio": {
+      "version": "32.1.2",
+      "repository": "https://github.com/obsproject/obs-studio.git",
+      "branch": "master",
+      "hash": ""
+    },
+    "prebuilt": {
+      "version": "2026-06-02",
+      "baseUrl": "https://github.com/obsproject/obs-deps/releases/download"
+    },
+    "qt6": {
+      "version": "6.8.3"
+    }
+  },
+  "platformConfig": {
+    "windows": {
+      "bundle": true
+    }
+  }
+}
