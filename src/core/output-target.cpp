@@ -191,6 +191,13 @@ bool validateOutputTargetConfig(const OutputTarget &target, QString *errorMessag
 			*errorMessage = "Server URL must include a host name.";
 		return false;
 	}
+	if (target.platformId == QStringLiteral("tiktok") &&
+	    url.host().compare(QStringLiteral("push.tiktokcdn.com"), Qt::CaseInsensitive) == 0 &&
+	    url.path().compare(QStringLiteral("/live"), Qt::CaseInsensitive) == 0) {
+		if (errorMessage)
+			*errorMessage = "TikTok needs the server URL shown in TikTok LIVE setup.";
+		return false;
+	}
 
 	if (target.streamKey.trimmed().isEmpty() && target.authCredentialRef.trimmed().isEmpty()) {
 		if (errorMessage)

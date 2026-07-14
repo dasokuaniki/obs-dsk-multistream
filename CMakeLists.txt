@@ -63,6 +63,16 @@ endif()
 
 set(DSK_GENERATED_INCLUDE_DIR "${CMAKE_BINARY_DIR}/generated")
 file(MAKE_DIRECTORY "${DSK_GENERATED_INCLUDE_DIR}")
+set_property(
+  DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+  "${CMAKE_CURRENT_SOURCE_DIR}/data/presets/platforms.json"
+)
+file(READ "${CMAKE_CURRENT_SOURCE_DIR}/data/presets/platforms.json" DSK_PLATFORM_PRESETS_JSON)
+configure_file(
+  cmake/platform-presets-json.hpp.in
+  "${DSK_GENERATED_INCLUDE_DIR}/platform-presets-json.hpp"
+  @ONLY
+)
 configure_file(
   cmake/oauth-publisher-config.hpp.in
   "${DSK_GENERATED_INCLUDE_DIR}/oauth-publisher-config.hpp"

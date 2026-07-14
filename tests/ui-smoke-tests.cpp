@@ -7,6 +7,7 @@
 #include <QApplication>
 #include <QCheckBox>
 #include <QComboBox>
+#include <QLabel>
 #include <QLineEdit>
 #include <QPushButton>
 #include <QScrollArea>
@@ -47,19 +48,33 @@ void testTargetEditDialogAddDefaults()
 	check(accepted.startWithAll, "dialog defaults start-all enabled");
 
 	auto *platform = dialog.findChild<QComboBox *>(QStringLiteral("dskTargetPlatform"));
+	auto *presetServer = dialog.findChild<QPushButton *>(QStringLiteral("dskUsePresetServer"));
+	auto *streamKey = dialog.findChild<QLineEdit *>(QStringLiteral("dskTargetStreamKey"));
+	auto *platformHint = dialog.findChild<QLabel *>(QStringLiteral("dskPlatformHint"));
 	check(platform != nullptr, "dialog exposes the platform selector for UI behavior tests");
+	check(presetServer != nullptr, "dialog exposes the preset server button for UI behavior tests");
+	check(streamKey != nullptr, "dialog exposes the stream key field for UI behavior tests");
+	check(platformHint != nullptr, "dialog exposes the platform hint for UI behavior tests");
+	if (presetServer)
+		check(presetServer->isEnabled(), "Twitch enables its server preset");
+	if (streamKey)
+		check(streamKey->placeholderText() == "Enter stream key", "new Twitch target asks for a stream key");
 	if (platform) {
 		platform->setCurrentIndex(platform->findData(QStringLiteral("youtube")));
 		dialog.fillTarget(accepted);
 		check(accepted.platformId == "youtube", "new target switches to YouTube");
 		check(accepted.serverUrl == "rtmp://a.rtmp.youtube.com/live2",
 		      "new target follows the selected YouTube server preset");
+		if (presetServer)
+			check(presetServer->isEnabled(), "YouTube enables its server preset");
 
 		platform->setCurrentIndex(platform->findData(QStringLiteral("kick")));
 		dialog.fillTarget(accepted);
 		check(accepted.platformId == "kick", "new target switches to Kick");
 		check(accepted.serverUrl == "rtmps://fa-live-cf.kick.com/app",
 		      "new target follows the selected Kick server preset");
+		if (presetServer)
+			check(presetServer->isEnabled(), "Kick enables its server preset");
 
 		platform->setCurrentIndex(platform->findData(QStringLiteral("tiktok")));
 		dialog.fillTarget(accepted);
@@ -67,10 +82,22 @@ void testTargetEditDialogAddDefaults()
 		check(accepted.serverUrl.isEmpty(), "TikTok manual RTMP does not invent an ingest server");
 		check(accepted.authMode == dsk::TargetAuthMode::ManualRtmp, "TikTok uses manual RTMP authentication");
 		check(accepted.encoderGroup == dsk::EncoderGroup::DskVertical, "TikTok defaults to DSK Vertical output");
+		if (presetServer)
+			check(!presetServer->isEnabled(), "TikTok disables an unavailable server preset");
+		if (streamKey)
+			check(streamKey->placeholderText() == "Paste TikTok stream key",
+			      "TikTok stream key field names the required value");
+		if (platformHint)
+			check(platformHint->text().contains("Manual RTMP only"),
+			      "TikTok hint explains that login is not available");
 
 		platform->setCurrentIndex(platform->findData(QStringLiteral("custom")));
 		dialog.fillTarget(accepted);
 		check(accepted.serverUrl.isEmpty(), "custom target clears a previously followed platform preset");
+		if (presetServer)
+			check(!presetServer->isEnabled(), "custom target disables an unavailable server preset");
+		if (streamKey)
+			check(streamKey->placeholderText() == "Enter stream key", "custom target asks for a stream key");
 	}
 }
 
@@ -376,6 +403,16 @@ void testTargetEditDialogValidatesBeforeSave()
 	check(!dialog.validateForSave(&error), "dialog rejects a missing stream key before Save");
 	check(error == "Stream key is empty.", "dialog reports the missing stream key reason");
 
+	input.platformId = "tiktok";
+	input.serverUrl = "rtmp://push.tiktokcdn.com/live";
+	input.streamKey = "key";
+	dialog.setTarget(input);
+	check(!dialog.validateForSave(&error), "dialog rejects the legacy generic TikTok URL before Save");
+	check(error == "TikTok needs the server URL shown in TikTok LIVE setup.",
+	      "dialog reports how to replace the legacy TikTok URL");
+
+	input.platformId = "custom";
+	input.serverUrl = "rtmps://ingest.example.test/live";
 	input.streamKey = "key";
 	dialog.setTarget(input);
 	check(dialog.validateForSave(&error), "dialog accepts a complete manual RTMP target");

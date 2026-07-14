@@ -155,6 +155,16 @@ void testOutputTargetHelpers()
 	check(!validateOutputTargetConfig(missingHost, &error), "RTMP target without a host fails validation");
 	check(error.contains("host"), "missing host validation error names host requirement");
 
+	OutputTarget legacyTikTok = valid;
+	legacyTikTok.platformId = "tiktok";
+	legacyTikTok.serverUrl = "rtmp://push.tiktokcdn.com/live";
+	check(!validateOutputTargetConfig(legacyTikTok, &error), "legacy generic TikTok URL fails validation");
+	check(error == "TikTok needs the server URL shown in TikTok LIVE setup.",
+	      "legacy generic TikTok URL explains how to get the correct server");
+	legacyTikTok.serverUrl = "rtmps://live.tiktok.example/live";
+	check(validateOutputTargetConfig(legacyTikTok, &error), "TikTok accepts a server supplied by LIVE setup");
+	check(error.isEmpty(), "valid TikTok server has no validation error");
+
 	OutputTarget emptyKey = valid;
 	emptyKey.streamKey = " ";
 	check(!validateOutputTargetConfig(emptyKey, &error), "empty stream key fails validation");
@@ -884,6 +894,7 @@ void testDataFiles()
 		ids.insert(id);
 		check(!object.value("name").toString().isEmpty(), "platform name exists");
 		check(object.contains("defaultServer"), "platform defaultServer exists");
+		check(object.contains("helpUrl"), "platform helpUrl exists");
 		check(object.contains("recommendedOutput"), "platform recommendedOutput exists");
 		check(object.contains("horizontalBitrateKbps"), "platform horizontalBitrateKbps exists");
 		check(object.contains("verticalBitrateKbps"), "platform verticalBitrateKbps exists");
@@ -896,6 +907,8 @@ void testDataFiles()
 		      qPrintable(QString("runtime preset name matches json for %1").arg(id)));
 		check(preset.defaultServer == object.value("defaultServer").toString(),
 		      qPrintable(QString("runtime preset server matches json for %1").arg(id)));
+		check(preset.helpUrl == object.value("helpUrl").toString(),
+		      qPrintable(QString("runtime preset help URL matches json for %1").arg(id)));
 		check(preset.recommendedOutput == object.value("recommendedOutput").toString(),
 		      qPrintable(QString("runtime preset output matches json for %1").arg(id)));
 		check(preset.horizontalBitrateKbps == object.value("horizontalBitrateKbps").toInt(),

@@ -1,20 +1,61 @@
 #include "core/platform-preset-registry.hpp"
 
+#include "platform-presets-json.hpp"
+
+#include <QByteArray>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
+
+#include <utility>
+
 namespace dsk {
+namespace {
+
+PlatformPreset presetFromJson(const QJsonObject &object)
+{
+	PlatformPreset preset;
+	preset.id = object.value(QStringLiteral("id")).toString().trimmed();
+	preset.displayName = object.value(QStringLiteral("name")).toString().trimmed();
+	preset.defaultServer = object.value(QStringLiteral("defaultServer")).toString().trimmed();
+	preset.helpUrl = object.value(QStringLiteral("helpUrl")).toString().trimmed();
+	preset.recommendedOutput = object.value(QStringLiteral("recommendedOutput")).toString().trimmed();
+	preset.horizontalBitrateKbps = object.value(QStringLiteral("horizontalBitrateKbps")).toInt(6000);
+	preset.verticalBitrateKbps = object.value(QStringLiteral("verticalBitrateKbps")).toInt(4500);
+	preset.note = object.value(QStringLiteral("note")).toString().trimmed();
+	preset.verticalCommon = object.value(QStringLiteral("verticalCommon")).toBool(false);
+	return preset;
+}
+
+PlatformPreset customFallbackPreset()
+{
+	return {QStringLiteral("custom"),
+		QStringLiteral("Custom RTMP"),
+		QString(),
+		QString(),
+		QStringLiteral("dsk-horizontal"),
+		6000,
+		4500,
+		QStringLiteral("Paste the RTMP server URL from the platform."),
+		false};
+}
+
+} // namespace
 
 PlatformPresetRegistry::PlatformPresetRegistry()
-	: presets_({
-		  {"twitch", "Twitch", "rtmp://live.twitch.tv/app", "https://help.twitch.tv/", "dsk-horizontal", 6000, 4500,
-		   "Use DSK Horizontal unless you are intentionally producing a mobile-only layout.", false},
-		  {"youtube", "YouTube", "rtmp://a.rtmp.youtube.com/live2", "https://support.google.com/youtube/", "dsk-horizontal", 9000,
-		   6000, "YouTube works well for both horizontal and vertical outputs.", false},
-		  {"kick", "Kick", "rtmps://fa-live-cf.kick.com/app", "https://help.kick.com/", "dsk-horizontal", 6000, 4500,
-		   "Kick ingest commonly uses RTMPS.", false},
-		  {"tiktok", "TikTok (Manual RTMP)", "", "https://www.tiktok.com/live", "dsk-vertical", 6000, 4500,
-		   "Get the RTMP server URL and stream key from TikTok, then paste both here. TikTok is usually best paired with the DSK Vertical output.", true},
-		  {"custom", "Custom RTMP", "", "", "dsk-horizontal", 6000, 4500, "Paste the RTMP server URL from the platform.", false},
-	  })
 {
+	const QJsonDocument document = QJsonDocument::fromJson(QByteArray(kPlatformPresetsJson));
+	const QJsonArray platforms = document.object().value(QStringLiteral("platforms")).toArray();
+	for (const QJsonValue &value : platforms) {
+		if (!value.isObject())
+			continue;
+		PlatformPreset preset = presetFromJson(value.toObject());
+		if (preset.id.isEmpty() || preset.displayName.isEmpty())
+			continue;
+		presets_.push_back(std::move(preset));
+	}
+	if (presets_.isEmpty())
+		presets_.push_back(customFallbackPreset());
 }
 
 const QVector<PlatformPreset> &PlatformPresetRegistry::presets() const
@@ -26,6 +67,10 @@ PlatformPreset PlatformPresetRegistry::presetById(const QString &id) const
 {
 	for (const auto &preset : presets_) {
 		if (preset.id == id)
+			return preset;
+	}
+	for (const auto &preset : presets_) {
+		if (preset.id == QStringLiteral("custom"))
 			return preset;
 	}
 	return presets_.last();

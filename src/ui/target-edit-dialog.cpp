@@ -122,6 +122,35 @@ bool isPublisherManagedAuth(TargetAuthMode mode)
 	return mode == TargetAuthMode::TwitchOAuth || mode == TargetAuthMode::KickOAuth;
 }
 
+QString outputDisplayName(const QString &outputId)
+{
+	return outputId == QStringLiteral("dsk-vertical") ? QStringLiteral("DSK Vertical")
+							 : QStringLiteral("DSK Horizontal");
+}
+
+QString validationMessageForDisplay(const QString &message)
+{
+	if (message == QStringLiteral("Login mode does not match the selected platform."))
+		return QStringLiteral("選択したプラットフォームと接続方式が一致していません。");
+	if (message == QStringLiteral("Server URL is empty."))
+		return QStringLiteral("サーバーURLを入力してください。");
+	if (message == QStringLiteral("Server URL must start with rtmp:// or rtmps://."))
+		return QStringLiteral("サーバーURLは rtmp:// または rtmps:// で始めてください。");
+	if (message == QStringLiteral("Server URL must include a host name."))
+		return QStringLiteral("サーバーURLにホスト名がありません。");
+	if (message == QStringLiteral("TikTok needs the server URL shown in TikTok LIVE setup."))
+		return QStringLiteral("以前のTikTok汎用URLは使用できません。TikTok LIVEに表示されたサーバーURLを入力してください。");
+	if (message == QStringLiteral("Stream key is empty."))
+		return QStringLiteral("ストリームキーを入力してください。");
+	if (message == QStringLiteral("Reconnect settings are invalid."))
+		return QStringLiteral("再接続設定の値を確認してください。");
+	if (message == QStringLiteral("Encoder settings are outside the supported range."))
+		return QStringLiteral("エンコーダー設定が対応範囲外です。");
+	if (message == QStringLiteral("Fixed scene mode needs an OBS scene."))
+		return QStringLiteral("固定シーンを使用する場合はOBSシーンを指定してください。");
+	return message;
+}
+
 } // namespace
 
 TargetEditDialog::TargetEditDialog(const PlatformPresetRegistry &platforms, QWidget *parent)
@@ -140,7 +169,7 @@ TargetEditDialog::TargetEditDialog(const PlatformPresetRegistry &platforms, QWid
 	contentLayout->setContentsMargins(0, 0, 0, 0);
 	contentLayout->setSpacing(8);
 
-	auto *intro = new QLabel("Configure one DSK-managed destination. OBS main streaming is controlled from the Stream Controls dock.", this);
+	auto *intro = new QLabel("Configure one DSK-managed destination. Start and stop outputs from the Controls tab in DSK Streaming.", this);
 	intro->setWordWrap(true);
 	contentLayout->addWidget(intro);
 
@@ -175,12 +204,14 @@ TargetEditDialog::TargetEditDialog(const PlatformPresetRegistry &platforms, QWid
 	oauthConnector_ = new OAuthConnector(this);
 	connect(oauthConnector_, &OAuthConnector::finished, this, &TargetEditDialog::handleOAuthFinished);
 	platformHint_ = new QLabel(this);
+	platformHint_->setObjectName(QStringLiteral("dskPlatformHint"));
 	platformHint_->setWordWrap(true);
 
 	server_ = new QLineEdit(this);
 	server_->setObjectName(QStringLiteral("dskTargetServer"));
 	server_->setPlaceholderText("rtmp:// or rtmps:// server URL");
 	presetServerButton_ = new QPushButton("Use Preset", this);
+	presetServerButton_->setObjectName(QStringLiteral("dskUsePresetServer"));
 	connect(presetServerButton_, &QPushButton::clicked, this, &TargetEditDialog::usePresetServer);
 	auto *serverRow = new QHBoxLayout();
 	serverRow->setContentsMargins(0, 0, 0, 0);
@@ -188,8 +219,9 @@ TargetEditDialog::TargetEditDialog(const PlatformPresetRegistry &platforms, QWid
 	serverRow->addWidget(presetServerButton_);
 
 	streamKey_ = new QLineEdit(this);
+	streamKey_->setObjectName(QStringLiteral("dskTargetStreamKey"));
 	streamKey_->setEchoMode(QLineEdit::Password);
-	streamKey_->setPlaceholderText("Stored in Windows Credential Manager");
+	streamKey_->setPlaceholderText("Enter stream key");
 	showStreamKey_ = new QCheckBox("Show key", this);
 	connect(showStreamKey_, &QCheckBox::toggled, this, &TargetEditDialog::updateStreamKeyVisibility);
 	auto *keyRow = new QHBoxLayout();
@@ -252,7 +284,7 @@ TargetEditDialog::TargetEditDialog(const PlatformPresetRegistry &platforms, QWid
 	enabled_ = new QCheckBox("Allow automatic and bulk starts", this);
 	enabled_->setToolTip("Controls Start All and OBS-linked automatic starts. Individual Start remains available.");
 	startWithAll_ = new QCheckBox("Include in Start All", this);
-	startWithAll_->setToolTip("When enabled, the Stream Controls dock includes this target in Start All.");
+	startWithAll_->setToolTip("When enabled, the DSK Streaming Controls tab includes this target in Start All.");
 	enabled_->setChecked(true);
 	startWithAll_->setChecked(true);
 	useSharedEncoder_->setChecked(true);
@@ -421,7 +453,7 @@ void TargetEditDialog::setTarget(const OutputTarget &target)
 	streamKey_->setText(target.streamKey);
 	streamKey_->setPlaceholderText(target.streamKey.trimmed().isEmpty() && !target.authCredentialRef.trimmed().isEmpty()
 					       ? QStringLiteral("Saved stream key exists - leave blank to keep")
-					       : QStringLiteral("Stored in Windows Credential Manager"));
+					       : QStringLiteral("Enter stream key"));
 	useSharedEncoder_->setChecked(target.useSharedEncoder);
 	useSharedEncoderValue_ = target.useSharedEncoder;
 	autoStartWithObs_->setChecked(target.autoStartWithObs);
@@ -496,7 +528,7 @@ void TargetEditDialog::setNewTargetDefaults(const QString &targetId)
 	serverFollowsPlatform_ = true;
 	streamKeyValue_.clear();
 	streamKey_->clear();
-	streamKey_->setPlaceholderText("Stored in Windows Credential Manager");
+	streamKey_->setPlaceholderText("Enter stream key");
 	useSharedEncoder_->setChecked(true);
 	useSharedEncoderValue_ = true;
 	autoStartWithObs_->setChecked(false);
@@ -643,13 +675,13 @@ void TargetEditDialog::accept()
 	QString errorMessage;
 	if (!validateForSave(&errorMessage)) {
 		logWarning(QString("Target edit validation failed: %1").arg(errorMessage));
-		if (errorMessage.startsWith(QStringLiteral("Server URL")) && server_)
+		if ((errorMessage.startsWith(QStringLiteral("Server URL")) || errorMessage.startsWith(QStringLiteral("TikTok"))) && server_)
 			server_->setFocus();
 		else if (errorMessage == QStringLiteral("Stream key is empty.") && streamKey_)
 			streamKey_->setFocus();
 		else if (errorMessage == QStringLiteral("Fixed scene mode needs an OBS scene.") && sceneName_)
 			sceneName_->setFocus();
-		QMessageBox::warning(this, QStringLiteral("Invalid Stream Target"), errorMessage);
+		QMessageBox::warning(this, QStringLiteral("配信先の設定を確認"), validationMessageForDisplay(errorMessage));
 		return;
 	}
 	QDialog::accept();
@@ -718,17 +750,36 @@ void TargetEditDialog::updatePlatformHint()
 
 	const PlatformPreset preset = platforms_.presetById(platform_->currentData().toString());
 	const TargetAuthMode authMode = targetAuthModeFromString(authMode_ ? authMode_->currentData().toString() : QString());
-	QString text = preset.defaultServer.isEmpty() ? QStringLiteral("Custom RTMP target. Enter the RTMP server URL from the service.")
-						     : QString("Preset server: %1").arg(preset.defaultServer);
-	text += QString(" Recommended: %1, %2 kbps horizontal / %3 kbps vertical.")
-			.arg(preset.recommendedOutput)
-			.arg(preset.horizontalBitrateKbps)
-			.arg(preset.verticalBitrateKbps);
+	const bool manualServer = preset.defaultServer.trimmed().isEmpty();
+	QString text;
+	if (preset.id == QStringLiteral("tiktok"))
+		text = QStringLiteral("Manual RTMP only. Paste the server URL and stream key shown in TikTok LIVE setup.");
+	else if (manualServer)
+		text = QStringLiteral("Paste the RTMP or RTMPS server URL supplied by the platform.");
+	else
+		text = QString("Server preset: %1").arg(preset.defaultServer);
+	const int recommendedBitrate = preset.recommendedOutput == QStringLiteral("dsk-vertical")
+					 ? preset.verticalBitrateKbps
+					 : preset.horizontalBitrateKbps;
+	text += QString(" Recommended: %1 at %2 kbps.")
+			.arg(outputDisplayName(preset.recommendedOutput))
+			.arg(recommendedBitrate);
 	if (!preset.note.isEmpty())
 		text += QString(" %1").arg(preset.note);
-	if (preset.verticalCommon)
-		text += " Mobile/vertical streaming is common for this service.";
 	platformHint_->setText(text);
+	if (presetServerButton_) {
+		presetServerButton_->setEnabled(!manualServer);
+		presetServerButton_->setToolTip(manualServer ? QStringLiteral("This platform does not have a safe built-in server URL.")
+								 : QStringLiteral("Restore the built-in server URL."));
+	}
+	if (streamKey_) {
+		if (streamKey_->text().trimmed().isEmpty() && !authCredentialRef_.trimmed().isEmpty())
+			streamKey_->setPlaceholderText(QStringLiteral("Saved stream key exists - leave blank to keep"));
+		else if (preset.id == QStringLiteral("tiktok"))
+			streamKey_->setPlaceholderText(QStringLiteral("Paste TikTok stream key"));
+		else
+			streamKey_->setPlaceholderText(QStringLiteral("Enter stream key"));
+	}
 
 	if (!authStatus_)
 		return;
