@@ -1519,8 +1519,9 @@ bool VerticalLayoutEditor::exerciseSetupVisibilityToggleForTest()
 		setupToggle_->setChecked(false);
 	}
 	setSetupVisible(false, false);
+	refreshItems();
 	const bool hidden = !setupPanel_->isVisible() && !transformToggle_->isVisible() &&
-			    !obsLinksToggle_->isVisible() && preview_->isVisible();
+			    !obsLinksToggle_->isVisible() && preview_->isVisible() && items_->currentRow() < 0;
 
 	{
 		const QSignalBlocker blocker(setupToggle_);
@@ -2005,15 +2006,21 @@ void VerticalLayoutEditor::refreshItems()
 	} else {
 		selectSceneLinkForObsScene(sceneLinkScene_->currentText());
 	}
-	if (selected >= 0 && selected < layout.items.size())
+	if (!setupToggle_ || !setupToggle_->isChecked()) {
+		items_->setCurrentRow(-1);
+		items_->clearSelection();
+		preview_->setSelectedIndex(-1);
+		setLayerControlsEnabled(false);
+	} else if (selected >= 0 && selected < layout.items.size()) {
 		items_->setCurrentRow(selected);
-	else if (!layout.items.isEmpty())
+		selectItem(selected);
+	} else if (!layout.items.isEmpty()) {
 		items_->setCurrentRow(0);
-	else {
+		selectItem(0);
+	} else {
 		preview_->setSelectedIndex(-1);
 		setLayerControlsEnabled(false);
 	}
-	selectItem(items_->currentRow());
 }
 
 int VerticalLayoutEditor::selectedIndex() const

@@ -25,6 +25,7 @@ public:
 	void setNewTargetDefaults(const QString &targetId);
 	void fillTarget(OutputTarget &target) const;
 	OutputTarget acceptedTarget() const;
+	bool validateForSave(QString *errorMessage = nullptr) const;
 
 public slots:
 	void accept() override;

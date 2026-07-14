@@ -61,6 +61,13 @@ void testTargetEditDialogAddDefaults()
 		check(accepted.serverUrl == "rtmps://fa-live-cf.kick.com/app",
 		      "new target follows the selected Kick server preset");
 
+		platform->setCurrentIndex(platform->findData(QStringLiteral("tiktok")));
+		dialog.fillTarget(accepted);
+		check(accepted.platformId == "tiktok", "new target switches to TikTok");
+		check(accepted.serverUrl.isEmpty(), "TikTok manual RTMP does not invent an ingest server");
+		check(accepted.authMode == dsk::TargetAuthMode::ManualRtmp, "TikTok uses manual RTMP authentication");
+		check(accepted.encoderGroup == dsk::EncoderGroup::DskVertical, "TikTok defaults to DSK Vertical output");
+
 		platform->setCurrentIndex(platform->findData(QStringLiteral("custom")));
 		dialog.fillTarget(accepted);
 		check(accepted.serverUrl.isEmpty(), "custom target clears a previously followed platform preset");
@@ -344,6 +351,34 @@ void testTargetEditDialogAcceptCachesResult()
 	check(accepted.encoderGroup == input.encoderGroup, "accepted dialog preserves output mode after Save");
 	check(accepted.enabled == input.enabled, "accepted dialog preserves enabled after Save");
 	check(accepted.startWithAll == input.startWithAll, "accepted dialog preserves Start All flag after Save");
+}
+
+void testTargetEditDialogValidatesBeforeSave()
+{
+	dsk::PlatformPresetRegistry platforms;
+	dsk::TargetEditDialog dialog(platforms);
+	dsk::OutputTarget input;
+	input.id = "invalid-save-target";
+	input.name = "Invalid target";
+	input.platformId = "custom";
+	input.authMode = dsk::TargetAuthMode::ManualRtmp;
+	input.serverUrl = "not-an-rtmp-url";
+	input.streamKey = "key";
+	dialog.setTarget(input);
+
+	QString error;
+	check(!dialog.validateForSave(&error), "dialog rejects an invalid server before Save");
+	check(error == "Server URL must start with rtmp:// or rtmps://.", "dialog reports the invalid server reason");
+
+	input.serverUrl = "rtmps://ingest.example.test/live";
+	input.streamKey.clear();
+	dialog.setTarget(input);
+	check(!dialog.validateForSave(&error), "dialog rejects a missing stream key before Save");
+	check(error == "Stream key is empty.", "dialog reports the missing stream key reason");
+
+	input.streamKey = "key";
+	dialog.setTarget(input);
+	check(dialog.validateForSave(&error), "dialog accepts a complete manual RTMP target");
 }
 
 void testTargetEditDialogOAuthJsonExtraction()
@@ -632,6 +667,7 @@ int main(int argc, char **argv)
 	run("clear unused OAuth secrets", testTargetEditDialogClearsUnusedOAuthSecrets);
 	run("repeated dialog use", testTargetEditDialogRepeatedUse);
 	run("accept caches result", testTargetEditDialogAcceptCachesResult);
+	run("save validation", testTargetEditDialogValidatesBeforeSave);
 	run("OAuth JSON extraction", testTargetEditDialogOAuthJsonExtraction);
 	run("client change invalidates login", testTargetEditDialogClientChangeInvalidatesOldLogin);
 	run("saved stream key reference", testTargetEditDialogKeepsSavedStreamKeyReference);

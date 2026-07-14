@@ -14,11 +14,15 @@ class QTimer;
 
 namespace dsk {
 
+class SceneRouterDock;
+class StreamControlsDock;
+
 class MainDock : public QWidget {
 	Q_OBJECT
 
 public:
 	explicit MainDock(OutputManager *manager, QWidget *parent = nullptr);
+	void handleObsNativeStreamingStateChanged(bool active);
 
 private slots:
 	void refresh();
@@ -39,6 +43,8 @@ private:
 	OutputManager *manager_ = nullptr;
 	QTableWidget *table_ = nullptr;
 	QTabWidget *tabs_ = nullptr;
+	StreamControlsDock *streamControls_ = nullptr;
+	SceneRouterDock *sceneRouter_ = nullptr;
 	QLabel *status_ = nullptr;
 	QLabel *summary_ = nullptr;
 	QPlainTextEdit *activityLog_ = nullptr;

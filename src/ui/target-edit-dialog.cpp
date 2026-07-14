@@ -14,6 +14,7 @@
 #include <QJsonObject>
 #include <QLabel>
 #include <QLineEdit>
+#include <QMessageBox>
 #include <QPushButton>
 #include <QScreen>
 #include <QScrollArea>
@@ -629,9 +630,28 @@ OutputTarget TargetEditDialog::acceptedTarget() const
 	return copy;
 }
 
+bool TargetEditDialog::validateForSave(QString *errorMessage) const
+{
+	OutputTarget candidate;
+	fillTarget(candidate);
+	return validateOutputTargetConfig(candidate, errorMessage, false);
+}
+
 void TargetEditDialog::accept()
 {
 	logInfo("Target edit accept begin");
+	QString errorMessage;
+	if (!validateForSave(&errorMessage)) {
+		logWarning(QString("Target edit validation failed: %1").arg(errorMessage));
+		if (errorMessage.startsWith(QStringLiteral("Server URL")) && server_)
+			server_->setFocus();
+		else if (errorMessage == QStringLiteral("Stream key is empty.") && streamKey_)
+			streamKey_->setFocus();
+		else if (errorMessage == QStringLiteral("Fixed scene mode needs an OBS scene.") && sceneName_)
+			sceneName_->setFocus();
+		QMessageBox::warning(this, QStringLiteral("Invalid Stream Target"), errorMessage);
+		return;
+	}
 	QDialog::accept();
 	logInfo("Target edit accept end");
 }

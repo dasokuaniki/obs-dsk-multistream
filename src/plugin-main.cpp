@@ -3,8 +3,6 @@
 #include "core/comment-viewer-launcher.hpp"
 #include "core/output-manager.hpp"
 #include "ui/main-dock.hpp"
-#include "ui/scene-router-dock.hpp"
-#include "ui/stream-controls-dock.hpp"
 #include "ui/vertical-layout-editor.hpp"
 
 #include <obs-frontend-api.h>
@@ -39,9 +37,7 @@ namespace {
 
 std::unique_ptr<dsk::OutputManager> manager;
 std::unique_ptr<dsk::E2eAutoRunner> e2eRunner;
-QPointer<QWidget> mainDock;
-QPointer<dsk::StreamControlsDock> controlsDock;
-QPointer<dsk::SceneRouterDock> sceneRouterDock;
+QPointer<dsk::MainDock> mainDock;
 QObject *timerContext = nullptr;
 QPointer<QTimer> verticalEditorLoadTimer;
 QPointer<QObject> mainWindowCloseFilter;
@@ -77,7 +73,7 @@ public:
 		: QWidget(parent),
 		  manager_(outputManager),
 		  layout_(new QVBoxLayout(this)),
-		  placeholder_(new QLabel("DSK Vertical Layout is loading.", this))
+		  placeholder_(new QLabel("DSK Vertical is loading.", this))
 	{
 		layout_->setContentsMargins(0, 0, 0, 0);
 		placeholder_->setAlignment(Qt::AlignCenter);
@@ -201,36 +197,14 @@ void ensureMainDockRegistered()
 		manager = std::make_unique<dsk::OutputManager>();
 
 	if (!mainDock) {
-		dsk::logInfo("Creating DSK Multistream dock");
+		dsk::logInfo("Creating DSK Streaming dock");
 		mainDock = new dsk::MainDock(manager.get());
-		dsk::logInfo("Registering DSK Multistream dock");
-		const bool mainDockAdded = obs_frontend_add_dock_by_id("dsk_multistream", "DSK Multistream", mainDock);
-		dsk::logInfo(QString("Registered DSK Multistream dock: %1").arg(mainDockAdded ? "true" : "false"));
+		dsk::logInfo("Registering DSK Streaming dock");
+		const bool mainDockAdded = obs_frontend_add_dock_by_id("dsk_multistream", "DSK Streaming", mainDock);
+		dsk::logInfo(QString("Registered DSK Streaming dock: %1").arg(mainDockAdded ? "true" : "false"));
 		if (!mainDockAdded) {
 			delete mainDock.data();
 			mainDock = nullptr;
-		}
-	}
-}
-
-void ensureControlsDockRegistered()
-{
-	if (!shouldCreateDocks())
-		return;
-
-	if (!manager)
-		manager = std::make_unique<dsk::OutputManager>();
-
-	if (!controlsDock) {
-		dsk::logInfo("Creating DSK Stream Controls dock");
-		controlsDock = new dsk::StreamControlsDock(manager.get());
-		dsk::logInfo("Registering DSK Stream Controls dock");
-		const bool controlsDockAdded =
-			obs_frontend_add_dock_by_id("dsk_stream_controls", "DSK Stream Controls", controlsDock);
-		dsk::logInfo(QString("Registered DSK Stream Controls dock: %1").arg(controlsDockAdded ? "true" : "false"));
-		if (!controlsDockAdded) {
-			delete controlsDock.data();
-			controlsDock = nullptr;
 		}
 	}
 }
@@ -244,12 +218,12 @@ void ensureVerticalDockRegistered()
 		manager = std::make_unique<dsk::OutputManager>();
 
 	if (!verticalDock) {
-		dsk::logInfo("Creating DSK Vertical Layout dock host");
+		dsk::logInfo("Creating DSK Vertical dock host");
 		verticalDock = new VerticalLayoutDockHost(manager.get());
-		dsk::logInfo("Registering DSK Vertical Layout dock");
+		dsk::logInfo("Registering DSK Vertical dock");
 		const bool verticalDockAdded =
-			obs_frontend_add_dock_by_id("dsk_vertical_layout", "DSK Vertical Layout", verticalDock);
-		dsk::logInfo(QString("Registered DSK Vertical Layout dock: %1").arg(verticalDockAdded ? "true" : "false"));
+			obs_frontend_add_dock_by_id("dsk_vertical_layout", "DSK Vertical", verticalDock);
+		dsk::logInfo(QString("Registered DSK Vertical dock: %1").arg(verticalDockAdded ? "true" : "false"));
 		if (!verticalDockAdded) {
 			delete verticalDock.data();
 			verticalDock = nullptr;
@@ -271,28 +245,6 @@ void ensureVerticalDockEditorLoaded()
 	dsk::logInfo("Loading DSK Vertical Layout editor");
 	verticalDock->loadEditor();
 	dsk::logInfo(QStringLiteral("Loaded DSK Vertical Layout editor in %1 ms").arg(loadTimer.elapsed()));
-}
-
-void ensureSceneRouterDockRegistered()
-{
-	if (!shouldCreateDocks())
-		return;
-
-	if (!manager)
-		manager = std::make_unique<dsk::OutputManager>();
-
-	if (!sceneRouterDock) {
-		dsk::logInfo("Creating DSK Output Scenes dock");
-		sceneRouterDock = new dsk::SceneRouterDock(manager.get());
-		dsk::logInfo("Registering DSK Output Scenes dock");
-		const bool sceneRouterDockAdded =
-			obs_frontend_add_dock_by_id("dsk_scene_router", "DSK Output Scenes", sceneRouterDock);
-		dsk::logInfo(QString("Registered DSK Output Scenes dock: %1").arg(sceneRouterDockAdded ? "true" : "false"));
-		if (!sceneRouterDockAdded) {
-			delete sceneRouterDock.data();
-			sceneRouterDock = nullptr;
-		}
-	}
 }
 
 void showMainDock(void *);
@@ -343,26 +295,12 @@ void showMainDock(void *)
 	showDockForWidget(mainDock);
 }
 
-void showControlsDock(void *)
-{
-	ensureControlsDockRegistered();
-
-	showDockForWidget(controlsDock);
-}
-
 void showVerticalDock(void *)
 {
 	ensureVerticalDockRegistered();
 	ensureVerticalDockEditorLoaded();
 
 	showDockForWidget(verticalDock);
-}
-
-void showSceneRouterDock(void *)
-{
-	ensureSceneRouterDockRegistered();
-
-	showDockForWidget(sceneRouterDock);
 }
 
 void openCommentViewer(void *)
@@ -454,8 +392,6 @@ void registerDskDocksDelayed()
 
 		dsk::logInfo("Registering DSK dock shells for OBS restore/menu");
 		ensureMainDockRegistered();
-		ensureControlsDockRegistered();
-		ensureSceneRouterDockRegistered();
 		ensureVerticalDockRegistered();
 		dsk::logInfo("DSK dock shells registered for OBS restore/menu");
 		// Give OBS one event-cycle window to restore dock visibility. The host's
@@ -640,14 +576,6 @@ void removeFrontendUi()
 		obs_frontend_remove_dock("dsk_vertical_layout");
 		verticalDock = nullptr;
 	}
-	if (controlsDock) {
-		obs_frontend_remove_dock("dsk_stream_controls");
-		controlsDock = nullptr;
-	}
-	if (sceneRouterDock) {
-		obs_frontend_remove_dock("dsk_scene_router");
-		sceneRouterDock = nullptr;
-	}
 	if (mainDock) {
 		obs_frontend_remove_dock("dsk_multistream");
 		mainDock = nullptr;
@@ -693,10 +621,8 @@ void initializeFrontendUi()
 	startCommentViewerServiceDelayed();
 	registerDskDocksDelayed();
 
-	obs_frontend_add_tools_menu_item("DSK Multistream", showMainDock, nullptr);
-	obs_frontend_add_tools_menu_item("DSK Stream Controls", showControlsDock, nullptr);
-	obs_frontend_add_tools_menu_item("DSK Output Scenes", showSceneRouterDock, nullptr);
-	obs_frontend_add_tools_menu_item("DSK Vertical Layout", showVerticalDock, nullptr);
+	obs_frontend_add_tools_menu_item("DSK Streaming", showMainDock, nullptr);
+	obs_frontend_add_tools_menu_item("DSK Vertical", showVerticalDock, nullptr);
 	obs_frontend_add_tools_menu_item("Open DSK Comment Viewer", openCommentViewer, nullptr);
 
 	dsk::logInfo("Frontend menu registered; DSK docks will be created on demand.");
@@ -722,13 +648,13 @@ void frontendEvent(enum obs_frontend_event event, void *)
 	} else if (event == OBS_FRONTEND_EVENT_STREAMING_STARTED) {
 		if (manager)
 			manager->handleObsStreamingStarted();
-		if (controlsDock)
-			controlsDock->handleObsNativeStreamingStateChanged(true);
+		if (mainDock)
+			mainDock->handleObsNativeStreamingStateChanged(true);
 	} else if (event == OBS_FRONTEND_EVENT_STREAMING_STOPPED) {
 		if (manager)
 			manager->handleObsStreamingStopped();
-		if (controlsDock)
-			controlsDock->handleObsNativeStreamingStateChanged(false);
+		if (mainDock)
+			mainDock->handleObsNativeStreamingStateChanged(false);
 	} else if (event == OBS_FRONTEND_EVENT_SCENE_CHANGED) {
 		if (manager)
 			manager->handleObsSceneChanged();

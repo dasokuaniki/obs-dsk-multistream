@@ -33,12 +33,12 @@
     },
     {
       "id": "tiktok",
-      "name": "TikTok",
-      "defaultServer": "rtmp://push.tiktokcdn.com/live",
+      "name": "TikTok (Manual RTMP)",
+      "defaultServer": "",
       "recommendedOutput": "dsk-vertical",
       "horizontalBitrateKbps": 6000,
       "verticalBitrateKbps": 4500,
-      "note": "TikTok is usually best paired with the DSK Vertical output.",
+      "note": "Get the RTMP server URL and stream key from TikTok, then paste both here. TikTok is usually best paired with the DSK Vertical output.",
       "verticalCommon": true
     },
     {

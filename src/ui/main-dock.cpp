@@ -4,6 +4,8 @@
 #include "core/diagnostics.hpp"
 #include "core/output-target.hpp"
 #include "core/youtube-api-warning.hpp"
+#include "ui/scene-router-dock.hpp"
+#include "ui/stream-controls-dock.hpp"
 #include "ui/target-edit-dialog.hpp"
 
 #include <QAbstractItemView>
@@ -305,12 +307,21 @@ MainDock::MainDock(OutputManager *manager, QWidget *parent)
 
 	activityLog_ = new QPlainTextEdit(this);
 	activityLog_->setReadOnly(true);
+	activityLog_->setObjectName(QStringLiteral("dskStreamingActivity"));
 	activityLog_->setMaximumBlockCount(80);
 	activityLog_->setPlaceholderText("Activity log");
 	activityLog_->appendPlainText("Ready");
+	streamControls_ = new StreamControlsDock(manager_, this);
+	streamControls_->setObjectName(QStringLiteral("dskStreamingControls"));
+	sceneRouter_ = new SceneRouterDock(manager_, this);
+	sceneRouter_->setObjectName(QStringLiteral("dskStreamingScenes"));
+	table_->setObjectName(QStringLiteral("dskStreamingRoutes"));
 
 	tabs_ = new QTabWidget(this);
+	tabs_->setObjectName(QStringLiteral("dskStreamingTabs"));
 	tabs_->addTab(table_, "Routes");
+	tabs_->addTab(streamControls_, "Controls");
+	tabs_->addTab(sceneRouter_, "Scenes");
 	tabs_->addTab(activityLog_, "Activity");
 
 	statsTimer_ = new QTimer(this);
@@ -332,6 +343,12 @@ MainDock::MainDock(OutputManager *manager, QWidget *parent)
 		editArmed_ = true;
 		updateActionStates();
 	});
+}
+
+void MainDock::handleObsNativeStreamingStateChanged(bool active)
+{
+	if (streamControls_)
+		streamControls_->handleObsNativeStreamingStateChanged(active);
 }
 
 void MainDock::refresh()

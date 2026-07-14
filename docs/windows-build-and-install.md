@@ -109,10 +109,9 @@ No Qt TLS plugin DLLs are bundled. OAuth and YouTube/Kick/Twitch API requests us
 
 Restart OBS. The plugin registers these docks:
 
-- `DSK Multistream`
-- `DSK Stream Controls`
-- `DSK Output Scenes`
-- `DSK Vertical Layout`
+- `DSK Streaming` with `Routes`, `Controls`, `Scenes`, and `Activity` tabs
+- `DSK Vertical` with an always-visible preview and optional Setup controls
+- `DSK Comments`
 - `DSK Comments` (browser dock backed by DSK Comment Viewer)
 
 ## Automated Checks
@@ -169,7 +168,7 @@ On the current machine, the Windows build and install-layout checks pass against
 - Package validation: passed for the previously installed build, 5 platform presets, and matching locale keys. Re-run it after each installation; signed PE files are compared after normalizing the signature area.
 - Fallback build with `-DisableObsCanvasApi`: passed.
 
-Final visual verification still requires opening OBS on Windows and checking the `DSK Multistream` and `DSK Vertical Layout` docks.
+Final visual verification still requires opening OBS on Windows and checking the `DSK Streaming` and `DSK Vertical` docks.
 
 ## Application Control and release signing
 
