@@ -9,22 +9,23 @@
 #include "ui/target-edit-dialog.hpp"
 
 #include <QAbstractItemView>
+#include <QActionGroup>
 #include <QFrame>
 #include <QHeaderView>
 #include <QHBoxLayout>
 #include <QIcon>
 #include <QLabel>
+#include <QMenu>
 #include <QMessageBox>
 #include <QPainter>
-#include <QPlainTextEdit>
 #include <QPushButton>
 #include <QSignalBlocker>
+#include <QStackedWidget>
 #include <QStringList>
 #include <QStyle>
-#include <QTabWidget>
 #include <QTableWidget>
 #include <QTimer>
-#include <QTime>
+#include <QToolButton>
 #include <QVBoxLayout>
 
 #include <utility>
@@ -238,16 +239,26 @@ MainDock::MainDock(OutputManager *manager, QWidget *parent)
 
 	auto *topbar = new QHBoxLayout();
 	topbar->setContentsMargins(0, 0, 0, 0);
-	topbar->setSpacing(6);
+	topbar->setSpacing(4);
 
-	summary_ = new QLabel(this);
-	summary_->setText("No targets");
-	auto summaryFont = summary_->font();
-	summaryFont.setBold(true);
-	summary_->setFont(summaryFont);
+	pageTitle_ = new QLabel(QStringLiteral("Controls"), this);
+	pageTitle_->setObjectName(QStringLiteral("dskStreamingPageTitle"));
+	auto pageTitleFont = pageTitle_->font();
+	pageTitleFont.setBold(true);
+	pageTitle_->setFont(pageTitleFont);
 
-	topbar->addWidget(summary_);
+	menuButton_ = new QToolButton(this);
+	menuButton_->setObjectName(QStringLiteral("dskStreamingMenu"));
+	menuButton_->setText(QString::fromUtf8("\xE2\x9A\x99"));
+	menuButton_->setToolTip(QStringLiteral("Choose DSK Streaming page"));
+	menuButton_->setAccessibleName(QStringLiteral("DSK Streaming menu"));
+	menuButton_->setPopupMode(QToolButton::InstantPopup);
+	menuButton_->setAutoRaise(true);
+	menuButton_->setFixedSize(28, 28);
+
+	topbar->addWidget(pageTitle_);
 	topbar->addStretch(1);
+	topbar->addWidget(menuButton_);
 
 	table_ = new QTableWidget(this);
 	table_->setColumnCount(5);
@@ -277,66 +288,64 @@ MainDock::MainDock(OutputManager *manager, QWidget *parent)
 	bottombar->setSpacing(4);
 
 	auto *add = makeDockButton(this, "Add");
-	checkButton_ = makeDockButton(this, "Check");
+	auto *check = makeDockButton(this, "Check");
 	editButton_ = makeDockButton(this, "Edit");
 	removeButton_ = makeDockButton(this, "Remove");
-	activityToggle_ = makeDockButton(this, "Activity");
 	add->setToolTip("Add a stream target.");
-	checkButton_->setToolTip("Check which routes are ready before starting OBS streaming.");
+	check->setToolTip("Check which targets are ready before starting OBS streaming.");
 	editButton_->setToolTip("Edit the selected target.");
 	removeButton_->setToolTip("Remove the selected target.");
-	activityToggle_->setToolTip("Open recent DSK Multistream activity.");
 	connect(add, &QPushButton::clicked, this, &MainDock::addTarget);
-	connect(checkButton_, &QPushButton::clicked, this, &MainDock::checkRoutes);
+	connect(check, &QPushButton::clicked, this, &MainDock::checkRoutes);
 	connect(editButton_, &QPushButton::clicked, this, &MainDock::editSelectedTarget);
 	connect(removeButton_, &QPushButton::clicked, this, &MainDock::removeSelectedTarget);
-	connect(activityToggle_, &QPushButton::clicked, this, &MainDock::toggleActivityLog);
-
-	status_ = new QLabel(this);
-	status_->setText("Ready");
-	status_->setMinimumWidth(120);
-	status_->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
 
 	bottombar->addWidget(add);
-	bottombar->addWidget(checkButton_);
+	bottombar->addWidget(check);
 	bottombar->addWidget(editButton_);
 	bottombar->addWidget(removeButton_);
-	bottombar->addWidget(activityToggle_);
 	bottombar->addStretch(1);
-	bottombar->addWidget(status_);
 
-	activityLog_ = new QPlainTextEdit(this);
-	activityLog_->setReadOnly(true);
-	activityLog_->setObjectName(QStringLiteral("dskStreamingActivity"));
-	activityLog_->setMaximumBlockCount(80);
-	activityLog_->setPlaceholderText("Activity log");
-	activityLog_->appendPlainText("Ready");
 	streamControls_ = new StreamControlsDock(manager_, this);
 	streamControls_->setObjectName(QStringLiteral("dskStreamingControls"));
 	sceneRouter_ = new SceneRouterDock(manager_, this);
 	sceneRouter_->setObjectName(QStringLiteral("dskStreamingScenes"));
 	table_->setObjectName(QStringLiteral("dskStreamingRoutes"));
 
-	tabs_ = new QTabWidget(this);
-	tabs_->setObjectName(QStringLiteral("dskStreamingTabs"));
-	tabs_->addTab(table_, "Routes");
-	tabs_->addTab(streamControls_, "Controls");
-	tabs_->addTab(sceneRouter_, "Scenes");
-	tabs_->addTab(activityLog_, "Activity");
+	auto *targetsPage = new QWidget(this);
+	targetsPage->setObjectName(QStringLiteral("dskStreamingTargetsPage"));
+	auto *targetsLayout = new QVBoxLayout(targetsPage);
+	targetsLayout->setContentsMargins(0, 0, 0, 0);
+	targetsLayout->setSpacing(4);
+	targetsLayout->addWidget(table_, 1);
+	targetsLayout->addLayout(bottombar);
 
-	statsTimer_ = new QTimer(this);
-	statsTimer_->setInterval(1000);
-	connect(statsTimer_, &QTimer::timeout, this, &MainDock::updateStats);
-	statsTimer_->start();
+	pages_ = new QStackedWidget(this);
+	pages_->setObjectName(QStringLiteral("dskStreamingPages"));
+	pages_->addWidget(streamControls_);
+	pages_->addWidget(targetsPage);
+	pages_->addWidget(sceneRouter_);
+
+	auto *pageMenu = new QMenu(menuButton_);
+	auto *pageActions = new QActionGroup(pageMenu);
+	pageActions->setExclusive(true);
+	auto addPageAction = [this, pageMenu, pageActions](const QString &label, QWidget *page, bool checked = false) {
+		auto *action = pageMenu->addAction(label);
+		action->setCheckable(true);
+		action->setChecked(checked);
+		pageActions->addAction(action);
+		connect(action, &QAction::triggered, this, [this, page, label]() { showPage(page, label); });
+	};
+	addPageAction(QStringLiteral("Controls"), streamControls_, true);
+	addPageAction(QStringLiteral("Targets"), targetsPage);
+	addPageAction(QStringLiteral("Scene Routing"), sceneRouter_);
+	menuButton_->setMenu(pageMenu);
 
 	layout->addLayout(topbar);
-	layout->addWidget(tabs_);
-	layout->addLayout(bottombar);
+	layout->addWidget(pages_, 1);
 
 	connect(manager_, &OutputManager::targetsChanged, this, &MainDock::refresh, Qt::QueuedConnection);
 	connect(manager_, &OutputManager::targetRuntimeChanged, this, &MainDock::refresh, Qt::QueuedConnection);
-	connect(manager_, &OutputManager::statusMessage, status_, &QLabel::setText);
-	connect(manager_, &OutputManager::statusMessage, this, &MainDock::appendActivity);
 
 	QTimer::singleShot(0, this, [this]() { refresh(); });
 	QTimer::singleShot(1000, this, [this]() {
@@ -412,54 +421,16 @@ void MainDock::refresh()
 		table_->setCurrentCell(selectedRow, NameColumn);
 	table_->setUpdatesEnabled(true);
 	refreshing_ = false;
-	updateSummary();
 	updateActionStates();
 }
 
-void MainDock::updateStats()
+void MainDock::showPage(QWidget *page, const QString &title)
 {
-	updateSummary();
-}
-
-void MainDock::updateSummary()
-{
-	if (!manager_ || !summary_)
+	if (!pages_ || !page)
 		return;
-
-	int live = 0;
-	int enabled = 0;
-	int ready = 0;
-	int errors = 0;
-	const int total = manager_->targets().size();
-	for (const auto &target : manager_->targets()) {
-		const TargetRuntimeStatus runtime = manager_->runtimeStatusForTarget(target.id);
-		if (target.enabled)
-			++enabled;
-		if (target.state == TargetState::Live || runtimeTransportIsRunning(runtime))
-			++live;
-		else if (target.state == TargetState::Error || runtime.transport == TransportState::Failed ||
-			 (!target.lastError.isEmpty() && !targetHasYouTubeApiWarning(target)))
-			++errors;
-		else if (target.enabled) {
-			QString error;
-			if (validateOutputTargetConfig(target, &error))
-				++ready;
-			else
-				++errors;
-		}
-	}
-
-	if (total == 0) {
-		summary_->setText("No stream targets");
-		return;
-	}
-
-	summary_->setText(QString("%1 live  /  %2 ready  /  %3 issues  /  %4 auto  /  %5 targets")
-				  .arg(live)
-				  .arg(ready)
-				  .arg(errors)
-				  .arg(enabled)
-				  .arg(total));
+	pages_->setCurrentWidget(page);
+	if (pageTitle_)
+		pageTitle_->setText(title);
 }
 
 void MainDock::updateActionStates()
@@ -495,27 +466,6 @@ void MainDock::updateActionStates()
 		editButton_->setEnabled(canEdit);
 	if (removeButton_)
 		removeButton_->setEnabled(hasSelection);
-}
-
-void MainDock::appendActivity(const QString &message)
-{
-	if (!activityLog_ || message.trimmed().isEmpty())
-		return;
-
-	activityLog_->appendPlainText(QString("%1  %2").arg(QTime::currentTime().toString("HH:mm:ss"), message));
-}
-
-void MainDock::toggleActivityLog()
-{
-	if (!activityLog_ || !activityToggle_ || !tabs_)
-		return;
-
-	const int activityIndex = tabs_->indexOf(activityLog_);
-	if (tabs_->currentIndex() == activityIndex) {
-		tabs_->setCurrentIndex(0);
-	} else if (activityIndex >= 0) {
-		tabs_->setCurrentIndex(activityIndex);
-	}
 }
 
 void MainDock::addTarget()
@@ -554,8 +504,9 @@ void MainDock::editSelectedTarget()
 		return;
 	if (isEditingBlockedByState(*selected, manager_->runtimeStatusForTarget(selected->id))) {
 		logInfo(QString("Edit target blocked while state=%1 id=%2").arg(targetStateToString(selected->state), id));
-		if (status_)
-			status_->setText(QStringLiteral("Stop the target before editing."));
+		QMessageBox::information(this,
+					 QStringLiteral("Edit Target"),
+					 QStringLiteral("Stop the target before editing it."));
 		return;
 	}
 
@@ -647,16 +598,8 @@ void MainDock::checkRoutes()
 	}
 
 	const QString summary = QString("%1 ready / %2 live / %3 issues / %4 off").arg(ready).arg(live).arg(issues).arg(off);
-	appendActivity(QString("Route check: %1").arg(summary));
-	for (const QString &line : lines)
-		appendActivity(QString("  %1").arg(line));
-	if (status_)
-		status_->setText(QString("Check: %1").arg(summary));
-	if (tabs_ && activityLog_) {
-		const int activityIndex = tabs_->indexOf(activityLog_);
-		if (activityIndex >= 0)
-			tabs_->setCurrentIndex(activityIndex);
-	}
+	const QString details = lines.isEmpty() ? summary : QString("%1\n\n%2").arg(summary, lines.join('\n'));
+	QMessageBox::information(this, QStringLiteral("Target Check"), details);
 }
 
 void MainDock::handleRouteCheckChanged(QTableWidgetItem *item)
