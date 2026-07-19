@@ -1,0 +1,8 @@
+#pragma once
+
+namespace dsk::generated {
+
+inline constexpr char BundledYouTubeClientId[] = "@DSK_BUNDLED_YOUTUBE_CLIENT_ID@";
+inline constexpr char BundledYouTubeClientSecret[] = "@DSK_BUNDLED_YOUTUBE_CLIENT_SECRET@";
+
+} // namespace dsk::generated

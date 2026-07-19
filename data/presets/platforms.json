@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "platforms": [
+    {
+      "id": "twitch",
+      "name": "Twitch",
+      "defaultServer": "rtmp://live.twitch.tv/app",
+      "helpUrl": "https://help.twitch.tv/",
+      "recommendedOutput": "dsk-horizontal",
+      "horizontalBitrateKbps": 6000,
+      "verticalBitrateKbps": 4500,
+      "note": "Use DSK Horizontal unless you are intentionally producing a mobile-only layout.",
+      "verticalCommon": false
+    },
+    {
+      "id": "youtube",
+      "name": "YouTube",
+      "defaultServer": "rtmp://a.rtmp.youtube.com/live2",
+      "helpUrl": "https://support.google.com/youtube/",
+      "recommendedOutput": "dsk-horizontal",
+      "horizontalBitrateKbps": 9000,
+      "verticalBitrateKbps": 6000,
+      "note": "YouTube works well for both horizontal and vertical outputs.",
+      "verticalCommon": false
+    },
+    {
+      "id": "kick",
+      "name": "Kick",
+      "defaultServer": "rtmps://fa-live-cf.kick.com/app",
+      "helpUrl": "https://help.kick.com/",
+      "recommendedOutput": "dsk-horizontal",
+      "horizontalBitrateKbps": 6000,
+      "verticalBitrateKbps": 4500,
+      "note": "Kick ingest commonly uses RTMPS.",
+      "verticalCommon": false
+    },
+    {
+      "id": "tiktok",
+      "name": "TikTok (Manual RTMP)",
+      "defaultServer": "",
+      "helpUrl": "https://www.tiktok.com/live",
+      "recommendedOutput": "dsk-vertical",
+      "horizontalBitrateKbps": 6000,
+      "verticalBitrateKbps": 4500,
+      "note": "",
+      "verticalCommon": true
+    },
+    {
+      "id": "custom",
+      "name": "Custom RTMP",
+      "defaultServer": "",
+      "helpUrl": "",
+      "recommendedOutput": "dsk-horizontal",
+      "horizontalBitrateKbps": 6000,
+      "verticalBitrateKbps": 4500,
+      "note": "Paste the RTMP server URL from the platform.",
+      "verticalCommon": false
+    }
+  ]
+}

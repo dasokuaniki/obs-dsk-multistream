@@ -1,0 +1,41 @@
+{
+  "name": "obs-dsk-multistream",
+  "version": "0.1.0",
+  "author": "DSK",
+  "website": "https://github.com/dasokuaniki/obs-dsk-multistream",
+  "email": "",
+  "uuids": {
+    "windowsApp": "a06689c3-63fb-4c9d-a6f4-a59ee4c53f42"
+  },
+  "dependencies": {
+    "obs-studio": {
+      "version": "32.1.2",
+      "baseUrl": "https://github.com/obsproject/obs-studio/archive/refs/tags",
+      "label": "OBS Studio sources",
+      "hashes": {
+        "windows-x64": "21cba22292985cf0da967d5c618999b40eaa32b73d2ab8b06154b5ea1b3d3798"
+      }
+    },
+    "prebuilt": {
+      "version": "2025-08-23",
+      "baseUrl": "https://github.com/obsproject/obs-deps/releases/download",
+      "label": "Pre-built OBS dependencies",
+      "hashes": {
+        "windows-x64": "8de229cff6f1981508c0eb646b35e644633a5855787b9f5d3b90ae2aeb87ffc1"
+      }
+    },
+    "qt6": {
+      "version": "2025-08-23",
+      "baseUrl": "https://github.com/obsproject/obs-deps/releases/download",
+      "label": "Pre-built Qt 6 dependencies",
+      "hashes": {
+        "windows-x64": "c62e82483bc7c0bf199e8ac3220c66a85a6e8a0cd69a05b6d44f873b830e415f"
+      }
+    }
+  },
+  "platformConfig": {
+    "windows": {
+      "bundle": true
+    }
+  }
+}

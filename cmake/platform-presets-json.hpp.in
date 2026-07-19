@@ -1,0 +1,9 @@
+#pragma once
+
+namespace dsk {
+
+inline constexpr char kPlatformPresetsJson[] = R"DSKJSON(
+@DSK_PLATFORM_PRESETS_JSON@
+)DSKJSON";
+
+} // namespace dsk
