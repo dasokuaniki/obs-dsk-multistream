@@ -173,9 +173,9 @@ jobs:
           $installer = Join-Path release '${{ steps.metadata.outputs.installer }}'
           $versionInfo = (Get-Item -LiteralPath $installer).VersionInfo
           $expected = '${{ steps.metadata.outputs.version }}.0'
-          if ($versionInfo.ProductName -ne 'DSK Multistream' -or
-              $versionInfo.ProductVersion -ne $expected -or
-              $versionInfo.FileVersion -ne $expected) {
+          if ($versionInfo.ProductName.Trim() -ne 'DSK Multistream' -or
+              $versionInfo.ProductVersion.Trim() -ne $expected -or
+              $versionInfo.FileVersion.Trim() -ne $expected) {
             throw "Unexpected installer version metadata: $($versionInfo | Format-List | Out-String)"
           }
           $input = Join-Path $env:GITHUB_WORKSPACE 'build/signing-input/installer'
