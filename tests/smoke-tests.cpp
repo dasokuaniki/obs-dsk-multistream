@@ -301,4 +301,982 @@ void testLayoutsAndProfiles()
 	sanitizedScene.layout.items = customLayout.items;
 	sanitizedScene.layout.items.push_back({"internal-program", "DSK Vertical Program", QRectF(0, 0, 1080, 1920)});
 	sanitizedScene.layout.items.push_back({"internal-preview", "DSK Vertical Preview", QRectF(0, 0, 1080, 1920)});
-	layouts.initializeVertic×tòÚ$z{-®éÜj×–öâ"“° –6öç7B§6öä'&’ÆFf÷&×2Ò&ö÷BçfÇVR‚'ÆFf÷&×2"’çFô'&’‚“° –6†V6²‡ÆFf÷&×2ç6—¦R‚’ÓÒRÂ'ÆFf÷&Ò&W6WB§6öâ†2f—fRÆFf÷&×2"“° –G6³£¥ÆFf÷&Õ&W6WE&Vv—7G'’&Vv—7G'“° –6†V6²‡&Vv—7G'’ç&W6WG2‚’ç6—¦R‚’ÓÒÆFf÷&×2ç6—¦R‚’Â''VçF–ÖR&Vv—7G'’æB&W6WB§6öâ†fRF†R6ÖR6—¦R"“°  •6WCÅ7G&–æsâ–G3° –f÷"†6öç7B§6öåfÇVRgfÇVR¢ÆFf÷&×2’° –6†V6²‡fÇVRæ—4ö&¦V7B‚’Â'ÆFf÷&Ò—FVÒ—2ö&¦V7B"“° –6öç7B§6öäö&¦V7Bö&¦V7BÒfÇVRçFôö&¦V7B‚“° –6öç7B7G&–ær–BÒö&¦V7BçfÇVR‚&–B"’çFõ7G&–ær‚“° –6†V6²‚–Bæ—4V×G’‚’Â'ÆFf÷&Ò–BW†—7G2"“° –6†V6²‚–G2æ6öçF–ç2†–B’Â'ÆFf÷&Ò–BVæ—VR"“° ––G2æ–ç6W'B†–B“° –6†V6²‚ö&¦V7BçfÇVR‚&æÖR"’çFõ7G&–ær‚’æ—4V×G’‚’Â'ÆFf÷&ÒæÖRW†—7G2"“° –6†V6²†ö&¦V7Bæ6öçF–ç2‚&FVfVÇE6W'fW""’Â'ÆFf÷&ÒFVfVÇE6W'fW"W†—7G2"“° –6†V6²†ö&¦V7Bæ6öçF–ç2‚&†VÇW&Â"’Â'ÆFf÷&Ò†VÇW&ÂW†—7G2"“° –6†V6²†ö&¦V7Bæ6öçF–ç2‚'&V6öÖÖVæFVD÷WGWB"’Â'ÆFf÷&Ò&V6öÖÖVæFVD÷WGWBW†—7G2"“° –6†V6²†ö&¦V7Bæ6öçF–ç2‚&†÷&—¦öçFÄ&—G&FT¶'2"’Â'ÆFf÷&Ò†÷&—¦öçFÄ&—G&FT¶'2W†—7G2"“° –6†V6²†ö&¦V7Bæ6öçF–ç2‚'fW'F–6Ä&—G&FT¶'2"’Â'ÆFf÷&ÒfW'F–6Ä&—G&FT¶'2W†—7G2"“° –6†V6²†ö&¦V7Bæ6öçF–ç2‚&æ÷FR"’Â'ÆFf÷&Òæ÷FRW†—7G2"“° –6†V6²†ö&¦V7Bæ6öçF–ç2‚'fW'F–6Ä6öÖÖöâ"’Â'ÆFf÷&ÒfW'F–6Ä6öÖÖöâW†—7G2"“°  –6öç7BG6³£¥ÆFf÷&Õ&W6WB&W6WBÒ&Vv—7G'’ç&W6WD'”–B†–B“° –6†V6²‡&W6WBæ–BÓÒ–BÂ&–çF&ÆR…7G&–ær‚''VçF–ÖR&W6WB–BÖF6†W2§6öâf÷"S"’æ&r†–B’’“° –6†V6²‡&W6WBæF—7Æ”æÖRÓÒö&¦V7BçfÇVR‚&æÖR"’çFõ7G&–ær‚’À ’&–çF&ÆR…7G&–ær‚''VçF–ÖR&W6WBæÖRÖF6†W2§6öâf÷"S"’æ&r†–B’’“° –6†V6²‡&W6WBæFVfVÇE6W'fW"ÓÒö&¦V7BçfÇVR‚&FVfVÇE6W'fW""’çFõ7G&–ær‚’À ’&–çF&ÆR…7G&–ær‚''VçF–ÖR&W6WB6W'fW"ÖF6†W2§6öâf÷"S"’æ&r†–B’’“° –6†V6²‡&W6WBæ†VÇW&ÂÓÒö&¦V7BçfÇVR‚&†VÇW&Â"’çFõ7G&–ær‚’À ’&–çF&ÆR…7G&–ær‚''VçF–ÖR&W6WB†VÇU$ÂÖF6†W2§6öâf÷"S"’æ&r†–B’’“° –6†V6²‡&W6WBç&V6öÖÖVæFVD÷WGWBÓÒö&¦V7BçfÇVR‚'&V6öÖÖVæFVD÷WGWB"’çFõ7G&–ær‚’À ’&–çF&ÆR…7G&–ær‚''VçF–ÖR&W6WB÷WGWBÖF6†W2§6öâf÷"S"’æ&r†–B’’“° –6†V6²‡&W6WBæ†÷&—¦öçFÄ&—G&FT¶'2ÓÒö&¦V7BçfÇVR‚&†÷&—¦öçFÄ&—G&FT¶'2"’çFô–çB‚’À ’&–çF&ÆR…7G&–ær‚''VçF–ÖR†÷&—¦öçFÂ&—G&FRÖF6†W2§6öâf÷"S"’æ&r†–B’’“° –6†V6²‡&W6WBçfW'F–6Ä&—G&FT¶'2ÓÒö&¦V7BçfÇVR‚'fW'F–6Ä&—G&FT¶'2"’çFô–çB‚’À ’&–çF&ÆR…7G&–ær‚''VçF–ÖRfW'F–6Â&—G&FRÖF6†W2§6öâf÷"S"’æ&r†–B’’“° –6†V6²‡&W6WBææ÷FRÓÒö&¦V7BçfÇVR‚&æ÷FR"’çFõ7G&–ær‚’À ’&–çF&ÆR…7G&–ær‚''VçF–ÖR&W6WBæ÷FRÖF6†W2§6öâf÷"S"’æ&r†–B’’“° –6†V6²‡&W6WBçfW'F–6Ä6öÖÖöâÓÒö&¦V7BçfÇVR‚'fW'F–6Ä6öÖÖöâ"’çFô&ööÂ‚’À ’&–çF&ÆR…7G&–ær‚''VçF–ÖRfW'F–6ÂfÆrÖF6†W2§6öâf÷"S"’æ&r†–B’’“° —Ğ  –f÷"†6öç7B7G&–ærg&WV—&VB¢²'Gv—F6‚"Â'–÷WGV&R"Â&¶–6²"Â'F–·Fö²"Â&7W7FöÒ'Ò –6†V6²†–G2æ6öçF–ç2‡&WV—&VB’Â&–çF&ÆR…7G&–ær‚'&WV—&VBÆFf÷&ÒSW†—7G2"’æ&r‡&WV—&VB’’“°  –6öç7B6WCÅ7G&–æsâVâÒÆö6ÆT¶W—2‚&FFöÆö6ÆRöVâÕU2æ–æ’"“° –6öç7B6WCÅ7G&–æsâ¦ÒÆö6ÆT¶W—2‚&FFöÆö6ÆRö¦Ô¥æ–æ’"“° –6†V6²‚Vâæ—4V×G’‚’Â&VâÕU2Æö6ÆR†2¶W—2"“° –6†V6²†VâÓÒ¦Â&Æö6ÆR¶W’6WG2ÖF6‚"“°§Ğ ¥§6öäö&¦V7B–÷WGV&UFW7D'&öF67B†6öç7B7G&–ærf–BÂ6öç7B7G&–ærg7G&VÔ–BÀ ’6öç7B7G&–ærfÆ–fT7–6ÆU7FGW2Ò7G&–ætÆ—FW&Â‚'&VG’"’§° —&WGW&â§6öäö&¦V7G° —µ7G&–ætÆ—FW&Â‚&–B"’Â–GÒÀ —µ7G&–ætÆ—FW&Â‚&6öçFVçDFWF–Ç2"’Â§6öäö&¦V7G·µ7G&–ætÆ—FW&Â‚&&÷VæE7G&VÔ–B"’Â7G&VÔ–G××ÒÀ —µ7G&–ætÆ—FW&Â‚'7FGW2"’Â§6öäö&¦V7G·µ7G&–ætÆ—FW&Â‚&Æ–fT7–6ÆU7FGW2"’ÂÆ–fT7–6ÆU7FGW7××ÒÀ —Ó°§Ğ ¥§6öäö&¦V7B–÷WGV&UFW7E7G&VÒ†6öç7B7G&–ærf–BÂ6öç7B7G&–ærg7G&VÔæÖRÀ ’6öç7B7G&–ærg7G&VÕ7FGW2Ò7G&–ætÆ—FW&Â‚&7F—fR"’§° —&WGW&â§6öäö&¦V7G° —µ7G&–ætÆ—FW&Â‚&–B"’Â–GÒÀ —µ7G&–ætÆ—FW&Â‚'7FGW2"’Â§6öäö&¦V7G·µ7G&–ætÆ—FW&Â‚'7G&VÕ7FGW2"’Â7G&VÕ7FGW7××ÒÀ —µ7G&–ætÆ—FW&Â‚&6Fâ"’À ’§6öäö&¦V7G·µ7G&–ætÆ—FW&Â‚&–ævW7F–öä–æfò"’À ’§6öäö&¦V7G·µ7G&–ætÆ—FW&Â‚'7G&VÔæÖR"’Â7G&VÔæÖW××××ÒÀ —Ó°§Ğ §fö–BFW7E–÷UGV&T'&öF67E6VÆV7F–öâ‚§° —W6–æræÖW76RG6³°  •†6ƒÅ7G&–ærÂ§6öäö&¦V7Câ7G&V×3° —7G&V×2æ–ç6W'B…7G&–ætÆ—FW&Â‚'7G&VÒÖ"’Â–÷WGV&UFW7E7G&VÒ…7G&–ætÆ—FW&Â‚'7G&VÒÖ"’Â7G&–ætÆ—FW&Â‚&¶W’Ö"’’“° —7G&V×2æ–ç6W'B…7G&–ætÆ—FW&Â‚'7G&VÒÖ""’Â–÷WGV&UFW7E7G&VÒ…7G&–ætÆ—FW&Â‚'7G&VÒÖ""’Â7G&–ætÆ—FW&Â‚&¶W’Ö""’’“°  •§6öä'&’öæW·–÷WGV&UFW7D'&öF67B…7G&–ætÆ—FW&Â‚&'&öF67BÖ"’Â7G&–ætÆ—FW&Â‚'7G&VÒÖ"’—Ó° •–÷UGV&T'&öF67E6VÆV7F–öâ6VÆV7F–öâÒ6VÆV7E–÷UGV&T'&öF67B†öæRÂ7G&V×2Â7G&–ær‚’“° –6†V6²‡6VÆV7F–öâç7FFRÓÒ–÷UGV&T'&öF67E6VÆV7F–öå7FFS£¥6VÆV7FVBÀ ’&öæR7F—fR–÷UGV&R'&öF67B—26VÆV7FVBv—F†÷WB7G&VÒ¶W’"“° –6†V6²‡6VÆV7F–öâæ'&öF67BçfÇVR…7G&–ætÆ—FW&Â‚&–B"’’çFõ7G&–ær‚’ÓÒ7G&–ætÆ—FW&Â‚&'&öF67BÖ"’À ’%–÷UGV&R6VÆV7F–öâ&WGW&ç2F†RÖF6†–ær'&öF67Bö&¦V7B"“°  •§6öä'&’GvòÒöæS° —GvòçW6…ö&6²‡–÷WGV&UFW7D'&öF67B…7G&–ætÆ—FW&Â‚&'&öF67BÖ""’Â7G&–ætÆ—FW&Â‚'7G&VÒÖ""’’“° —6VÆV7F–öâÒ6VÆV7E–÷UGV&T'&öF67B‡GvòÂ7G&V×2Â7G&–ær‚’“° –6†V6²‡6VÆV7F–öâç7FFRÓÒ–÷UGV&T'&öF67E6VÆV7F–öå7FFS£¤×VÇF—ÆT7F—fT'&öF67G2À ’&×VÇF—ÆR7F—fR–÷UGV&R'&öF67G2&WV—&RâW‡Æ–6—B7G&VÒ¶W’"“° —6VÆV7F–öâÒ6VÆV7E–÷UGV&T'&öF67B‡GvòÂ7G&V×2Â7G&–ætÆ—FW&Â‚&¶W’Ö""’“° –6†V6²‡6VÆV7F–öâç7FFRÓÒ–÷UGV&T'&öF67E6VÆV7F–öå7FFS£¥6VÆV7FVBb` ’6VÆV7F–öâæ'&öF67BçfÇVR…7G&–ætÆ—FW&Â‚&–B"’’çFõ7G&–ær‚’ÓÒ7G&–ætÆ—FW&Â‚&'&öF67BÖ""’À ’'7G&VÒ¶W’6VÆV7G2W†7FÇ’öæR7F—fR–÷UGV&R'&öF67B"“° –6†V6²‡6VÆV7F–öâæ6æF–FFW2ç6—¦R‚’ÓÒÀ ’%–÷UGV&R6VÆV7F–öâW‡÷6W2F†RÖF6†–ær'&öF67B6æF–FFR"“° —6VÆV7F–öâÒ6VÆV7E–÷UGV&T'&öF67B‡GvòÂ7G&V×2Â7G&–ætÆ—FW&Â‚&Ö—76–ærÖ¶W’"’“° –6†V6²‡6VÆV7F–öâç7FFRÓÒ–÷UGV&T'&öF67E6VÆV7F–öå7FFS£¤æõ7G&VÔ¶W”ÖF6‚À ’&7F—fR–÷UGV&R'&öF67G2v—F‚F–ffW&VçB¶W’&R&V¦V7FVB"“°  •†6ƒÅ7G&–ærÂ§6öäö&¦V7CâGWÆ–6FT¶W•7G&V×2Ò7G&V×3° –GWÆ–6FT¶W•7G&V×5µ7G&–ætÆ—FW&Â‚'7G&VÒÖ""•ÒĞ —–÷WGV&UFW7E7G&VÒ…7G&–ætÆ—FW&Â‚'7G&VÒÖ""’Â7G&–ætÆ—FW&Â‚&¶W’Ö"’“° —6VÆV7F–öâÒ6VÆV7E–÷UGV&T'&öF67B‡GvòÂGWÆ–6FT¶W•7G&V×2Â7G&–ætÆ—FW&Â‚&¶W’Ö"’“° –6†V6²‡6VÆV7F–öâç7FFRÓÒ–÷UGV&T'&öF67E6VÆV7F–öå7FFS£¤×VÇF—ÆU7G&VÔ¶W”ÖF6†W2À ’&GWÆ–6FR–÷UGV&R7G&VÒÖ¶W’&–æF–æw2&RæWfW"WFò×G&ç6—F–öæVB"“° –6†V6²‡6VÆV7F–öâæ6æF–FFW2ç6—¦R‚’ÓÒ"À ’&GWÆ–6FR–÷UGV&R7G&VÒÖ¶W’&–æF–æw2W‡÷6R&÷F‚6†ö–6W2"“° —6VÆV7F–öâÒ6VÆV7E–÷UGV&T'&öF67B‡GvòÂGWÆ–6FT¶W•7G&V×2Â7G&–ætÆ—FW&Â‚&¶W’Ö"’À ’7G&–ætÆ—FW&Â‚&'&öF67BÖ""’“° –6†V6²‡6VÆV7F–öâç7FFRÓÒ–÷UGV&T'&öF67E6VÆV7F–öå7FFS£¥6VÆV7FVBb` ’6VÆV7F–öâæ'&öF67BçfÇVR…7G&–ætÆ—FW&Â‚&–B"’’çFõ7G&–ær‚’ÓÒ7G&–ætÆ—FW&Â‚&'&öF67BÖ""’À ’&âW‡Æ–6—B–÷UGV&R'&öF67B6†ö–6R&W6öÇfW2GWÆ–6FR7G&VÒÖ¶W’&–æF–æw2"“° —6VÆV7F–öâÒ6VÆV7E–÷UGV&T'&öF67B‡GvòÂGWÆ–6FT¶W•7G&V×2Â7G&–ætÆ—FW&Â‚&¶W’Ö"’À ’7G&–ætÆ—FW&Â‚&Ö—76–ærÖ'&öF67B"’“° –6†V6²‡6VÆV7F–öâç7FFRÓÒ–÷UGV&T'&öF67E6VÆV7F–öå7FFS£¥&VfW'&VD'&öF67EVæf–Æ&ÆRb` ’6VÆV7F–öâæ'&öF67Bæ—4V×G’‚’bb6VÆV7F–öâæ6æF–FFW2ç6—¦R‚’ÓÒ"À ’&Ö—76–ærW‡Æ–6—B–÷UGV&R'&öF67B6†ö–6RæWfW"fÆÇ2&6²Fòæ÷F†W"'&öF67B"“°  •§6öä'&’6ö×ÆWFVD6†ö–6W° —–÷WGV&UFW7D'&öF67B…7G&–ætÆ—FW&Â‚&'&öF67BÖ"’Â7G&–ætÆ—FW&Â‚'7G&VÒÖ"’’À —–÷WGV&UFW7D'&öF67B…7G&–ætÆ—FW&Â‚&'&öF67BÖ""’Â7G&–ætÆ—FW&Â‚'7G&VÒÖ""’À ’7G&–ætÆ—FW&Â‚&6ö×ÆWFR"’’À —Ó° —6VÆV7F–öâÒ6VÆV7E–÷UGV&T'&öF67B†6ö×ÆWFVD6†ö–6RÂGWÆ–6FT¶W•7G&V×2Â7G&–ætÆ—FW&Â‚&¶W’Ö"’À ’7G&–ætÆ—FW&Â‚&'&öF67BÖ""’“° –6†V6²‡6VÆV7F–öâç7FFRÓÒ–÷UGV&T'&öF67E6VÆV7F–öå7FFS£¥&VfW'&VD'&öF67EVæf–Æ&ÆRb` ’6VÆV7F–öâæ'&öF67Bæ—4V×G’‚’bb6VÆV7F–öâæ6æF–FFW2ç6—¦R‚’ÓÒÀ ’&6ö×ÆWFVBW‡Æ–6—B–÷UGV&R'&öF67B6†ö–6RæWfW"fÆÇ2&6²Fò&VG’'&öF67B"“°  •§6öä'&’6ö×ÆWFVG·–÷WGV&UFW7D'&öF67B…7G&–ætÆ—FW&Â‚&FöæR"’Â7G&–ætÆ—FW&Â‚'7G&VÒÖ"’À ’7G&–ætÆ—FW&Â‚&6ö×ÆWFR"’—Ó° —6VÆV7F–öâÒ6VÆV7E–÷UGV&T'&öF67B†6ö×ÆWFVBÂ7G&V×2Â7G&–ætÆ—FW&Â‚&¶W’Ö"’“° –6†V6²‡6VÆV7F–öâç7FFRÓÒ–÷UGV&T'&öF67E6VÆV7F–öå7FFS£¤æô7F—fT'&öF67BÀ ’&6ö×ÆWFVB–÷UGV&R'&öF67G2&R–væ÷&VB"“°  •§6öä'&’7&VFVG·–÷WGV&UFW7D'&öF67B…7G&–ætÆ—FW&Â‚&7&VFVB"’Â7G&–ætÆ—FW&Â‚'7G&VÒÖ"’À ’7G&–ætÆ—FW&Â‚&7&VFVB"’—Ó° —6VÆV7F–öâÒ6VÆV7E–÷UGV&T'&öF67B†7&VFVBÂ7G&V×2Â7G&–ætÆ—FW&Â‚&¶W’Ö"’“° –6†V6²‡6VÆV7F–öâç7FFRÓÒ–÷UGV&T'&öF67E6VÆV7F–öå7FFS£¤æô7F—fT'&öF67BÀ ’&–æ6ö×ÆWFR7&VFVB–÷UGV&R'&öF67G2&Ræ÷B6VÆV7FVBf÷"G&ç6—F–öâ"“°  –f÷"†6öç7B7G&–ærfÆ–fV7–6ÆR¢µ7G&–ætÆ—FW&Â‚'FW7F–ær"’Â7G&–ætÆ—FW&Â‚'FW7E7F'F–ær"’À ’7G&–ætÆ—FW&Â‚&Æ—fU7F'F–ær"’Â7G&–ætÆ—FW&Â‚&Æ—fR"—Ò’° •§6öä'&’7F–öæ&ÆW·–÷WGV&UFW7D'&öF67B…7G&–ætÆ—FW&Â‚&7F–öæ&ÆR"’Â7G&–ætÆ—FW&Â‚'7G&VÒÖ"’À ’Æ–fV7–6ÆR—Ó° —6VÆV7F–öâÒ6VÆV7E–÷UGV&T'&öF67B†7F–öæ&ÆRÂ7G&V×2Â7G&–ætÆ—FW&Â‚&¶W’Ö"’“° –6†V6²‡6VÆV7F–öâç7FFRÓÒ–÷UGV&T'&öF67E6VÆV7F–öå7FFS£¥6VÆV7FVBÀ ’&–çF&ÆR…7G&–ætÆ—FW&Â‚%–÷UGV&RÆ–fV7–6ÆRS&VÖ–ç27F–öæ&ÆR"’æ&r†Æ–fV7–6ÆR’’“° —Ğ§Ğ §fö–BFW7D6öÖÖVçEf–WvW$ö'4–çFVw&F–öä6öçG&7B‚§° —W6–æræÖW76RG6³°  –6öç7B'—FT'&’fÆ–BÒ"&§6öâ‡° ’&ö²#¢G'VRÀ ’'6W'f–6R#¢&G6²Ö6öÖÖVçB×f–WvW""À ’'66†VÖfW'6–öâ#¢À ’&fW'6–öâ#¢#ã"ãÖ&WFã#B"À ’&–çFVw&F–öâ#¢&ö'2Ö'&÷w6W"ÖFö6²"À ’&ö'4Fö6²#¢° ’'f–WvW%F‚#¢"÷f–WvW#öFö6³Ö6†Bg6VæCÓ"À ’&6&–Æ—F–W2#¢²&6öÖÖVçG2ç&VB"Â&6öÖÖVçG2ç6VæB%Ğ —Ğ —Ò–§6öâ#° –6öç7BWFò–çFVw&F–öâÒ'6T6öÖÖVçEf–WvW$ö'4–çFVw&F–öâ‡fÆ–B“° –6†V6²†–çFVw&F–öâæ†5÷fÇVR‚’Â'fÆ–B6öÖÖVçBf–WvW"ô%2–çFVw&F–öâ6öçG&7B—266WFVB"“° –6†V6²†–çFVw&F–öâbb–çFVw&F–öâÓæfW'6–öâÓÒ7G&–ætÆ—FW&Â‚#ã"ãÖ&WFã#B"’À ’$6öÖÖVçBf–WvW"–çFVw&F–öâW‡÷6W2—G2fW'6–öâ"“° –6†V6²†–çFVw&F–öâbb–çFVw&F–öâÓçf–WvW%W&ÂÓĞ ’W&Â…7G&–ætÆ—FW&Â‚&‡GG¢òó#rããã£s3#÷f–WvW#öFö6³Ö6†Bg6VæCÓ"’’À ’$6öÖÖVçBf–WvW"–çFVw&F–öâ—2–ææVBFòF†RÆö÷&6²f–WvW"U$Â"“° –6†V6²†–çFVw&F–öâbb–çFVw&F–öâÓæ6å6VæD6öÖÖVçG2À ’$6öÖÖVçBf–WvW"–çFVw&F–öâGfW'F—6W26öÖÖVçB6VæF–ær7W÷'B"“°  •§6öäö&¦V7Bw&öæu66†VÖÒ§6öäFö7VÖVçC£¦g&öÔ§6öâ‡fÆ–B’æö&¦V7B‚“° —w&öæu66†VÖæ–ç6W'B…7G&–ætÆ—FW&Â‚'66†VÖfW'6–öâ"’Â"“° –6†V6²‚'6T6öÖÖVçEf–WvW$ö'4–çFVw&F–öâ…§6öäFö7VÖVçB‡w&öæu66†VÖ’çFô§6öâ…§6öäFö7VÖVçC£¤6ö×7B’’À ’'Vç7W÷'FVB6öÖÖVçBf–WvW"–çFVw&F–öâ66†VÖ2&R&V¦V7FVB"“°  •§6öäö&¦V7BW‡FW&æÅf–WvW"Ò§6öäFö7VÖVçC£¦g&öÔ§6öâ‡fÆ–B’æö&¦V7B‚“° •§6öäö&¦V7BW‡FW&æÄFö6²ÒW‡FW&æÅf–WvW"çfÇVR…7G&–ætÆ—FW&Â‚&ö'4Fö6²"’’çFôö&¦V7B‚“° –W‡FW&æÄFö6²æ–ç6W'B…7G&–ætÆ—FW&Â‚'f–WvW%F‚"’Â7G&–ætÆ—FW&Â‚&‡GG3¢òöW†×ÆRæ6öÒ÷f–WvW""’“° –W‡FW&æÅf–WvW"æ–ç6W'B…7G&–ætÆ—FW&Â‚&ö'4Fö6²"’ÂW‡FW&æÄFö6²“° –6†V6²‚'6T6öÖÖVçEf–WvW$ö'4–çFVw&F–öâ…§6öäFö7VÖVçB†W‡FW&æÅf–WvW"’çFô§6öâ…§6öäFö7VÖVçC£¤6ö×7B’’À ’$6öÖÖVçBf–WvW"–çFVw&F–öâ6ææ÷B&VF—&V7BF†Rô%2Fö6²FòâW‡FW&æÂU$Â"“°  –6†V6²‚'6T6öÖÖVçEf–WvW$ö'4–çFVw&F–öâ…'—FT'&”Æ—FW&Â‚&æ÷BÖ§6öâ"’’À ’&ÖÆf÷&ÖVB6öÖÖVçBf–WvW"–çFVw&F–öâ&W7öç6W2&R&V¦V7FVB"“°§Ğ §fö–BFW7D6öÖÖVçEf–WvW$–ç7FÆÄFWFV7F–öâ‚§° •FV×÷&'”F—"FV×÷&'“° –6†V6²‡FV×÷&'’æ—5fÆ–B‚’Â$6öÖÖVçBf–WvW"–ç7FÆÂFWFV7F–öâ†2FV×÷&'’F—&V7F÷'’"“° –6†V6²‚G6³£¦—46öÖÖVçEf–WvW$–ç7FÆÄF—&V7F÷'’‡FV×÷&'’çF‚‚’’À ’&âV×G’F—&V7F÷'’—2æ÷B6öÖÖVçBf–WvW"–ç7FÆÆF–öâ"“°  •f–ÆRÖWFFF‡FV×÷&'’æf–ÆUF‚…7G&–ætÆ—FW&Â‚'6¶vRæ§6öâ"’’“° –6†V6²†ÖWFFFæ÷Vâ…”ôFWf–6S£¥w&—FTöæÇ’’Â&7&VFR6öÖÖVçBf–WvW"6¶vRÖWFFFf—‡GW&R"“° –ÖWFFFçw&—FR…"&§6öâ‡²&æÖR#¢&G6²Ö6öÖÖVçB×f–WvW""Â'fW'6–öâ#¢#ã"ãÖ&WFã#B'Ò–§6öâ"“° –ÖWFFFæ6Æ÷6R‚“° •f–ÆR6W'fW$ÆVæ6†W"‡FV×÷&'’æf–ÆUF‚…7G&–ætÆ—FW&Â‚'7F'B×6W'fW"Ö†–FFVâçf'2"’’“° –6†V6²‡6W'fW$ÆVæ6†W"æ÷Vâ…”ôFWf–6S£¥w&—FTöæÇ’’Â&7&VFR6öÖÖVçBf–WvW"6W'fW"ÆVæ6†W"f—‡GW&R"“° —6W'fW$ÆVæ6†W"çw&—FR‚&f—‡GW&R"“° —6W'fW$ÆVæ6†W"æ6Æ÷6R‚“° –6†V6²‚G6³£¦—46öÖÖVçEf–WvW$–ç7FÆÄF—&V7F÷'’‡FV×÷&'’çF‚‚’’À ’&'F–Â6öÖÖVçBf–WvW"–ç7FÆÆF–öâ—2&V¦V7FVB"“°  •f–ÆRÆVæ6†W"‡FV×÷&'’æf–ÆUF‚…7G&–ætÆ—FW&Â‚'7F'BÖ†–FFVâçf'2"’’“° –6†V6²†ÆVæ6†W"æ÷Vâ…”ôFWf–6S£¥w&—FTöæÇ’’Â&7&VFR6öÖÖVçBf–WvW"ÆVæ6†W"f—‡GW&R"“° –ÆVæ6†W"çw&—FR‚&f—‡GW&R"“° –ÆVæ6†W"æ6Æ÷6R‚“° –6†V6²†G6³£¦—46öÖÖVçEf–WvW$–ç7FÆÄF—&V7F÷'’‡FV×÷&'’çF‚‚’’À ’&6ö×ÆWFR–æFWVæFVçB6öÖÖVçBf–WvW"–ç7FÆÆF–öâ—2FWFV7FVB"“°§Ğ §fö–BFW7D6öÖÖVçEf–WvW$–çFVw&F–öå&ö&UöÆ–7’‚§° —W6–ærG6³£¤6öÖÖVçEf–WvW%&ö&T7F–öã° —W6–ærG6³£¦6öÖÖVçEf–WvW$–çFVw&F–öäVæ&ÆVDE7F'GW° —W6–ærG6³£¦6öÖÖVçEf–WvW%&ö&T7F–öã°  –6†V6²†6öÖÖVçEf–WvW$–çFVw&F–öäVæ&ÆVDE7F'GW‡G'VR’À ’&â–ç7FÆÆVB6öÖÖVçBf–WvW"Væ&ÆW2–çFVw&F–öâB7F'GW"“° –6†V6²‚6öÖÖVçEf–WvW$–çFVw&F–öäVæ&ÆVDE7F'GW†fÇ6R’À ’&Ö—76–ær6öÖÖVçBf–WvW"¶VW2–çFVw&F–öâöfbB7F'GW"“° –6†V6²†6öÖÖVçEf–WvW%&ö&T7F–öâ†fÇ6RÂrÂrÂG'VRÂfÇ6RÂÂ’ÓÒ6öÖÖVçEf–WvW%&ö&T7F–öã£¤–væ÷&RÀ ’&F—6&ÆVB6öÖÖVçBf–WvW"–çFVw&F–öâ–væ÷&W27V66W76gVÂ7FÆR&ö&R"“° –6†V6²†6öÖÖVçEf–WvW%&ö&T7F–öâ‡G'VRÂ‚ÂrÂG'VRÂfÇ6RÂÂ’ÓÒ6öÖÖVçEf–WvW%&ö&T7F–öã£¤–væ÷&RÀ ’&7WW'6VFVB6öÖÖVçBf–WvW"&ö&R6ææ÷B&V7&VFRF†RFö6²"“° –6†V6²†6öÖÖVçEf–WvW%&ö&T7F–öâ‡G'VRÂrÂrÂG'VRÂfÇ6RÂÂ’ÓÒ6öÖÖVçEf–WvW%&ö&T7F–öã£¤6öææV7BÀ ’&7W'&VçBfÆ–B&ö&R6öææV7G2F†R6öÖÖVçBf–WvW"Fö6²"“° –6†V6²†6öÖÖVçEf–WvW%&ö&T7F–öâ‡G'VRÂrÂrÂfÇ6RÂfÇ6RÂÂ’ÓÒ6öÖÖVçEf–WvW%&ö&T7F–öã£¤ÆVæ6‚À ’'F†Rf—'7Bf–ÆVB&ö&RÆVæ6†W2â–ç7FÆÆVB'WB7F÷VBf–WvW""“° –6†V6²†6öÖÖVçEf–WvW%&ö&T7F–öâ‡G'VRÂrÂrÂfÇ6RÂG'VRÂÂ’ÓÒ6öÖÖVçEf–WvW%&ö&T7F–öã£¥&WG'’À ’&f–ÆVB÷7BÖÆVæ6‚&ö&R&WG&–W2v†–ÆRGFV×G2&VÖ–â"“° –6†V6²†6öÖÖVçEf–WvW%&ö&T7F–öâ‡G'VRÂrÂrÂfÇ6RÂG'VRÂ’Â’ÓÒ6öÖÖVçEf–WvW%&ö&T7F–öã£¤v—fUWÀ ’'F†Rf–æÂf–ÆVB÷7BÖÆVæ6‚&ö&Rv—fW2Wv—F†÷WBÆVf–ærFVBFö6²"“°§Ğ §fö–BFW7DW‡W&–ÖVçFÅ66VæU&÷WF–æuöÆ–7’‚§° –6†V6²‚G6³£¦W‡W&–ÖVçFÄfVGW&TVæ&ÆVB‡·Ò’Â&W‡W&–ÖVçFÂfVGW&W2FVfVÇBöfb"“° –6†V6²‚G6³£¦W‡W&–ÖVçFÄfVGW&TVæ&ÆVB…'—FT'&”Æ—FW&Â‚#"’’Â'¦W&ò¶VW2âW‡W&–ÖVçFÂfVGW&Röfb"“° –6†V6²‚G6³£¦W‡W&–ÖVçFÄfVGW&TVæ&ÆVB…'—FT'&”Æ—FW&Â‚&fÇ6R"’’Â&fÇ6R¶VW2âW‡W&–ÖVçFÂfVGW&Röfb"“° –6†V6²†G6³£¦W‡W&–ÖVçFÄfVGW&TVæ&ÆVB…'—FT'&”Æ—FW&Â‚#"’’Â&öæRVæ&ÆW2âW‡W&–ÖVçFÂfVGW&R"“° –6†V6²†G6³£¦W‡W&–ÖVçFÄfVGW&TVæ&ÆVB…'—FT'&”Æ—FW&Â‚"E%TR"’’Â'G'VRVæ&ÆW2âW‡W&–ÖVçFÂfVGW&R"“°§Ğ §ÒòòæÖW76P ¦–çBÖ–â†–çB&v2Â6†"¢¦&wb§° •6÷&TÆ–6F–öâ†&v2Â&wb“°  —FW7D÷WGWEF&vWD†VÇW'2‚“° —FW7DÆ–÷WG4æE&öf–ÆW2‚“° —FW7E6WGF–æw46öFV2‚“° —FW7EÆFf÷&Õ&Vv—7G'’‚“° —FW7DôWF…&÷f–FW'2‚“° —FW7E–÷UGV&T•v&æ–æt†VÇW'2‚“° —FW7E'VçF–ÖU7FGW4†VÇW'2‚“° —FW7D÷WGWE6–væÅöÆ–7’‚“° —FW7E7G&VÔ6öçG&öÇ57FFR‚“° —FW7Ef—6–&ÆU&Vg&W6„vFR‚“° —FW7E6V7&WE7F÷&T†VÇW'2‚“° —FW7E–÷UGV&T'&öF67E6VÆV7F–öâ‚“° —FW7D6öÖÖVçEf–WvW$ö'4–çFVw&F–öä6öçG&7B‚“° —FW7D6öÖÖVçEf–WvW$–ç7FÆÄFWFV7F–öâ‚“° —FW7D6öÖÖVçEf–WvW$–çFVw&F–öå&ö&UöÆ–7’‚“° —FW7DW‡W&–ÖVçFÅ66VæU&÷WF–æuöÆ–7’‚“° —FW7DFFf–ÆW2‚“°  ––b†f–ÇW&W2â’° —7FC£¦6W'"ÃÂf–ÇW&W2ÃÂ"6Öö¶RFW7B6†V6·2f–ÆVBåÆâ#° —&WGW&â° —Ğ  —7FC£¦6÷WBÃÂ$ÆÂ6Öö¶RFW7G276VBåÆâ#° —&WGW&â°§Ğ
+	layouts.initializeVerticalScenes({sanitizedScene}, sanitizedScene.id, {});
+	check(layouts.verticalLayout().items.size() == customLayout.items.size(),
+	      "internal vertical render scenes cannot become recursive layout sources");
+	const QString secondSceneId = layouts.createVerticalScene("Gameplay");
+	const QString thirdSceneId = layouts.createVerticalScene("Gameplay");
+	check(layouts.verticalSceneName(secondSceneId) == "Gameplay", "vertical scene keeps requested unique name");
+	check(layouts.verticalSceneName(thirdSceneId) == "Gameplay 2", "vertical scene duplicate name is disambiguated");
+	check(layouts.renameVerticalScene(thirdSceneId, "Camera"), "vertical scene can be renamed");
+	check(layouts.verticalSceneName(thirdSceneId) == "Camera", "vertical scene rename is applied");
+	check(layouts.moveVerticalScene(thirdSceneId, -1), "vertical scene can move up");
+	check(layouts.verticalScenes()[1].id == thirdSceneId, "vertical scene move updates display order");
+	check(layouts.removeVerticalScene(thirdSceneId), "vertical scene can be removed");
+	check(layouts.activeVerticalSceneId() == secondSceneId, "removing active scene selects a neighboring scene");
+	check(layouts.removeVerticalScene(secondSceneId), "second vertical scene can be removed");
+	check(!layouts.removeVerticalScene(sanitizedScene.id), "last vertical scene cannot be removed");
+
+	VerticalLayoutItem fitItem;
+	fitItem.rect = QRectF(0, 0, 1080, 1920);
+	fitItem.fitMode = FitMode::Fit;
+	const QRectF fittedContent = displayedContentRect(fitItem, QSizeF(1920, 1080));
+	check(qAbs(fittedContent.width() - 1080.0) < 0.001, "fit geometry preserves full visible width");
+	check(qAbs(fittedContent.height() - 607.5) < 0.001, "fit geometry preserves source aspect ratio");
+	check(qAbs(fittedContent.y() - 656.25) < 0.001, "fit geometry centers visible content");
+	const QRectF centeredWideSource = centeredAspectFitRect(QSizeF(1920, 1080), QSizeF(1080, 1920));
+	check(qAbs(centeredWideSource.x()) < 0.001 && qAbs(centeredWideSource.y() - 656.25) < 0.001,
+	      "16:9 source is centered in a 9:16 canvas");
+	check(qAbs(centeredWideSource.width() - 1080.0) < 0.001 &&
+		      qAbs(centeredWideSource.height() - 607.5) < 0.001,
+	      "16:9 source keeps its aspect ratio when fitted to a 9:16 canvas");
+	check(centeredAspectFitRect(QSizeF(), QSizeF(1080, 1920)) == QRectF(0, 0, 1080, 1920),
+	      "unknown source size safely falls back to the full canvas");
+	fitItem.fitMode = FitMode::Fill;
+	check(displayedContentRect(fitItem, QSizeF(1920, 1080)) == fitItem.rect,
+	      "fill geometry uses the complete visible bounds");
+
+	const QRectF reference(0, 0, 160, 90);
+	const QRectF rightResize = aspectConstrainedResize(QRectF(0, 0, 320, 90), reference, ResizeRight);
+	check(qAbs(rightResize.width() - 320.0) < 0.001 && qAbs(rightResize.height() - 180.0) < 0.001,
+	      "fit side resize keeps the visible source aspect ratio");
+	check(qAbs(rightResize.center().y() - reference.center().y()) < 0.001,
+	      "fit side resize stays centered on the untouched axis");
+	const QRectF cornerResize =
+		aspectConstrainedResize(QRectF(0, 0, 320, 100), reference, ResizeRight | ResizeBottom);
+	check(qAbs(cornerResize.width() / cornerResize.height() - 16.0 / 9.0) < 0.001,
+	      "fit corner resize keeps the visible source aspect ratio");
+	check(cornerResize.topLeft() == reference.topLeft(), "fit corner resize keeps the opposite corner anchored");
+
+	VerticalLayout overlappingLayout;
+	overlappingLayout.items.push_back({"front", "Front", QRectF(0, 0, 400, 400)});
+	overlappingLayout.items.push_back({"back", "Back", QRectF(0, 0, 200, 200)});
+	const QVector<QRectF> overlappingDisplayRects{QRectF(0, 0, 400, 400), QRectF(0, 0, 200, 200)};
+	check(verticalPreviewHitItem(overlappingLayout, overlappingDisplayRects, QPointF(100, 100)) == 0,
+	      "vertical preview selects the front-most source when no source is selected");
+	check(verticalPreviewHitItem(overlappingLayout, overlappingDisplayRects, QPointF(100, 100), 1) == 1,
+	      "vertical preview keeps an overlapping selected source interactive");
+	check(verticalPreviewHitItem(overlappingLayout, overlappingDisplayRects, QPointF(300, 300), 1) == -1,
+	      "clicking outside the selected vertical source clears selection instead of selecting a background source");
+	overlappingLayout.items[1].visible = false;
+	check(verticalPreviewHitItem(overlappingLayout, overlappingDisplayRects, QPointF(100, 100), 1) == 0,
+	      "vertical preview does not prioritize a hidden selected source");
+	check(verticalPreviewHitItem(overlappingLayout, overlappingDisplayRects, QPointF(500, 500), 0) == -1,
+	      "vertical preview background is not treated as the selected source");
+
+	VerticalLayout oversizedPreviewLayout;
+	oversizedPreviewLayout.width = 1080;
+	oversizedPreviewLayout.height = 1920;
+	oversizedPreviewLayout.items.push_back(
+		{"oversized", "Oversized", QRectF(-540, -960, 2160, 3840)});
+	const QVector<QRectF> oversizedDisplayRects{oversizedPreviewLayout.items[0].rect};
+	const QRectF previewCanvas(187.5, 0.0, 225.0, 400.0);
+	check(verticalPreviewHitItemAtWidgetPoint(oversizedPreviewLayout, oversizedDisplayRects, previewCanvas,
+					      QPointF(100.0, 200.0), 0) == -1,
+	      "space outside the rendered vertical canvas never hits an oversized selected source");
+	check(verticalPreviewHitItemAtWidgetPoint(oversizedPreviewLayout, oversizedDisplayRects, previewCanvas,
+					      QPointF(300.0, 200.0), 0) == 0,
+	      "a point inside the rendered vertical canvas still hits the selected source");
+
+	VerticalLayout unsafeLayout;
+	unsafeLayout.width = 0;
+	unsafeLayout.height = std::numeric_limits<int>::max();
+	unsafeLayout.items.push_back({"unsafe",
+				      "Camera",
+				      QRectF(std::numeric_limits<double>::infinity(),
+					     std::numeric_limits<double>::quiet_NaN(),
+					     -1.0,
+					     std::numeric_limits<double>::infinity()),
+				      QRectF(-1.0,
+					     std::numeric_limits<double>::infinity(),
+					     -2.0,
+					     std::numeric_limits<double>::quiet_NaN()),
+				      FitMode::Fit,
+				      true});
+	normalizeVerticalLayoutGeometry(unsafeLayout);
+	check(unsafeLayout.width == 1080 && unsafeLayout.height == 1920,
+	      "unsafe canvas dimensions normalize to portrait defaults");
+	check(std::isfinite(unsafeLayout.items[0].rect.x()) && std::isfinite(unsafeLayout.items[0].rect.y()) &&
+		      unsafeLayout.items[0].rect.width() > 0.0 && unsafeLayout.items[0].rect.height() > 0.0,
+	      "unsafe layout rectangle normalizes to finite positive geometry");
+	check(unsafeLayout.items[0].crop.x() >= 0.0 && unsafeLayout.items[0].crop.y() >= 0.0 &&
+		      unsafeLayout.items[0].crop.width() >= 0.0 && unsafeLayout.items[0].crop.height() >= 0.0,
+	      "unsafe crop geometry normalizes to non-negative values");
+
+	EncoderProfileManager profiles;
+	check(profiles.profileFor(EncoderGroup::DskHorizontal).width == 1920, "horizontal profile width");
+	check(profiles.profileFor(EncoderGroup::DskHorizontal).height == 1080, "horizontal profile height");
+	check(profiles.profileFor(EncoderGroup::DskVertical).width == 1080, "vertical profile width");
+	check(profiles.profileFor(EncoderGroup::DskVertical).height == 1920, "vertical profile height");
+}
+
+void testSettingsCodec()
+{
+	using namespace dsk;
+
+	OutputTarget target;
+	target.id = "target-1";
+	target.name = "YouTube vertical";
+	target.platformId = "youtube";
+	target.authMode = TargetAuthMode::YouTubeOAuth;
+	target.authAccountName = "channel@example.test";
+	target.authCredentialRef = "dsk/youtube/target-1";
+	target.oauthClientId = "oauth-client-id";
+	target.oauthClientSecret = "oauth-client-secret";
+	target.oauthClientSecretRef = "DSK Multistream/oauth-client-secret/target-1";
+	target.oauthRefreshToken = "oauth-refresh-token";
+	target.oauthRefreshTokenRef = "DSK Multistream/oauth-refresh-token/target-1";
+	target.serverUrl = "rtmps://example.test/live";
+	target.streamKey = "stream-secret";
+	target.encoderGroup = EncoderGroup::DskVertical;
+	target.useSharedEncoder = false;
+	target.autoStartWithObs = false;
+	target.autoStopWithObs = true;
+	target.reconnectEnabled = true;
+	target.reconnectMaxRetries = 42;
+	target.reconnectDelaySeconds = 7;
+	target.videoBitrateKbps = 9000;
+	target.audioBitrateKbps = 192;
+	target.keyframeSeconds = 4;
+	target.videoEncoderId = "obs_x264";
+	target.audioEncoderId = "ffmpeg_aac";
+	target.enabled = false;
+	target.startWithAll = false;
+
+	const OutputTarget decodedTarget = outputTargetFromJson(outputTargetToJson(target));
+	check(decodedTarget.id == target.id, "target codec preserves id");
+	check(decodedTarget.name == target.name, "target codec preserves name");
+	check(decodedTarget.platformId == target.platformId, "target codec preserves platform");
+	check(decodedTarget.authMode == target.authMode, "target codec preserves auth mode");
+	check(decodedTarget.authAccountName == target.authAccountName, "target codec preserves auth account");
+	check(decodedTarget.authCredentialRef == target.authCredentialRef, "target codec preserves auth credential ref");
+	check(decodedTarget.oauthClientId == target.oauthClientId, "target codec preserves OAuth client id");
+	check(decodedTarget.oauthClientSecret == target.oauthClientSecret, "target codec preserves OAuth client secret");
+	check(decodedTarget.oauthClientSecretRef == target.oauthClientSecretRef, "target codec preserves OAuth client secret ref");
+	check(decodedTarget.oauthRefreshToken == target.oauthRefreshToken, "target codec preserves OAuth refresh token");
+	check(decodedTarget.oauthRefreshTokenRef == target.oauthRefreshTokenRef, "target codec preserves OAuth refresh token ref");
+	check(decodedTarget.serverUrl == target.serverUrl, "target codec preserves server");
+	check(decodedTarget.streamKey == target.streamKey, "target codec preserves stream key");
+	check(decodedTarget.encoderGroup == target.encoderGroup, "target codec preserves encoder group");
+	check(decodedTarget.useSharedEncoder == target.useSharedEncoder, "target codec preserves shared encoder flag");
+	check(decodedTarget.autoStartWithObs == target.autoStartWithObs, "target codec preserves OBS auto-start flag");
+	check(decodedTarget.autoStopWithObs == target.autoStopWithObs, "target codec preserves OBS auto-stop flag");
+	check(decodedTarget.reconnectEnabled == target.reconnectEnabled, "target codec preserves reconnect enabled");
+	check(decodedTarget.reconnectMaxRetries == target.reconnectMaxRetries, "target codec preserves reconnect retries");
+	check(decodedTarget.reconnectDelaySeconds == target.reconnectDelaySeconds, "target codec preserves reconnect delay");
+	check(decodedTarget.videoBitrateKbps == target.videoBitrateKbps, "target codec preserves video bitrate");
+	check(decodedTarget.audioBitrateKbps == target.audioBitrateKbps, "target codec preserves audio bitrate");
+	check(decodedTarget.keyframeSeconds == target.keyframeSeconds, "target codec preserves keyframe interval");
+	check(decodedTarget.videoEncoderId == target.videoEncoderId, "target codec preserves video encoder id");
+	check(decodedTarget.audioEncoderId == target.audioEncoderId, "target codec preserves audio encoder id");
+	check(decodedTarget.enabled == target.enabled, "target codec preserves enabled flag");
+	check(decodedTarget.startWithAll == target.startWithAll, "target codec preserves start-all flag");
+
+	QJsonObject minimalTargetJson;
+	minimalTargetJson.insert("encoderGroup", "unknown");
+	const OutputTarget minimalTarget = outputTargetFromJson(minimalTargetJson);
+	check(!minimalTarget.id.isEmpty(), "target codec generates id for missing id");
+	check(minimalTarget.name == "Untitled", "target codec defaults missing name");
+	check(minimalTarget.platformId == "custom", "target codec defaults missing platform");
+	check(minimalTarget.authMode == TargetAuthMode::ManualRtmp, "target codec defaults manual auth");
+	check(minimalTarget.encoderGroup == EncoderGroup::DskHorizontal, "target codec defaults unknown encoder group");
+	check(minimalTarget.useSharedEncoder, "target codec defaults shared encoder");
+	check(!minimalTarget.autoStartWithObs, "target codec defaults OBS auto-start off");
+	check(minimalTarget.autoStopWithObs, "target codec defaults OBS auto-stop");
+	check(minimalTarget.reconnectEnabled, "target codec defaults reconnect enabled");
+	check(minimalTarget.reconnectMaxRetries == 20, "target codec defaults reconnect retries");
+	check(minimalTarget.reconnectDelaySeconds == 2, "target codec defaults reconnect delay");
+	check(minimalTarget.keyframeSeconds == 2, "target codec defaults keyframe interval");
+	check(minimalTarget.enabled, "target codec defaults enabled");
+	check(minimalTarget.startWithAll, "target codec defaults start-all enabled");
+
+	QJsonObject legacyObsMainTargetJson;
+	legacyObsMainTargetJson.insert("encoderGroup", "obs-main");
+	const OutputTarget legacyObsMainTarget = outputTargetFromJson(legacyObsMainTargetJson);
+	check(legacyObsMainTarget.encoderGroup == EncoderGroup::DskHorizontal,
+	      "target codec migrates legacy OBS Main targets to DSK horizontal");
+
+	VerticalLayout layout;
+	layout.width = 1080;
+	layout.height = 1920;
+	layout.templateId = "camera-first";
+	layout.items.push_back({
+		"item-1",
+		"Game Capture",
+		QRectF(10, 20, 900, 1200),
+		QRectF(1, 2, 3, 4),
+		FitMode::Fit,
+		true,
+	});
+	layout.items.push_back({
+		"item-2",
+		"Camera",
+		QRectF(100, 1300, 400, 500),
+		QRectF(0, 0, 0, 0),
+		FitMode::Stretch,
+		false,
+	});
+
+	const VerticalLayout decodedLayout = verticalLayoutFromJson(verticalLayoutToJson(layout));
+	check(decodedLayout.width == layout.width, "layout codec preserves width");
+	check(decodedLayout.height == layout.height, "layout codec preserves height");
+	check(decodedLayout.templateId == layout.templateId, "layout codec preserves template");
+	check(decodedLayout.items.size() == 2, "layout codec preserves item count");
+	check(decodedLayout.items[0].id == "item-1", "layout codec preserves item id");
+	check(decodedLayout.items[0].sourceName == "Game Capture", "layout codec preserves source name");
+	check(decodedLayout.items[0].rect == QRectF(10, 20, 900, 1200), "layout codec preserves rect");
+	check(decodedLayout.items[0].crop == QRectF(1, 2, 3, 4), "layout codec preserves crop");
+	check(decodedLayout.items[0].fitMode == FitMode::Fit, "layout codec preserves fit mode");
+	check(decodedLayout.items[1].fitMode == FitMode::Stretch, "layout codec preserves stretch mode");
+	check(!decodedLayout.items[1].visible, "layout codec preserves visibility");
+
+	VerticalLayout legacyEmptyDefault;
+	legacyEmptyDefault.items.push_back({
+		"legacy-placeholder",
+		QString(),
+		QRectF(0, 0, 1080, 1920),
+		QRectF(0, 0, 0, 0),
+		FitMode::Fit,
+		true,
+	});
+	normalizeLoadedVerticalLayout(legacyEmptyDefault);
+	check(legacyEmptyDefault.items.isEmpty(), "layout normalize removes legacy empty default layer");
+
+	VerticalLayout emptyNamedSource;
+	emptyNamedSource.items.push_back({
+		"blank-source",
+		QString(),
+		QRectF(123, 456, 789, 111),
+		QRectF(0, 0, 0, 0),
+		FitMode::Fill,
+		true,
+	});
+	normalizeLoadedVerticalLayout(emptyNamedSource);
+	check(emptyNamedSource.items.isEmpty(), "layout normalize removes any blank source item");
+
+	VerticalLayout realFullScreenLayer;
+	realFullScreenLayer.items.push_back({
+		"real-layer",
+		"STREAM PC",
+		QRectF(0, 0, 1080, 1920),
+		QRectF(0, 0, 0, 0),
+		FitMode::Fit,
+		true,
+	});
+	normalizeLoadedVerticalLayout(realFullScreenLayer);
+	check(realFullScreenLayer.items.size() == 1, "layout normalize keeps real full-screen source layer");
+
+	QJsonArray mixedItems;
+	mixedItems.push_back(QStringLiteral("not-an-object"));
+	QJsonObject sparseItem;
+	sparseItem.insert("fitMode", "invalid");
+	mixedItems.push_back(sparseItem);
+	QJsonObject sparseLayoutJson;
+	sparseLayoutJson.insert("items", mixedItems);
+	const VerticalLayout sparseLayout = verticalLayoutFromJson(sparseLayoutJson);
+	check(sparseLayout.width == 1080, "layout codec defaults missing width");
+	check(sparseLayout.height == 1920, "layout codec defaults missing height");
+	check(sparseLayout.templateId == "full-screen", "layout codec defaults template");
+	check(sparseLayout.items.size() == 1, "layout codec ignores non-object items");
+	check(!sparseLayout.items[0].id.isEmpty(), "layout codec generates missing item id");
+	check(sparseLayout.items[0].rect == QRectF(0, 0, 1080, 1920), "layout codec defaults sparse rect");
+	check(sparseLayout.items[0].fitMode == FitMode::Fill, "layout codec defaults invalid fit mode");
+	check(sparseLayout.items[0].visible, "layout codec defaults item visibility");
+
+	const SceneLayoutLink link{"OBS Scene", "obs-scene-uuid", "vertical-scene-1", {}};
+	const SceneLayoutLink decodedLink = sceneLayoutLinkFromJson(sceneLayoutLinkToJson(link));
+	check(decodedLink.sceneName == link.sceneName, "scene link codec preserves scene name");
+	check(decodedLink.sceneUuid == link.sceneUuid, "scene link codec preserves OBS scene UUID");
+	check(decodedLink.verticalSceneId == link.verticalSceneId, "scene link codec preserves DSK vertical scene id");
+	check(decodedLink.legacyTemplateId.isEmpty(), "scene link codec omits legacy template when unused");
+
+	const SceneLayoutLink defaultLink = sceneLayoutLinkFromJson(QJsonObject{});
+	check(defaultLink.sceneName.isEmpty(), "scene link codec defaults missing scene name");
+	check(defaultLink.verticalSceneId.isEmpty(), "scene link codec defaults missing DSK vertical scene");
+	QJsonObject legacyLinkJson;
+	legacyLinkJson.insert("templateId", "full-screen");
+	const SceneLayoutLink legacyLink = sceneLayoutLinkFromJson(legacyLinkJson);
+	check(legacyLink.legacyTemplateId == "full-screen", "scene link codec reads legacy template id");
+
+	OutputTarget sceneTarget;
+	sceneTarget.id = "scene-target";
+	sceneTarget.name = "Scene Target";
+	sceneTarget.platformId = "youtube";
+	sceneTarget.serverUrl = "rtmp://a.rtmp.youtube.com/live2";
+	sceneTarget.streamKey = "secret";
+	sceneTarget.sceneMode = TargetSceneMode::LinkedScene;
+	sceneTarget.sceneName = "Fallback YouTube";
+	sceneTarget.sceneUuid = "fallback-youtube-uuid";
+	sceneTarget.sceneRoutes.push_back({"Game", "game-uuid", "Game YouTube", "game-youtube-uuid"});
+	sceneTarget.sceneRoutes.push_back({"Talk", "talk-uuid", "Talk YouTube", "talk-youtube-uuid"});
+	const OutputTarget decodedSceneTarget = outputTargetFromJson(outputTargetToJson(sceneTarget));
+	check(decodedSceneTarget.sceneMode == TargetSceneMode::LinkedScene, "target codec preserves linked scene mode");
+	check(decodedSceneTarget.sceneName == sceneTarget.sceneName, "target codec preserves fallback scene name");
+	check(decodedSceneTarget.sceneUuid == sceneTarget.sceneUuid, "target codec preserves fallback scene UUID");
+	check(decodedSceneTarget.sceneRoutes.size() == 2, "target codec preserves scene routes");
+	check(decodedSceneTarget.sceneRoutes[0].obsSceneName == "Game", "target codec preserves route obs scene");
+	check(decodedSceneTarget.sceneRoutes[0].obsSceneUuid == "game-uuid", "target codec preserves route OBS UUID");
+	check(decodedSceneTarget.sceneRoutes[0].outputSceneName == "Game YouTube", "target codec preserves route output scene");
+	check(decodedSceneTarget.sceneRoutes[0].outputSceneUuid == "game-youtube-uuid", "target codec preserves route output UUID");
+}
+
+void testPlatformRegistry()
+{
+	dsk::PlatformPresetRegistry registry;
+	check(registry.presets().size() == 5, "registry has five presets");
+	check(registry.presetById("twitch").defaultServer == "rtmp://live.twitch.tv/app", "Twitch default server");
+	check(registry.presetById("youtube").defaultServer == "rtmp://a.rtmp.youtube.com/live2", "YouTube default server");
+	check(registry.presetById("kick").defaultServer.startsWith("rtmps://"), "Kick uses RTMPS");
+	check(registry.presetById("tiktok").verticalCommon, "TikTok marked vertical common");
+	check(registry.presetById("tiktok").recommendedOutput == "dsk-vertical", "TikTok recommends vertical output");
+	check(registry.presetById("youtube").horizontalBitrateKbps >= 6000, "YouTube horizontal bitrate present");
+	check(registry.presetById("missing").id == "custom", "missing preset falls back to custom");
+}
+
+void testOAuthProviders()
+{
+	using namespace dsk;
+
+	const OAuthProvider twitch = oauthProviderForAuthMode(TargetAuthMode::TwitchOAuth);
+	check(twitch.id == "twitch", "Twitch OAuth provider id");
+	check(twitch.authorizeUrl.host() == "id.twitch.tv", "Twitch OAuth authorize host");
+	check(twitch.scopes.contains("channel:read:stream_key"), "Twitch OAuth stream key scope");
+	check(oauthUsesPublisherRelay(TargetAuthMode::TwitchOAuth), "Twitch OAuth uses the publisher relay");
+	check(oauthPublisherRelayProfile(TargetAuthMode::TwitchOAuth) == "multistream",
+	      "Twitch OAuth uses the multistream relay profile");
+	const QUrl twitchRelayUrl = oauthPublisherRelayAuthorizeUrl(
+		twitch, QUrl("http://localhost:17371/callback"), "state-value", "challenge-value");
+	const QUrlQuery twitchRelayQuery(twitchRelayUrl);
+	check(twitchRelayUrl.scheme() == "https", "Twitch publisher relay uses HTTPS");
+	check(twitchRelayUrl.path() == "/v1/twitch/authorize", "Twitch publisher relay authorize path");
+	check(twitchRelayQuery.queryItemValue("profile") == "multistream", "Twitch relay URL pins the multistream profile");
+	check(twitchRelayQuery.queryItemValue("redirect_uri") == "http://localhost:17371/callback",
+	      "Twitch relay URL pins the OBS callback");
+	check(!twitchRelayQuery.hasQueryItem("client_id"), "Twitch relay URL does not require a user Client ID");
+	check(oauthPublisherRelayTokenUrl(twitch).path() == "/v1/twitch/token", "Twitch publisher relay token path");
+	QJsonObject relayResponse{
+		{QStringLiteral("profile"), QStringLiteral("multistream")},
+		{QStringLiteral("client_id"), QStringLiteral("public-client-id")},
+		{QStringLiteral("scope"), QJsonArray{QStringLiteral("channel:read:stream_key")}},
+	};
+	QString publicClientId;
+	check(oauthValidatePublisherRelayTokenMetadata(twitch, relayResponse, &publicClientId).isEmpty(),
+	      "Twitch relay metadata accepts the expected profile and scope");
+	check(publicClientId == "public-client-id", "Twitch relay metadata returns the public Client ID");
+	relayResponse.insert(QStringLiteral("scope"), QStringLiteral("chat:read channel:read:stream_key"));
+	check(oauthValidatePublisherRelayTokenMetadata(twitch, relayResponse).isEmpty(),
+	      "Twitch relay metadata accepts required permissions with additional granted scopes");
+	relayResponse.insert(QStringLiteral("scope"), QStringLiteral("channel:read:stream_key"));
+	check(oauthValidatePublisherRelayTokenMetadata(twitch, relayResponse).isEmpty(),
+	      "Twitch relay metadata accepts an exact space-delimited scope response");
+	relayResponse.insert(QStringLiteral("scope"), QJsonArray{QStringLiteral("chat:read")});
+	check(oauthValidatePublisherRelayTokenMetadata(twitch, relayResponse).contains("required permission"),
+	      "Twitch relay metadata rejects a missing stream-key scope");
+	relayResponse.insert(QStringLiteral("scope"), QJsonArray{QStringLiteral("channel:read:stream_key")});
+	relayResponse.insert(QStringLiteral("profile"), QStringLiteral("comment-viewer"));
+	check(oauthValidatePublisherRelayTokenMetadata(twitch, relayResponse).contains("wrong application profile"),
+	      "Twitch relay metadata rejects a cross-profile response");
+
+	const OAuthProvider kick = oauthProviderForAuthMode(TargetAuthMode::KickOAuth);
+	check(kick.id == "kick", "Kick OAuth provider id");
+	check(kick.authorizeUrl.host() == "id.kick.com", "Kick OAuth authorize host");
+	check(kick.scopes.contains("streamkey:read"), "Kick OAuth stream-key scope");
+	check(oauthUsesPublisherRelay(TargetAuthMode::KickOAuth), "Kick OAuth uses the publisher relay");
+	check(oauthPublisherRelayProfile(TargetAuthMode::KickOAuth) == "multistream",
+	      "Kick OAuth uses the multistream relay profile");
+	const QUrl kickRelayUrl = oauthPublisherRelayAuthorizeUrl(
+		kick, QUrl("http://localhost:17371/callback"), "state-value", "challenge-value");
+	const QUrlQuery kickRelayQuery(kickRelayUrl);
+	check(kickRelayUrl.path() == "/v1/kick/authorize", "Kick publisher relay authorize path");
+	check(kickRelayQuery.queryItemValue("profile") == "multistream", "Kick relay URL pins the multistream profile");
+	QJsonObject kickRelayResponse{
+		{QStringLiteral("profile"), QStringLiteral("multistream")},
+		{QStringLiteral("client_id"), QStringLiteral("kick-public-client-id")},
+		{QStringLiteral("scope"),
+		 QJsonArray{QStringLiteral("user:read"), QStringLiteral("channel:read"),
+			    QStringLiteral("streamkey:read")}},
+	};
+	check(oauthValidatePublisherRelayTokenMetadata(kick, kickRelayResponse).isEmpty(),
+	      "Kick relay metadata accepts the exact multistream permissions");
+	kickRelayResponse.insert(QStringLiteral("scope"),
+				 QJsonArray{QStringLiteral("user:read"), QStringLiteral("channel:read"),
+					    QStringLiteral("streamkey:read"), QStringLiteral("chat:write"),
+					    QStringLiteral("events:subscribe")});
+	check(oauthValidatePublisherRelayTokenMetadata(kick, kickRelayResponse).isEmpty(),
+	      "Kick relay metadata accepts required permissions with additional granted scopes");
+	kickRelayResponse.insert(QStringLiteral("scope"),
+				 QJsonArray{QStringLiteral("user:read"), QStringLiteral("channel:read")});
+	check(oauthValidatePublisherRelayTokenMetadata(kick, kickRelayResponse).contains("required permission"),
+	      "Kick relay metadata rejects a missing stream-key permission");
+
+	const QJsonObject kickChannelResponse{
+		{QStringLiteral("data"),
+		 QJsonArray{QJsonObject{
+			 {QStringLiteral("slug"), QStringLiteral("kick-user")},
+			 {QStringLiteral("stream"),
+			  QJsonObject{{QStringLiteral("url"), QStringLiteral("rtmps://stream.kick.com/1234567890")},
+				      {QStringLiteral("key"), QStringLiteral("kick-secret-key")}}},
+		 }}},
+	};
+	const KickChannelConnection kickConnection = oauthParseKickChannelResponse(kickChannelResponse);
+	check(kickConnection.isComplete(), "Kick channel response yields a complete stream connection");
+	check(kickConnection.accountName == "kick-user", "Kick channel response yields the account slug");
+	check(kickConnection.serverUrl == "rtmps://stream.kick.com/1234567890",
+	      "Kick channel response yields the official stream URL");
+	check(kickConnection.streamKey == "kick-secret-key", "Kick channel response yields the stream key");
+	QJsonObject kickMissingKey = kickChannelResponse;
+	QJsonObject missingKeyChannel = kickMissingKey.value(QStringLiteral("data")).toArray().first().toObject();
+	QJsonObject missingKeyStream = missingKeyChannel.value(QStringLiteral("stream")).toObject();
+	missingKeyStream.remove(QStringLiteral("key"));
+	missingKeyChannel.insert(QStringLiteral("stream"), missingKeyStream);
+	kickMissingKey.insert(QStringLiteral("data"), QJsonArray{missingKeyChannel});
+	check(oauthParseKickChannelResponse(kickMissingKey).errorMessage.contains("stream key"),
+	      "Kick channel response without a key returns an actionable error");
+
+	const QString sanitizedJsonError = oauthSafeErrorDetail(
+		QByteArrayLiteral("{\"error\":\"invalid_client\",\"error_description\":\"client_secret=TOPSECRET access_token=TOKEN\"}"));
+	check(!sanitizedJsonError.contains("TOPSECRET") && !sanitizedJsonError.contains("TOKEN"),
+	      "OAuth JSON errors redact credentials and access tokens");
+	const QString sanitizedTextError = oauthSafeErrorDetail(
+		QByteArrayLiteral("provider failed refresh_token=REFRESHSECRET code=CODESECRET"));
+	check(!sanitizedTextError.contains("REFRESHSECRET") && !sanitizedTextError.contains("CODESECRET"),
+	      "OAuth text errors redact refresh tokens and authorization codes");
+
+	const OAuthProvider youtube = oauthProviderForAuthMode(TargetAuthMode::YouTubeOAuth);
+	check(youtube.id == "youtube", "YouTube OAuth provider id");
+	check(youtube.authorizeUrl.host() == "accounts.google.com", "YouTube OAuth authorize host");
+	check(youtube.tokenUrl.host() == "oauth2.googleapis.com", "YouTube OAuth token host");
+	check(youtube.scopes.contains("https://www.googleapis.com/auth/youtube.force-ssl"), "YouTube OAuth live scope");
+	check(!oauthUsesPublisherRelay(TargetAuthMode::YouTubeOAuth), "YouTube keeps its current direct OAuth path");
+	const OAuthClientCredentials bundledYouTube = oauthBundledClientCredentials(TargetAuthMode::YouTubeOAuth);
+	check(oauthHasBundledClientCredentials(TargetAuthMode::YouTubeOAuth) == bundledYouTube.isComplete(),
+	      "YouTube bundled OAuth availability matches credential completeness");
+	check(!oauthBundledClientCredentials(TargetAuthMode::TwitchOAuth).hasAny(),
+	      "Twitch never reads desktop bundled credentials");
+	const OAuthClientCredentials defaultYouTube = oauthEffectiveClientCredentials(
+		TargetAuthMode::YouTubeOAuth, QString(), QString());
+	check(defaultYouTube.clientId == bundledYouTube.clientId &&
+	      defaultYouTube.clientSecret == bundledYouTube.clientSecret,
+	      "empty target credentials use the bundled YouTube OAuth application");
+	const OAuthClientCredentials partialCustom = oauthEffectiveClientCredentials(
+		TargetAuthMode::YouTubeOAuth, QStringLiteral("custom-client"), QString());
+	check(partialCustom.clientId == "custom-client" && partialCustom.clientSecret.isEmpty() &&
+	      !partialCustom.isComplete(),
+	      "partial custom credentials never mix with bundled publisher credentials");
+	const OAuthClientCredentials fullCustom = oauthEffectiveClientCredentials(
+		TargetAuthMode::YouTubeOAuth, QStringLiteral("custom-client"), QStringLiteral("custom-secret"));
+	check(fullCustom.clientId == "custom-client" && fullCustom.clientSecret == "custom-secret" &&
+	      fullCustom.isComplete(),
+	      "complete custom credentials override bundled publisher credentials");
+	check(oauthHasUsableClientCredentials(TargetAuthMode::YouTubeOAuth, QStringLiteral("custom-client"),
+					       QString(), QStringLiteral("DSK Multistream/oauth-client-secret/target")),
+	      "a custom Client ID plus a saved DSK Client Secret reference is usable in dock state");
+	check(!oauthHasUsableClientCredentials(TargetAuthMode::YouTubeOAuth, QStringLiteral("custom-client"),
+						QString(), QString()),
+	      "a partial custom OAuth application never falls back to bundled credentials");
+	check(!oauthHasUsableClientCredentials(TargetAuthMode::YouTubeOAuth, QString(), QString(),
+						QStringLiteral("DSK Multistream/oauth-client-secret/target")),
+	      "a Client Secret reference without its custom Client ID is unusable");
+
+	const QUrl url = oauthAuthorizeUrl(youtube, "client-id", QUrl("http://localhost:17371/callback"), "state-value", "challenge-value");
+	const QString query = url.query(QUrl::FullyDecoded);
+	check(query.contains("client_id=client-id"), "OAuth URL includes client id");
+	check(query.contains("scope=https://www.googleapis.com/auth/youtube.force-ssl"), "OAuth URL includes scope");
+	check(query.contains("code_challenge=challenge-value"), "OAuth URL includes PKCE challenge");
+	check(query.contains("access_type=offline"), "YouTube OAuth URL requests offline access");
+}
+
+void testYouTubeApiWarningHelpers()
+{
+	using namespace dsk;
+
+	OutputTarget youtube;
+	youtube.platformId = "youtube";
+	youtube.state = TargetState::Live;
+	youtube.lastError = "YouTube token refresh failed: invalid_grant";
+	check(isYouTubeApiWarningText(youtube.lastError), "YouTube invalid_grant is API warning text");
+	check(targetHasLiveYouTubeApiWarning(youtube), "live YouTube invalid_grant is live warning");
+	check(targetHasExpiredYouTubeLoginWarning(youtube), "invalid_grant is expired login warning");
+	check(userFacingYouTubeApiWarningText(youtube.lastError).contains("Reconnect YouTube login"),
+	      "invalid_grant user text asks for reconnect");
+	check(userFacingYouTubeApiWarningText(youtube.lastError).contains("remains in preparation"),
+	      "invalid_grant user text explains YouTube preparation state");
+	check(liveYouTubeApiWarningRowText(youtube.lastError) == "RTMP only - login expired",
+	      "invalid_grant row text distinguishes RTMP from YouTube Live");
+
+	youtube.lastError = "YouTube broadcast start blocked: multiple active broadcasts";
+	check(targetHasYouTubeApiWarning(youtube), "multiple broadcasts is API warning");
+	check(userFacingYouTubeApiWarningText(youtube.lastError).contains("Multiple YouTube broadcasts"),
+	      "multiple broadcasts user text");
+	check(userFacingYouTubeApiWarningText(youtube.lastError).contains("DSK Streaming"),
+	      "multiple broadcasts are selected in DSK Streaming");
+	check(!userFacingYouTubeApiWarningText(youtube.lastError).contains("YouTube Studio"),
+	      "multiple broadcasts do not send users to YouTube Studio for selection");
+
+	youtube.lastError = "YouTube broadcast start blocked: selected broadcast is no longer available";
+	check(targetHasYouTubeApiWarning(youtube), "unavailable selected broadcast is API warning");
+	check(userFacingYouTubeApiWarningText(youtube.lastError).contains("selected broadcast is no longer available"),
+	      "unavailable selected broadcast is explained");
+	check(userFacingYouTubeApiWarningText(youtube.lastError).contains("DSK Streaming"),
+	      "unavailable selected broadcast asks for another DSK Streaming choice");
+	check(liveYouTubeApiWarningRowText(youtube.lastError) == "Live signal - selected broadcast unavailable",
+	      "unavailable selected broadcast has a focused live row label");
+
+	youtube.lastError = "YouTube broadcast lookup blocked: the upcoming broadcast list exceeded 10 pages";
+	check(targetHasYouTubeApiWarning(youtube), "truncated broadcast lookup is API warning");
+	check(userFacingYouTubeApiWarningText(youtube.lastError).contains("Too many scheduled broadcasts"),
+	      "truncated broadcast lookup fails closed with corrective guidance");
+	check(liveYouTubeApiWarningRowText(youtube.lastError) == "Live signal - broadcast list too large",
+	      "truncated broadcast lookup has a focused live row label");
+
+	OutputTarget twitch = youtube;
+	twitch.platformId = "twitch";
+	check(!targetHasYouTubeApiWarning(twitch), "non-YouTube target ignores YouTube warning text");
+}
+
+void testRuntimeStatusHelpers()
+{
+	using namespace dsk;
+
+	OutputTarget youtube;
+	youtube.id = "yt-runtime";
+	youtube.platformId = "youtube";
+	youtube.authMode = TargetAuthMode::YouTubeOAuth;
+	youtube.state = TargetState::Live;
+	youtube.enabled = true;
+
+	TargetRuntimeStatus runtime;
+	runtime.targetId = youtube.id;
+	runtime.sessionSerial = 7;
+	runtime.transport = TransportState::Active;
+	runtime.platform = PlatformLiveState::RtmpSignalOnly;
+	check(runtimeTransportIsRunning(runtime), "active runtime is running");
+	check(runtimeStatusLabel(youtube, runtime) == "RTMP only", "YouTube RTMP-only runtime is not labeled YouTube Live");
+	check(runtimeStatusDetail(youtube, runtime).contains("checking YouTube"), "YouTube RTMP-only detail explains platform check");
+
+	runtime.platform = PlatformLiveState::Live;
+	check(runtimeStatusLabel(youtube, runtime) == "YouTube Live", "YouTube platform live is labeled explicitly");
+	check(runtimeStatusDetail(youtube, runtime) == "YouTube broadcast is live", "YouTube platform live detail");
+
+	runtime.platform = PlatformLiveState::AuthExpired;
+	runtime.transportMessage = "RTMP sending";
+	runtime.platformMessage = "RTMP connected - reconnect YouTube login";
+	check(runtimeStatusLabel(youtube, runtime) == "RTMP only", "YouTube auth warning distinguishes platform state");
+	check(runtimeStatusDetail(youtube, runtime).contains("reconnect YouTube login"), "YouTube auth warning detail");
+
+	youtube.lastError = "YouTube token refresh failed: invalid_grant";
+	check(runtimeStatusLabel(youtube, runtime) == "RTMP only", "live YouTube auth error keeps RTMP-only label");
+	check(runtimeStatusDetail(youtube, runtime).contains("reconnect YouTube login"),
+	      "live YouTube auth error keeps runtime platform detail");
+	youtube.lastError.clear();
+
+	OutputTarget twitch = youtube;
+	twitch.platformId = "twitch";
+	runtime.platform = PlatformLiveState::NotApplicable;
+	runtime.platformMessage.clear();
+	runtime.lastUserMessage.clear();
+	check(runtimeStatusLabel(twitch, runtime) == "RTMP sending", "Twitch active runtime uses transport label");
+}
+
+void testOutputSignalPolicy()
+{
+	for (const QString &signal : {QStringLiteral("starting"), QStringLiteral("start"),
+				      QStringLiteral("activate"), QStringLiteral("reconnect"),
+				      QStringLiteral("reconnect_success")}) {
+		check(dsk::shouldIgnoreOutputSignalDuringPendingRelease(signal),
+		      qPrintable(QStringLiteral("pending output release ignores stale %1 signals").arg(signal)));
+	}
+
+	for (const QString &signal : {QStringLiteral("stopping"), QStringLiteral("deactivate"),
+				      QStringLiteral("stop")}) {
+		check(!dsk::shouldIgnoreOutputSignalDuringPendingRelease(signal),
+		      qPrintable(QStringLiteral("pending output release preserves %1 cleanup signals").arg(signal)));
+	}
+}
+
+void testStreamControlsState()
+{
+	dsk::OutputTarget target;
+	target.enabled = true;
+	target.startWithAll = true;
+	target.state = dsk::TargetState::Stopped;
+	dsk::TargetRuntimeStatus runtime;
+	check(dsk::targetCanStartWithAll(target, runtime), "stopped included target enables Start All");
+
+	target.state = dsk::TargetState::Stopping;
+	check(!dsk::targetCanStartWithAll(target, runtime), "stopping target does not enable Start All");
+	check(dsk::targetBlocksStartAll(target, runtime), "stopping included target blocks Start All");
+	target.state = dsk::TargetState::Starting;
+	check(!dsk::targetCanStartWithAll(target, runtime), "starting target does not enable Start All");
+	check(dsk::targetBlocksStartAll(target, runtime), "starting included target blocks Start All");
+	target.state = dsk::TargetState::Live;
+	check(!dsk::targetCanStartWithAll(target, runtime), "live target does not enable Start All");
+	check(!dsk::targetBlocksStartAll(target, runtime), "stable live target does not block other Start All targets");
+
+	target.state = dsk::TargetState::Stopped;
+	runtime.transport = dsk::TransportState::Stopping;
+	check(!dsk::targetCanStartWithAll(target, runtime), "stopping runtime does not enable Start All");
+	check(dsk::targetBlocksStartAll(target, runtime), "stopping included runtime blocks Start All");
+	runtime.transport = dsk::TransportState::Connected;
+	check(!dsk::targetCanStartWithAll(target, runtime), "connected runtime does not enable Start All");
+	runtime.transport = dsk::TransportState::Idle;
+	target.enabled = false;
+	check(!dsk::targetCanStartWithAll(target, runtime), "disabled target does not enable Start All");
+	target.enabled = true;
+	target.startWithAll = false;
+	check(!dsk::targetCanStartWithAll(target, runtime), "excluded target does not enable Start All");
+
+	check(dsk::obsNativeCanStartWithAll(true, false, false), "idle OBS native stream enables Start All");
+	check(!dsk::obsNativeCanStartWithAll(true, false, true),
+	      "transitioning OBS native stream does not enable Start All");
+	check(!dsk::obsNativeCanStartWithAll(true, true, false), "active OBS native stream does not enable Start All");
+	check(!dsk::obsNativeCanStartWithAll(false, false, false),
+	      "unavailable OBS native stream does not enable Start All");
+}
+
+void testVisibleRefreshGate()
+{
+	dsk::VisibleRefreshGate gate;
+	check(gate.isDirty(), "a newly constructed page needs its first refresh");
+	check(!gate.takeIfVisible(false), "a hidden page defers its pending refresh");
+	check(gate.isDirty(), "a hidden page keeps the pending refresh dirty");
+	check(gate.takeIfVisible(true), "showing a dirty page consumes exactly one refresh");
+	check(!gate.isDirty(), "a visible refresh clears the dirty state");
+	check(!gate.takeIfVisible(true), "an unchanged visible page does not refresh again");
+	gate.markDirty();
+	gate.markDirty();
+	check(gate.takeIfVisible(true), "a burst of changes coalesces into one visible refresh");
+	check(!gate.takeIfVisible(true), "a coalesced refresh is consumed only once");
+}
+
+void testSecretStoreHelpers()
+{
+	using namespace dsk;
+
+	check(SecretStore::streamKeyCredentialRef("target-1") == "DSK Multistream/stream-key/target-1", "stream key credential ref");
+	check(SecretStore::oauthClientSecretCredentialRef("target-1") == "DSK Multistream/oauth-client-secret/target-1", "OAuth client secret credential ref");
+#ifdef _WIN32
+	check(SecretStore::isAvailable(), "Windows secret store is available");
+
+	SecretStore secrets;
+	QString error;
+	QString loaded;
+	const QString oversized = QString(4096, QLatin1Char('x'));
+	check(!secrets.writeSecret(QStringLiteral("DSK Multistream/test/oversized"), oversized, &error),
+	      "Windows secret store rejects oversized secrets before CredWrite");
+	check(error.contains("too large"), "oversized secret returns a readable error");
+
+	if (!qEnvironmentVariableIsSet("DSK_TEST_LIVE_SECRET_STORE"))
+		return;
+
+	const QString ref = QStringLiteral("DSK Multistream/test/%1")
+				    .arg(QUuid::createUuid().toString(QUuid::WithoutBraces));
+	const QString value = QStringLiteral("test-stream-key-") + QUuid::createUuid().toString(QUuid::WithoutBraces);
+	check(secrets.writeSecret(ref, value, &error), "Windows secret store writes a test secret");
+	check(error.isEmpty(), "secret write has no error");
+	check(secrets.readSecret(ref, &loaded, &error), "Windows secret store reads a test secret");
+	check(loaded == value, "Windows secret store preserves secret value");
+	check(secrets.deleteSecret(ref, &error), "Windows secret store deletes a test secret");
+	loaded.clear();
+	check(!secrets.readSecret(ref, &loaded, &error), "deleted test secret is not readable");
+#else
+	check(!SecretStore::isAvailable(), "non-Windows secret store is unavailable");
+#endif
+}
+
+void testDataFiles()
+{
+	QFile presetsFile("data/presets/platforms.json");
+	check(presetsFile.open(QIODevice::ReadOnly), "open platform preset json");
+	const QJsonDocument document = QJsonDocument::fromJson(presetsFile.readAll());
+	check(document.isObject(), "platform preset json object");
+
+	const QJsonObject root = document.object();
+	check(root.value("schemaVersion").toInt() == 1, "platform preset schema version");
+	const QJsonArray platforms = root.value("platforms").toArray();
+	check(platforms.size() == 5, "platform preset json has five platforms");
+	dsk::PlatformPresetRegistry registry;
+	check(registry.presets().size() == platforms.size(), "runtime registry and preset json have the same size");
+
+	QSet<QString> ids;
+	for (const QJsonValue &value : platforms) {
+		check(value.isObject(), "platform item is object");
+		const QJsonObject object = value.toObject();
+		const QString id = object.value("id").toString();
+		check(!id.isEmpty(), "platform id exists");
+		check(!ids.contains(id), "platform id unique");
+		ids.insert(id);
+		check(!object.value("name").toString().isEmpty(), "platform name exists");
+		check(object.contains("defaultServer"), "platform defaultServer exists");
+		check(object.contains("helpUrl"), "platform helpUrl exists");
+		check(object.contains("recommendedOutput"), "platform recommendedOutput exists");
+		check(object.contains("horizontalBitrateKbps"), "platform horizontalBitrateKbps exists");
+		check(object.contains("verticalBitrateKbps"), "platform verticalBitrateKbps exists");
+		check(object.contains("note"), "platform note exists");
+		check(object.contains("verticalCommon"), "platform verticalCommon exists");
+
+		const dsk::PlatformPreset preset = registry.presetById(id);
+		check(preset.id == id, qPrintable(QString("runtime preset id matches json for %1").arg(id)));
+		check(preset.displayName == object.value("name").toString(),
+		      qPrintable(QString("runtime preset name matches json for %1").arg(id)));
+		check(preset.defaultServer == object.value("defaultServer").toString(),
+		      qPrintable(QString("runtime preset server matches json for %1").arg(id)));
+		check(preset.helpUrl == object.value("helpUrl").toString(),
+		      qPrintable(QString("runtime preset help URL matches json for %1").arg(id)));
+		check(preset.recommendedOutput == object.value("recommendedOutput").toString(),
+		      qPrintable(QString("runtime preset output matches json for %1").arg(id)));
+		check(preset.horizontalBitrateKbps == object.value("horizontalBitrateKbps").toInt(),
+		      qPrintable(QString("runtime horizontal bitrate matches json for %1").arg(id)));
+		check(preset.verticalBitrateKbps == object.value("verticalBitrateKbps").toInt(),
+		      qPrintable(QString("runtime vertical bitrate matches json for %1").arg(id)));
+		check(preset.note == object.value("note").toString(),
+		      qPrintable(QString("runtime preset note matches json for %1").arg(id)));
+		check(preset.verticalCommon == object.value("verticalCommon").toBool(),
+		      qPrintable(QString("runtime vertical flag matches json for %1").arg(id)));
+	}
+
+	for (const QString &required : {"twitch", "youtube", "kick", "tiktok", "custom"})
+		check(ids.contains(required), qPrintable(QString("required platform %1 exists").arg(required)));
+
+	const QSet<QString> en = localeKeys("data/locale/en-US.ini");
+	const QSet<QString> ja = localeKeys("data/locale/ja-JP.ini");
+	check(!en.isEmpty(), "en-US locale has keys");
+	check(en == ja, "locale key sets match");
+}
+
+QJsonObject youtubeTestBroadcast(const QString &id, const QString &streamId,
+				 const QString &lifeCycleStatus = QStringLiteral("ready"))
+{
+	return QJsonObject{
+		{QStringLiteral("id"), id},
+		{QStringLiteral("contentDetails"), QJsonObject{{QStringLiteral("boundStreamId"), streamId}}},
+		{QStringLiteral("status"), QJsonObject{{QStringLiteral("lifeCycleStatus"), lifeCycleStatus}}},
+	};
+}
+
+QJsonObject youtubeTestStream(const QString &id, const QString &streamName,
+			      const QString &streamStatus = QStringLiteral("active"))
+{
+	return QJsonObject{
+		{QStringLiteral("id"), id},
+		{QStringLiteral("status"), QJsonObject{{QStringLiteral("streamStatus"), streamStatus}}},
+		{QStringLiteral("cdn"),
+		 QJsonObject{{QStringLiteral("ingestionInfo"),
+			      QJsonObject{{QStringLiteral("streamName"), streamName}}}}},
+	};
+}
+
+void testYouTubeBroadcastSelection()
+{
+	using namespace dsk;
+
+	QHash<QString, QJsonObject> streams;
+	streams.insert(QStringLiteral("stream-a"), youtubeTestStream(QStringLiteral("stream-a"), QStringLiteral("key-a")));
+	streams.insert(QStringLiteral("stream-b"), youtubeTestStream(QStringLiteral("stream-b"), QStringLiteral("key-b")));
+
+	QJsonArray one{youtubeTestBroadcast(QStringLiteral("broadcast-a"), QStringLiteral("stream-a"))};
+	YouTubeBroadcastSelection selection = selectYouTubeBroadcast(one, streams, QString());
+	check(selection.state == YouTubeBroadcastSelectionState::Selected,
+	      "one active YouTube broadcast is selected without a stream key");
+	check(selection.broadcast.value(QStringLiteral("id")).toString() == QStringLiteral("broadcast-a"),
+	      "YouTube selection returns the matching broadcast object");
+
+	QJsonArray two = one;
+	two.push_back(youtubeTestBroadcast(QStringLiteral("broadcast-b"), QStringLiteral("stream-b")));
+	selection = selectYouTubeBroadcast(two, streams, QString());
+	check(selection.state == YouTubeBroadcastSelectionState::MultipleActiveBroadcasts,
+	      "multiple active YouTube broadcasts require an explicit stream key");
+	selection = selectYouTubeBroadcast(two, streams, QStringLiteral("key-b"));
+	check(selection.state == YouTubeBroadcastSelectionState::Selected &&
+		      selection.broadcast.value(QStringLiteral("id")).toString() == QStringLiteral("broadcast-b"),
+	      "stream key selects exactly one active YouTube broadcast");
+	check(selection.candidates.size() == 1,
+	      "YouTube selection exposes the matching broadcast candidate");
+	selection = selectYouTubeBroadcast(two, streams, QStringLiteral("missing-key"));
+	check(selection.state == YouTubeBroadcastSelectionState::NoStreamKeyMatch,
+	      "active YouTube broadcasts with a different key are rejected");
+
+	QHash<QString, QJsonObject> duplicateKeyStreams = streams;
+	duplicateKeyStreams[QStringLiteral("stream-b")] =
+		youtubeTestStream(QStringLiteral("stream-b"), QStringLiteral("key-a"));
+	selection = selectYouTubeBroadcast(two, duplicateKeyStreams, QStringLiteral("key-a"));
+	check(selection.state == YouTubeBroadcastSelectionState::MultipleStreamKeyMatches,
+	      "duplicate YouTube stream-key bindings are never auto-transitioned");
+	check(selection.candidates.size() == 2,
+	      "duplicate YouTube stream-key bindings expose both choices");
+	selection = selectYouTubeBroadcast(two, duplicateKeyStreams, QStringLiteral("key-a"),
+				   QStringLiteral("broadcast-b"));
+	check(selection.state == YouTubeBroadcastSelectionState::Selected &&
+		      selection.broadcast.value(QStringLiteral("id")).toString() == QStringLiteral("broadcast-b"),
+	      "an explicit YouTube broadcast choice resolves duplicate stream-key bindings");
+	selection = selectYouTubeBroadcast(two, duplicateKeyStreams, QStringLiteral("key-a"),
+				   QStringLiteral("missing-broadcast"));
+	check(selection.state == YouTubeBroadcastSelectionState::PreferredBroadcastUnavailable &&
+		      selection.broadcast.isEmpty() && selection.candidates.size() == 2,
+	      "a missing explicit YouTube broadcast choice never falls back to another broadcast");
+
+	QJsonArray completedChoice{
+		youtubeTestBroadcast(QStringLiteral("broadcast-a"), QStringLiteral("stream-a")),
+		youtubeTestBroadcast(QStringLiteral("broadcast-b"), QStringLiteral("stream-b"),
+				     QStringLiteral("complete")),
+	};
+	selection = selectYouTubeBroadcast(completedChoice, duplicateKeyStreams, QStringLiteral("key-a"),
+				   QStringLiteral("broadcast-b"));
+	check(selection.state == YouTubeBroadcastSelectionState::PreferredBroadcastUnavailable &&
+		      selection.broadcast.isEmpty() && selection.candidates.size() == 1,
+	      "a completed explicit YouTube broadcast choice never falls back to a ready broadcast");
+
+	QJsonArray completed{youtubeTestBroadcast(QStringLiteral("done"), QStringLiteral("stream-a"),
+					   QStringLiteral("complete"))};
+	selection = selectYouTubeBroadcast(completed, streams, QStringLiteral("key-a"));
+	check(selection.state == YouTubeBroadcastSelectionState::NoActiveBroadcast,
+	      "completed YouTube broadcasts are ignored");
+
+	QJsonArray created{youtubeTestBroadcast(QStringLiteral("created"), QStringLiteral("stream-a"),
+					 QStringLiteral("created"))};
+	selection = selectYouTubeBroadcast(created, streams, QStringLiteral("key-a"));
+	check(selection.state == YouTubeBroadcastSelectionState::NoActiveBroadcast,
+	      "incomplete created YouTube broadcasts are not selected for transition");
+
+	for (const QString &lifecycle : {QStringLiteral("testing"), QStringLiteral("testStarting"),
+					 QStringLiteral("liveStarting"), QStringLiteral("live")}) {
+		QJsonArray actionable{youtubeTestBroadcast(QStringLiteral("actionable"), QStringLiteral("stream-a"),
+						       lifecycle)};
+		selection = selectYouTubeBroadcast(actionable, streams, QStringLiteral("key-a"));
+		check(selection.state == YouTubeBroadcastSelectionState::Selected,
+		      qPrintable(QStringLiteral("YouTube lifecycle %1 remains actionable").arg(lifecycle)));
+	}
+}
+
+void testCommentViewerObsIntegrationContract()
+{
+	using namespace dsk;
+
+	const QByteArray valid = R"json({
+		"ok": true,
+		"service": "dsk-comment-viewer",
+		"schemaVersion": 1,
+		"appVersion": "0.2.0-beta.24",
+		"integration": "obs-browser-dock",
+		"obsDock": {
+			"viewerPath": "/viewer?dock=chat&send=1",
+			"capabilities": ["comments.read", "comments.send"]
+		}
+	})json";
+	const auto integration = parseCommentViewerObsIntegration(valid);
+	check(integration.has_value(), "valid Comment Viewer OBS integration contract is accepted");
+	check(integration && integration->appVersion == QStringLiteral("0.2.0-beta.24"),
+	      "Comment Viewer integration exposes its app version");
+	check(integration && integration->viewerUrl ==
+				     QUrl(QStringLiteral("http://127.0.0.1:17321/viewer?dock=chat&send=1")),
+	      "Comment Viewer integration is pinned to the loopback viewer URL");
+	check(integration && integration->canSendComments,
+	      "Comment Viewer integration advertises comment sending support");
+
+	QJsonObject wrongSchema = QJsonDocument::fromJson(valid).object();
+	wrongSchema.insert(QStringLiteral("schemaVersion"), 2);
+	check(!parseCommentViewerObsIntegration(QJsonDocument(wrongSchema).toJson(QJsonDocument::Compact)),
+	      "unsupported Comment Viewer integration schemas are rejected");
+
+	QJsonObject externalViewer = QJsonDocument::fromJson(valid).object();
+	QJsonObject externalDock = externalViewer.value(QStringLiteral("obsDock")).toObject();
+	externalDock.insert(QStringLiteral("viewerPath"), QStringLiteral("https://example.com/viewer"));
+	externalViewer.insert(QStringLiteral("obsDock"), externalDock);
+	check(!parseCommentViewerObsIntegration(QJsonDocument(externalViewer).toJson(QJsonDocument::Compact)),
+	      "Comment Viewer integration cannot redirect the OBS dock to an external URL");
+
+	check(!parseCommentViewerObsIntegration(QByteArrayLiteral("not-json")),
+	      "malformed Comment Viewer integration responses are rejected");
+}
+
+void testCommentViewerInstallDetection()
+{
+	QTemporaryDir temporary;
+	check(temporary.isValid(), "Comment Viewer install detection has a temporary directory");
+	check(!dsk::isCommentViewerInstallDirectory(temporary.path()),
+	      "an empty directory is not a Comment Viewer installation");
+
+	QFile metadata(temporary.filePath(QStringLiteral("package.json")));
+	check(metadata.open(QIODevice::WriteOnly), "create Comment Viewer package metadata fixture");
+	metadata.write(R"json({"name":"dsk-comment-viewer","version":"0.2.0-beta.24"})json");
+	metadata.close();
+	QFile serverLauncher(temporary.filePath(QStringLiteral("start-server-hidden.vbs")));
+	check(serverLauncher.open(QIODevice::WriteOnly), "create Comment Viewer server launcher fixture");
+	serverLauncher.write("fixture");
+	serverLauncher.close();
+	check(!dsk::isCommentViewerInstallDirectory(temporary.path()),
+	      "a partial Comment Viewer installation is rejected");
+
+	QFile appLauncher(temporary.filePath(QStringLiteral("start-hidden.vbs")));
+	check(appLauncher.open(QIODevice::WriteOnly), "create Comment Viewer app launcher fixture");
+	appLauncher.write("fixture");
+	appLauncher.close();
+	check(dsk::isCommentViewerInstallDirectory(temporary.path()),
+	      "a complete independent Comment Viewer installation is detected");
+}
+
+void testCommentViewerIntegrationProbePolicy()
+{
+	using dsk::CommentViewerProbeAction;
+	using dsk::commentViewerIntegrationEnabledAtStartup;
+	using dsk::commentViewerProbeAction;
+
+	check(commentViewerIntegrationEnabledAtStartup(true),
+	      "an installed Comment Viewer enables integration at startup");
+	check(!commentViewerIntegrationEnabledAtStartup(false),
+	      "a missing Comment Viewer keeps integration off at startup");
+	check(commentViewerProbeAction(false, 7, 7, true, false, 0, 10) == CommentViewerProbeAction::Ignore,
+	      "a disabled Comment Viewer integration ignores a successful stale probe");
+	check(commentViewerProbeAction(true, 8, 7, true, false, 0, 10) == CommentViewerProbeAction::Ignore,
+	      "a superseded Comment Viewer probe cannot recreate the dock");
+	check(commentViewerProbeAction(true, 7, 7, true, false, 0, 10) == CommentViewerProbeAction::Connect,
+	      "a current valid probe connects the Comment Viewer dock");
+	check(commentViewerProbeAction(true, 7, 7, false, false, 0, 10) == CommentViewerProbeAction::Launch,
+	      "the first failed probe launches an installed but stopped Viewer");
+	check(commentViewerProbeAction(true, 7, 7, false, true, 0, 10) == CommentViewerProbeAction::Retry,
+	      "a failed post-launch probe retries while attempts remain");
+	check(commentViewerProbeAction(true, 7, 7, false, true, 9, 10) == CommentViewerProbeAction::GiveUp,
+	      "the final failed post-launch probe gives up without leaving a dead dock");
+}
+
+void testExperimentalSceneRoutingPolicy()
+{
+	check(!dsk::experimentalFeatureEnabled({}), "experimental features default off");
+	check(!dsk::experimentalFeatureEnabled(QByteArrayLiteral("0")), "zero keeps an experimental feature off");
+	check(!dsk::experimentalFeatureEnabled(QByteArrayLiteral("false")), "false keeps an experimental feature off");
+	check(dsk::experimentalFeatureEnabled(QByteArrayLiteral("1")), "one enables an experimental feature");
+	check(dsk::experimentalFeatureEnabled(QByteArrayLiteral(" TRUE ")), "true enables an experimental feature");
+}
+
+} // namespace
+
+int main(int argc, char **argv)
+{
+	QCoreApplication app(argc, argv);
+
+	testOutputTargetHelpers();
+	testLayoutsAndProfiles();
+	testSettingsCodec();
+	testPlatformRegistry();
+	testOAuthProviders();
+	testYouTubeApiWarningHelpers();
+	testRuntimeStatusHelpers();
+	testOutputSignalPolicy();
+	testStreamControlsState();
+	testVisibleRefreshGate();
+	testSecretStoreHelpers();
+	testYouTubeBroadcastSelection();
+	testCommentViewerObsIntegrationContract();
+	testCommentViewerInstallDetection();
+	testCommentViewerIntegrationProbePolicy();
+	testExperimentalSceneRoutingPolicy();
+	testDataFiles();
+
+	if (failures > 0) {
+		std::cerr << failures << " smoke test checks failed.\n";
+		return 1;
+	}
+
+	std::cout << "All smoke tests passed.\n";
+	return 0;
+}

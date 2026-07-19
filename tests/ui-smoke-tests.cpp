@@ -286,4 +286,561 @@ void testTargetEditDialogRoundTrips()
 	youtube.sceneMode = dsk::TargetSceneMode::LinkedScene;
 	youtube.sceneName = "YouTube fallback";
 	youtube.sceneUuid = "youtube-fallback-uuid";
-	youtube.sceneRoutes.push_back({"Game", "gamß¯7¶‰ËkºwµçQMÑÉ•…µ-•åI•™•É•¹” ¤)ì(%‘Í¬èéA±…Ñ™½ÉµAÉ•Í•ÑI•¥ÍÑÉäÁ±…Ñ™½ÉµÌì(%‘Í¬èéQ…É•Ñ‘¥Ñ¥…±½œ‘¥…±½œ¡Á±…Ñ™½ÉµÌ¤ì((%‘Í¬èé=ÕÑÁÕÑQ…É•Ğ¥¹ÁÕĞì(%¥¹ÁÕĞ¹¥€ô€‰Ñ…É•ĞµÍ…Ù•µ­•äˆì(%¥¹ÁÕĞ¹¹…µ”€ô€‰M…Ù•-•äQ…É•Ğˆì(%¥¹ÁÕĞ¹Á±…Ñ™½Éµ%€ô€‰Ñİ¥Ñ ˆì(%¥¹ÁÕĞ¹…ÕÑ¡5½‘”€ô‘Í¬èéQ…É•ÑÕÑ¡5½‘”èé5…¹Õ…±IÑµÀì(%¥¹ÁÕĞ¹…ÕÑ¡É•‘•¹Ñ¥…±I•˜€ô€‰M,5Õ±Ñ¥ÍÑÉ•…´½ÍÑÉ•…´µ­•ä½Ñ…É•ĞµÍ…Ù•µ­•äˆì(%¥¹ÁÕĞ¹Í•ÉÙ•ÉUÉ°€ô€‰ÉÑµÀè¼½±¥Ù”¹Ñİ¥Ñ ¹ÑØ½…ÁÀˆì(%¥¹ÁÕĞ¹ÍÑÉ•…µ-•ä¹±•…È ¤ì((%‘¥…±½œ¹Í•ÑQ…É•Ğ¡¥¹ÁÕĞ¤ì(%‘Í¬èé=ÕÑÁÕÑQ…É•Ğ…•ÁÑ•ì(%‘¥…±½œ¹™¥±±Q…É•Ğ¡…•ÁÑ•¤ì((%EMÑÉ¥¹œ•ÉÉ½Èì(%¡•¬¡…•ÁÑ•¹ÍÑÉ•…µ-•ä¹¥ÍµÁÑä ¤°€‰‰±…¹¬ÍÑÉ•…´­•ä•‘¥Ğ­••ÁÌ­•ä½ÕĞ½˜‘¥…±½œÑ…É•Ğˆ¤ì(%¡•¬¡…•ÁÑ•¹…ÕÑ¡É•‘•¹Ñ¥…±I•˜€ôô¥¹ÁÕĞ¹…ÕÑ¡É•‘•¹Ñ¥…±I•˜°€‰‰±…¹¬ÍÑÉ•…´­•ä•‘¥ĞÁÉ•Í•ÉÙ•ÌÍ…Ù•É•‘•¹Ñ¥…°É•˜ˆ¤ì(%¡•¬¡‘Í¬èéÙ…±¥‘…Ñ•=ÕÑÁÕÑQ…É•Ñ½¹™¥œ¡…•ÁÑ•°€™•ÉÉ½È¤°€‰Í…Ù•ÍÑÉ•…´­•äÉ•˜É•µ…¥¹Ì„Ù…±¥Ñ…É•Ğˆ¤ì)ô()Ù½¥Ñ•ÍÑQ…É•Ñ‘¥Ñ¥…±½UÍ•ÍMÉ½±±…‰±•½É´ ¤)ì(%‘Í¬èéA±…Ñ™½ÉµAÉ•Í•ÑI•¥ÍÑÉäÁ±…Ñ™½ÉµÌì(%‘Í¬èéQ…É•Ñ‘¥Ñ¥…±½œ‘¥…±½œ¡Á±…Ñ™½ÉµÌ¤ì((%…ÕÑ¼€©ÍÉ½±±É•„€ô‘¥…±½œ¹™¥¹‘¡¥±ñEMÉ½±±É•„€¨ø ¤ì(%¡•¬¡ÍÉ½±±É•„€„ô¹Õ±±ÁÑÈ°€‰Ñ…É•Ğ•‘¥Ğ‘¥…±½œ¡…Ì„ÍÉ½±±…‰±”™½É´…É•„ˆ¤ì(%¡•¬¡ÍÉ½±±É•„€˜˜ÍÉ½±±É•„´ùİ¥‘•ÑI•Í¥é…‰±” ¤°€‰Ñ…É•Ğ•‘¥Ğ‘¥…±½œÍÉ½±°…É•„É•Í¥é•Ì¥ÑÌ™½É´ˆ¤ì(%¡•¬¡ÍÉ½±±É•„€˜˜ÍÉ½±±É•„´ùµ…á¥µÕµ!•¥¡Ğ ¤€øô€ÈàÀ°€‰Ñ…É•Ğ•‘¥Ğ‘¥…±½œ­••ÁÌ„ÕÍ…‰±”ÍÉ½±°¡•¥¡Ğˆ¤ì)ô()Ù½¥Ñ•ÍÑI•™É•Í¡I½İÍ!¥‘•	•™½É••™•ÉÉ•‘•±•Ñ” ¤)ì(%E]¥‘•ĞÁ…É•¹Ğì(%…ÕÑ¼€©±…å½ÕĞ€ô¹•ÜEY	½á1…å½ÕĞ ™Á…É•¹Ğ¤ì(%Á…É•¹Ğ¹Í¡½Ü ¤ì((%EY•Ñ½ÈñEA½¥¹Ñ•ÈñE]¥‘•ĞøøÉ•Ñ¥É•‘I½İÌì(%™½È€¡¥¹Ğ¤€ô€Àì¤€ğ€Ğì€¬­¤¤ì($%…ÕÑ¼€©É½Ü€ô¹•ÜE]¥‘•Ğ ™Á…É•¹Ğ¤ì($%É½Ü´ùÍ•Ñ=‰©•Ñ9…µ”¡EMÑÉ¥¹1¥Ñ•É…° ‰Ñ…É•ÑI½Üˆ¤¤ì($%É½Ü´ùÍ•Ñ5¥¹¥µÕµ!•¥¡Ğ ÈĞ¤ì($%±…å½ÕĞ´ù…‘‘]¥‘•Ğ¡É½Ü¤ì($%É•Ñ¥É•‘I½İÌ¹ÁÕÍ¡}‰…¬¡É½Ü¤ì(%ô(%±…å½ÕĞ´ù…‘‘MÑÉ•Ñ  Ä¤ì(%E½É•ÁÁ±¥…Ñ¥½¸èéÁÉ½•ÍÍÙ•¹ÑÌ ¤ì(%™½È€¡½¹ÍĞEA½¥¹Ñ•ÈñE]¥‘•Ğø€™É½Ü€èÉ•Ñ¥É•‘I½İÌ¤($%¡•¬¡É½Ü€˜˜É½Ü´ù¥ÍY¥Í¥‰±” ¤°€‰ÍÑÉ•…´½¹ÑÉ½°É½İÌÍÑ…ÉĞÙ¥Í¥‰±”‰•™½É”„É•™É•Í ˆ¤ì((%‘Í¬èé±•…É1…å½ÕÑ]¥‘•ÑÍ½ÉI•™É•Í ¡±…å½ÕĞ°€Ä¤ì(%¡•¬¡±…å½ÕĞ´ù½Õ¹Ğ ¤€ôô€Ä€˜˜±…å½ÕĞ´ù¥Ñ•µĞ À¤´ùÍÁ…•É%Ñ•´ ¤°($€€€€€€‰É•™É•Í É•µ½Ù•ÌÉ•Ñ¥É•É½İÌİ¡¥±”ÁÉ•Í•ÉÙ¥¹œÑ¡”ÑÉ…¥±¥¹œ±…å½ÕĞÍÑÉ•Ñ ˆ¤ì(%™½È€¡½¹ÍĞEA½¥¹Ñ•ÈñE]¥‘•Ğø€™É½Ü€èÉ•Ñ¥É•‘I½İÌ¤ì($%¡•¬¡É½Ü°€‰É•Ñ¥É•ÍÑÉ•…´½¹ÑÉ½°É½İÌÉ•µ…¥¸Ù…±¥Õ¹Ñ¥°•™•ÉÉ•‘•±•Ñ”ÉÕ¹Ìˆ¤ì($%¡•¬¡É½Ü€˜˜É½Ü´ù¥Í!¥‘‘•¸ ¤°€‰É•Ñ¥É•ÍÑÉ•…´½¹ÑÉ½°É½İÌ¡¥‘”‰•™½É”•™•ÉÉ•‘•±•Ñ”…¸ÉÕ¸ˆ¤ì(%ô(($¼¼MÑ½À±°…¸ÅÕ•Õ”Í•Ù•É…°Ñ…É•ĞÍÑ…Ñ”¡…¹•Ì‰•™½É”EĞÁÉ½•ÍÍ•Ì($¼¼•™•ÉÉ•‘•±•Ñ”¸I•Á±…•µ•¹ĞÉ½İÌµÕÍĞ‰”Ñ¡”½¹±äÙ¥Í¥‰±”•¹•É…Ñ¥½¸¸(%EY•Ñ½ÈñEA½¥¹Ñ•ÈñE]¥‘•ĞøøÉ•Á±…•µ•¹ÑI½İÌì(%™½È€¡¥¹Ğ¤€ô€Àì¤€ğ€Ğì€¬­¤¤ì($%…ÕÑ¼€©É½Ü€ô¹•ÜE]¥‘•Ğ ™Á…É•¹Ğ¤ì($%É½Ü´ùÍ•Ñ=‰©•Ñ9…µ”¡EMÑÉ¥¹1¥Ñ•É…° ‰Ñ…É•ÑI½Üˆ¤¤ì($%É½Ü´ùÍ•Ñ5¥¹¥µÕµ!•¥¡Ğ ÈĞ¤ì($%±…å½ÕĞ´ù¥¹Í•ÉÑ]¥‘•Ğ¡±…å½ÕĞ´ù½Õ¹Ğ ¤€´€Ä°É½Ü¤ì($%É•Á±…•µ•¹ÑI½İÌ¹ÁÕÍ¡}‰…¬¡É½Ü¤ì(%ô(%E½É•ÁÁ±¥…Ñ¥½¸èéÁÉ½•ÍÍÙ•¹ÑÌ ¤ì(%¥¹ĞÙ¥Í¥‰±•Q…É•ÑI½İÌ€ô€Àì(%™½È€¡E]¥‘•Ğ€©É½Ü€èÁ…É•¹Ğ¹™¥¹‘¡¥±‘É•¸ñE]¥‘•Ğ€¨ø¡EMÑÉ¥¹1¥Ñ•É…° ‰Ñ…É•ÑI½Üˆ¤¤¤ì($%¥˜€¡É½Ü´ù¥ÍY¥Í¥‰±” ¤¤($$$¬­Ù¥Í¥‰±•Q…É•ÑI½İÌì(%ô(%¡•¬¡Ù¥Í¥‰±•Q…É•ÑI½İÌ€ôôÉ•Á±…•µ•¹ÑI½İÌ¹Í¥é” ¤°($€€€€€€‰„É•™É•Í ‰ÕÉÍĞ±•…Ù•Ì½¹±äÑ¡”™¥¹…°ÍÑÉ•…´½¹ÑÉ½°É½Ü•¹•É…Ñ¥½¸Ù¥Í¥‰±”ˆ¤ì((%E½É•ÁÁ±¥…Ñ¥½¸èéÍ•¹‘A½ÍÑ•‘Ù•¹ÑÌ¡¹Õ±±ÁÑÈ°EÙ•¹Ğèé•™•ÉÉ•‘•±•Ñ”¤ì(%™½È€¡½¹ÍĞEA½¥¹Ñ•ÈñE]¥‘•Ğø€™É½Ü€èÉ•Ñ¥É•‘I½İÌ¤($%¡•¬¡É½Ü¹¥Í9Õ±° ¤°€‰É•Ñ¥É•ÍÑÉ•…´½¹ÑÉ½°É½İÌ…É”‘•±•Ñ•…™Ñ•È•™•ÉÉ•‘•±•Ñ”ˆ¤ì)ô()Ù½¥Ñ•ÍÑ=ÕÑ¡½¹¹•Ñ½ÉI•©•ÑÍU¹ÍÕÁÁ½ÉÑ•‘5½‘” ¤)ì(%‘Í¬èé=ÕÑ¡½¹¹•Ñ½È½¹¹•Ñ½Èì(%¥¹Ğ™¥¹¥Í¡½Õ¹Ğ€ô€Àì(%‘Í¬èé=ÕÑ¡½¹¹•Ñ¥½¹I•ÍÕ±ĞÉ•ÍÕ±Ğì(%E=‰©•Ğèé½¹¹•Ğ ™½¹¹•Ñ½È°€™‘Í¬èé=ÕÑ¡½¹¹•Ñ½Èèé™¥¹¥Í¡•°€™½¹¹•Ñ½È°($$$l™™¥¹¥Í¡½Õ¹Ğ°€™É•ÍÕ±Ñt¡½¹ÍĞ‘Í¬èé=ÕÑ¡½¹¹•Ñ¥½¹I•ÍÕ±Ğ€™Ù…±Õ”¤ì($$$$€¬­™¥¹¥Í¡½Õ¹Ğì($$$$É•ÍÕ±Ğ€ôÙ…±Õ”ì($$$ô¤ì((%¡•¬ …½¹¹•Ñ½È¹‰•¥¸¡‘Í¬èéQ…É•ÑÕÑ¡5½‘”èé5…¹Õ…±IÑµÀ°EMÑÉ¥¹1¥Ñ•É…° ‰±¥•¹Ğˆ¤°EMÑÉ¥¹œ ¤¤°($€€€€€€‰=ÕÑ ½¹¹•Ñ½ÈÉ•©•ÑÌµ…¹Õ…°IQ5@µ½‘”ˆ¤ì(%¡•¬¡™¥¹¥Í¡½Õ¹Ğ€ôô€Ä°€‰Õ¹ÍÕÁÁ½ÉÑ•=ÕÑ µ½‘”™¥¹¥Í¡•Ì•á…Ñ±ä½¹”ˆ¤ì(%¡•¬ …É•ÍÕ±Ğ¹•ÉÉ½É5•ÍÍ…”¹¥ÍµÁÑä ¤°€‰Õ¹ÍÕÁÁ½ÉÑ•=ÕÑ µ½‘”É•ÑÕÉ¹Ì…¸•áÁ±…¹…Ñ¥½¸ˆ¤ì(%¡•¬ …½¹¹•Ñ½È¹¥ÍIÕ¹¹¥¹œ ¤°€‰Õ¹ÍÕÁÁ½ÉÑ•=ÕÑ µ½‘”±•…Ù•Ì¹¼ÉÕ¹¹¥¹œ…±±‰…¬Í•ÉÙ•Èˆ¤ì)ô()Ù½¥Ñ•ÍÑQİ¥Ñ¡AÕ‰±¥Í¡•É=ÕÑ¡U¥¹‘5¥É…Ñ¥½¸ ¤)ì(%‘Í¬èéA±…Ñ™½ÉµAÉ•Í•ÑI•¥ÍÑÉäÁ±…Ñ™½ÉµÌì(%‘Í¬èéQ…É•Ñ‘¥Ñ¥…±½œ‘¥…±½œ¡Á±…Ñ™½ÉµÌ¤ì(%‘Í¬èé=ÕÑÁÕÑQ…É•Ğ¥¹ÁÕĞì(%¥¹ÁÕĞ¹¥€ôEMÑÉ¥¹1¥Ñ•É…° ‰ÁÕ‰±¥Í¡•ÈµÑİ¥Ñ ˆ¤ì(%¥¹ÁÕĞ¹¹…µ”€ôEMÑÉ¥¹1¥Ñ•É…° ‰Qİ¥Ñ ˆ¤ì(%¥¹ÁÕĞ¹Á±…Ñ™½Éµ%€ôEMÑÉ¥¹1¥Ñ•É…° ‰Ñİ¥Ñ ˆ¤ì(%¥¹ÁÕĞ¹…ÕÑ¡5½‘”€ô‘Í¬èéQ…É•ÑÕÑ¡5½‘”èéQİ¥Ñ¡=ÕÑ ì(%¥¹ÁÕĞ¹…ÕÑ¡½Õ¹Ñ9…µ”€ôEMÑÉ¥¹1¥Ñ•É…° ‰±•…äµ…½Õ¹Ğˆ¤ì(%¥¹ÁÕĞ¹…ÕÑ¡É•‘•¹Ñ¥…±I•˜€ôEMÑÉ¥¹1¥Ñ•É…° ‰M,5Õ±Ñ¥ÍÑÉ•…´½ÍÑÉ•…´µ­•ä½ÁÕ‰±¥Í¡•ÈµÑİ¥Ñ ˆ¤ì(%¥¹ÁÕĞ¹½…ÕÑ¡±¥•¹Ñ%€ôEMÑÉ¥¹1¥Ñ•É…° ‰±•…äµÕÍ•Èµ±¥•¹Ğµ¥ˆ¤ì(%¥¹ÁÕĞ¹½…ÕÑ¡±¥•¹ÑM•É•Ğ€ôEMÑÉ¥¹1¥Ñ•É…° ‰±•…äµÕÍ•ÈµÍ•É•Ğˆ¤ì(%¥¹ÁÕĞ¹½…ÕÑ¡±¥•¹ÑM•É•ÑI•˜€ôEMÑÉ¥¹1¥Ñ•É…° ‰M,5Õ±Ñ¥ÍÑÉ•…´½½…ÕÑ µ±¥•¹ĞµÍ•É•Ğ½±•…äˆ¤ì(%¥¹ÁÕĞ¹Í•ÉÙ•ÉUÉ°€ôEMÑÉ¥¹1¥Ñ•É…° ‰ÉÑµÀè¼½±¥Ù”¹Ñİ¥Ñ ¹ÑØ½…ÁÀˆ¤ì(%¥¹ÁÕĞ¹ÍÑÉ•…µ-•ä€ôEMÑÉ¥¹1¥Ñ•É…° ‰Í…Ù•µÍÑÉ•…´µ­•äˆ¤ì((%‘¥…±½œ¹Í•ÑQ…É•Ğ¡¥¹ÁÕĞ¤ì(%…ÕÑ¼€©±¥•¹Ñ%€ô‘¥…±½œ¹™¥¹‘¡¥±ñE1¥¹•‘¥Ğ€¨ø¡EMÑÉ¥¹1¥Ñ•É…° ‰‘Í­=ÕÑ¡±¥•¹Ñ%ˆ¤¤ì(%…ÕÑ¼€©±¥•¹ÑM•É•Ğ€ô‘¥…±½œ¹™¥¹‘¡¥±ñE1¥¹•‘¥Ğ€¨ø¡EMÑÉ¥¹1¥Ñ•É…° ‰‘Í­=ÕÑ¡±¥•¹ÑM•É•Ğˆ¤¤ì(%…ÕÑ¼€©½¹¹•Ñ	ÕÑÑ½¸€ô‘¥…±½œ¹™¥¹‘¡¥±ñEAÕÍ¡	ÕÑÑ½¸€¨ø¡EMÑÉ¥¹1¥Ñ•É…° ‰‘Í­½¹¹•Ñ=ÕÑ ˆ¤¤ì(%…ÕÑ¼€©‘¥Í½¹¹•Ñ	ÕÑÑ½¸€ô‘¥…±½œ¹™¥¹‘¡¥±ñEAÕÍ¡	ÕÑÑ½¸€¨ø¡EMÑÉ¥¹1¥Ñ•É…° ‰‘Í­¥Í½¹¹•Ñ=ÕÑ ˆ¤¤ì(%¡•¬¡±¥•¹Ñ%€˜˜±¥•¹Ñ%´ù¥Í!¥‘‘•¸ ¤°€‰Qİ¥Ñ ÁÕ‰±¥Í¡•È±½¥¸¡¥‘•ÌÑ¡”ÕÍ•È±¥•¹Ğ%™¥•±ˆ¤ì(%¡•¬¡±¥•¹ÑM•É•Ğ€˜˜±¥•¹ÑM•É•Ğ´ù¥Í!¥‘‘•¸ ¤°€‰Qİ¥Ñ ÁÕ‰±¥Í¡•È±½¥¸¡¥‘•ÌÑ¡”ÕÍ•È±¥•¹ĞM•É•Ğ™¥•±ˆ¤ì(%¡•¬¡½¹¹•Ñ	ÕÑÑ½¸€˜˜½¹¹•Ñ	ÕÑÑ½¸´ù¥Í¹…‰±• ¤€˜˜½¹¹•Ñ	ÕÑÑ½¸´ùÑ•áĞ ¤€ôô€‰I•½¹¹•ĞQİ¥Ñ ˆ°($€€€€€€‰½¹¹•Ñ•Qİ¥Ñ ÁÕ‰±¥Í¡•È±½¥¸•áÁ½Í•Ì½¹”±•…ÈI•½¹¹•ĞQİ¥Ñ …Ñ¥½¸ˆ¤ì(%¡•¬¡‘¥Í½¹¹•Ñ	ÕÑÑ½¸€˜˜€…‘¥Í½¹¹•Ñ	ÕÑÑ½¸´ù¥Í!¥‘‘•¸ ¤€˜˜‘¥Í½¹¹•Ñ	ÕÑÑ½¸´ù¥Í¹…‰±• ¤°($€€€€€€‰½¹¹•Ñ•Qİ¥Ñ ÁÕ‰±¥Í¡•È±½¥¸•áÁ½Í•Ì„¥Í½¹¹•Ğ…Ñ¥½¸ˆ¤ì((%‘Í¬èé=ÕÑÁÕÑQ…É•Ğ…•ÁÑ•ì(%‘¥…±½œ¹™¥±±Q…É•Ğ¡…•ÁÑ•¤ì(%¡•¬¡…•ÁÑ•¹…ÕÑ¡5½‘”€ôô‘Í¬èéQ…É•ÑÕÑ¡5½‘”èéQİ¥Ñ¡=ÕÑ °€‰Qİ¥Ñ ÁÕ‰±¥Í¡•È±½¥¸ÁÉ•Í•ÉÙ•Ì…ÕÑ µ½‘”ˆ¤ì(%¡•¬¡…•ÁÑ•¹…ÕÑ¡½Õ¹Ñ9…µ”€ôô¥¹ÁÕĞ¹…ÕÑ¡½Õ¹Ñ9…µ”°€‰Qİ¥Ñ ÁÕ‰±¥Í¡•È±½¥¸ÁÉ•Í•ÉÙ•ÌÑ¡”½¹¹•Ñ•…½Õ¹Ğ±…‰•°ˆ¤ì(%¡•¬¡…•ÁÑ•¹½…ÕÑ¡±¥•¹Ñ%¹¥ÍµÁÑä ¤°€‰Qİ¥Ñ ÁÕ‰±¥Í¡•È±½¥¸É•µ½Ù•Ì±•…äÕÍ•È±¥•¹Ğ%Ìˆ¤ì(%¡•¬¡…•ÁÑ•¹½…ÕÑ¡±¥•¹ÑM•É•Ğ¹¥ÍµÁÑä ¤°€‰Qİ¥Ñ ÁÕ‰±¥Í¡•È±½¥¸É•µ½Ù•Ì±•…äÕÍ•È±¥•¹ĞM•É•ÑÌˆ¤ì(%¡•¬¡…•ÁÑ•¹½…ÕÑ¡±¥•¹ÑM•É•ÑI•˜¹¥ÍµÁÑä ¤°€‰Qİ¥Ñ ÁÕ‰±¥Í¡•È±½¥¸É•µ½Ù•Ì±•…ä±¥•¹ĞM•É•ĞÉ•™•É•¹•Ìˆ¤ì(%¡•¬¡…•ÁÑ•¹ÍÑÉ•…µ-•ä€ôô¥¹ÁÕĞ¹ÍÑÉ•…µ-•ä°€‰Qİ¥Ñ ÁÕ‰±¥Í¡•È±½¥¸ÁÉ•Í•ÉÙ•ÌÑ¡”…ÕÑ½µ…Ñ¥…±±äÉ•ÑÉ¥•Ù•ÍÑÉ•…´­•äˆ¤ì((%¡•¬¡E5•Ñ…=‰©•Ğèé¥¹Ù½­•5•Ñ¡½ ™‘¥…±½œ°€‰‘¥Í½¹¹•Ñ=ÕÑ¡½Õ¹Ğˆ°EĞèé¥É•Ñ½¹¹•Ñ¥½¸¤°($€€€€€€‰Qİ¥Ñ ¥Í½¹¹•Ğ…Ñ¥½¸¥Ì¥¹Ù½­…‰±”ˆ¤ì(%‘¥…±½œ¹™¥±±Q…É•Ğ¡…•ÁÑ•¤ì(%¡•¬¡…•ÁÑ•¹…ÕÑ¡½Õ¹Ñ9…µ”¹¥ÍµÁÑä ¤°€‰Qİ¥Ñ ¥Í½¹¹•Ğ±•…ÉÌÑ¡”Í…Ù•…½Õ¹Ğ±…‰•°¥¸Ñ¡”•‘¥Ñ•Ñ…É•Ğˆ¤ì(%¡•¬¡…•ÁÑ•¹…ÕÑ¡É•‘•¹Ñ¥…±I•˜¹¥ÍµÁÑä ¤°€‰Qİ¥Ñ ¥Í½¹¹•Ğ±•…ÉÌÑ¡”Í…Ù•ÍÑÉ•…´­•äÉ•™•É•¹”¥¸Ñ¡”•‘¥Ñ•Ñ…É•Ğˆ¤ì(%¡•¬¡…•ÁÑ•¹ÍÑÉ•…µ-•ä¹¥ÍµÁÑä ¤°€‰Qİ¥Ñ ¥Í½¹¹•Ğ±•…ÉÌÑ¡”ÍÑÉ•…´­•ä¥¸Ñ¡”•‘¥Ñ•Ñ…É•Ğˆ¤ì(%¡•¬¡‘¥Í½¹¹•Ñ	ÕÑÑ½¸´ù¥Í!¥‘‘•¸ ¤°€‰Qİ¥Ñ ¥Í½¹¹•Ğ…Ñ¥½¸¡¥‘•Ì…™Ñ•È±½…°‘¥Í½¹¹•Ñ¥½¸ˆ¤ì(%¡•¬¡½¹¹•Ñ	ÕÑÑ½¸´ùÑ•áĞ ¤€ôô€‰½¹¹•ĞQİ¥Ñ ˆ°€‰Qİ¥Ñ ¥Í½¹¹•ĞÉ•ÑÕÉ¹ÌÑ¡”ÁÉ¥µ…Éä…Ñ¥½¸Ñ¼½¹¹•ĞQİ¥Ñ ˆ¤ì)ô()Ù½¥Ñ•ÍÑe½ÕQÕ‰•	Õ¹‘±•‘=ÕÑ¡U¤ ¤)ì(%‘Í¬èéA±…Ñ™½ÉµAÉ•Í•ÑI•¥ÍÑÉäÁ±…Ñ™½ÉµÌì(%‘Í¬èéQ…É•Ñ‘¥Ñ¥…±½œ‘¥…±½œ¡Á±…Ñ™½ÉµÌ¤ì(%‘¥…±½œ¹Í•Ñ9•İQ…É•Ñ•™…Õ±ÑÌ¡EMÑÉ¥¹1¥Ñ•É…° ‰‰Õ¹‘±•µå½ÕÑÕ‰”ˆ¤¤ì((%E½µ‰½	½à€©Á±…Ñ™½É´€ô¹Õ±±ÁÑÈì(%™½È€¡E½µ‰½	½à€©½µ‰¼€è‘¥…±½œ¹™¥¹‘¡¥±‘É•¸ñE½µ‰½	½à€¨ø ¤¤ì($%¥˜€¡½µ‰¼´ù™¥¹‘…Ñ„¡EMÑÉ¥¹1¥Ñ•É…° ‰å½ÕÑÕ‰”ˆ¤¤€øô€À¤ì($$%Á±…Ñ™½É´€ô½µ‰¼ì($$%‰É•…¬ì($%ô(%ô(%¡•¬¡Á±…Ñ™½É´€„ô¹Õ±±ÁÑÈ°€‰e½ÕQÕ‰”‰Õ¹‘±•=ÕÑ Ñ•ÍĞ™¥¹‘ÌÑ¡”Á±…Ñ™½É´Í•±•Ñ½Èˆ¤ì(%¥˜€ …Á±…Ñ™½É´¤($%É•ÑÕÉ¸ì(%Á±…Ñ™½É´´ùÍ•ÑÕÉÉ•¹Ñ%¹‘•à¡Á±…Ñ™½É´´ù™¥¹‘…Ñ„¡EMÑÉ¥¹1¥Ñ•É…° ‰å½ÕÑÕ‰”ˆ¤¤¤ì((%E½µ‰½	½à€©…ÕÑ¡5½‘”€ô¹Õ±±ÁÑÈì(%™½È€¡E½µ‰½	½à€©½µ‰¼€è‘¥…±½œ¹™¥¹‘¡¥±‘É•¸ñE½µ‰½	½à€¨ø ¤¤ì($%¥˜€¡½µ‰¼´ù™¥¹‘…Ñ„¡EMÑÉ¥¹1¥Ñ•É…° ‰å½ÕÑÕ‰”µ½…ÕÑ ˆ¤¤€øô€À¤ì($$%…ÕÑ¡5½‘”€ô½µ‰¼ì($$%‰É•…¬ì($%ô(%ô(%¡•¬¡…ÕÑ¡5½‘”€„ô¹Õ±±ÁÑÈ°€‰e½ÕQÕ‰”‰Õ¹‘±•=ÕÑ Ñ•ÍĞ™¥¹‘ÌÑ¡”½¹¹•Ñ¥½¸Í•±•Ñ½Èˆ¤ì(%¥˜€ ……ÕÑ¡5½‘”¤($%É•ÑÕÉ¸ì(%…ÕÑ¡5½‘”´ùÍ•ÑÕÉÉ•¹Ñ%¹‘•à¡…ÕÑ¡5½‘”´ù™¥¹‘…Ñ„¡EMÑÉ¥¹1¥Ñ•É…° ‰å½ÕÑÕ‰”µ½…ÕÑ ˆ¤¤¤ì((%…ÕÑ¼€©ÕÍÑ½µÁÀ€ô‘¥…±½œ¹™¥¹‘¡¥±ñE¡•­	½à€¨ø¡EMÑÉ¥¹1¥Ñ•É…° ‰‘Í­UÍ•ÕÍÑ½µ=ÕÑ¡ÁÀˆ¤¤ì(%…ÕÑ¼€©±¥•¹Ñ%€ô‘¥…±½œ¹™¥¹‘¡¥±ñE1¥¹•‘¥Ğ€¨ø¡EMÑÉ¥¹1¥Ñ•É…° ‰‘Í­=ÕÑ¡±¥•¹Ñ%ˆ¤¤ì(%…ÕÑ¼€©±¥•¹ÑM•É•Ğ€ô‘¥…±½œ¹™¥¹‘¡¥±ñE1¥¹•‘¥Ğ€¨ø¡EMÑÉ¥¹1¥Ñ•É…° ‰‘Í­=ÕÑ¡±¥•¹ÑM•É•Ğˆ¤¤ì(%¥˜€ …‘Í¬èé½…ÕÑ¡!…Í	Õ¹‘±•‘±¥•¹ÑÉ•‘•¹Ñ¥…±Ì¡‘Í¬èéQ…É•ÑÕÑ¡5½‘”èée½ÕQÕ‰•=ÕÑ ¤¤ì($%¡•¬¡ÕÍÑ½µÁÀ€˜˜ÕÍÑ½µÁÀ´ù¥Í!¥‘‘•¸ ¤°($$€€€€€€‰Õ¹‰Õ¹‘±•‰Õ¥±‘Ì¡¥‘”Ñ¡”Õ¹…Ù…¥±…‰±”ÁÕ‰±¥Í¡•Èµ…ÁÀÍ•±•Ñ½Èˆ¤ì($%¡•¬¡±¥•¹Ñ%€˜˜€…±¥•¹Ñ%´ù¥Í!¥‘‘•¸ ¤°($$€€€€€€‰Õ¹‰Õ¹‘±•‰Õ¥±‘ÌÍ¡½ÜÑ¡”ÕÍÑ½´e½ÕQÕ‰”±¥•¹Ğ%™¥•±ˆ¤ì($%¡•¬¡±¥•¹ÑM•É•Ğ€˜˜€…±¥•¹ÑM•É•Ğ´ù¥Í!¥‘‘•¸ ¤°($$€€€€€€‰Õ¹‰Õ¹‘±•‰Õ¥±‘ÌÍ¡½ÜÑ¡”ÕÍÑ½´e½ÕQÕ‰”±¥•¹ĞM•É•Ğ™¥•±ˆ¤ì($%É•ÑÕÉ¸ì(%ô(%¡•¬¡ÕÍÑ½µÁÀ€˜˜€…ÕÍÑ½µÁÀ´ù¥Í!¥‘‘•¸ ¤€˜˜€…ÕÍÑ½µÁÀ´ù¥Í¡•­• ¤°($€€€€€€‰¹•Üe½ÕQÕ‰”Ñ…É•ÑÌ‘•™…Õ±ĞÑ¼Ñ¡”‰Õ¹‘±•=ÕÑ …ÁÁ±¥…Ñ¥½¸ˆ¤ì(%¡•¬¡±¥•¹Ñ%€˜˜±¥•¹Ñ%´ù¥Í!¥‘‘•¸ ¤°€‰‰Õ¹‘±•e½ÕQÕ‰”±½¥¸¡¥‘•ÌÑ¡”±¥•¹Ğ%™¥•±ˆ¤ì(%¡•¬¡±¥•¹ÑM•É•Ğ€˜˜±¥•¹ÑM•É•Ğ´ù¥Í!¥‘‘•¸ ¤°€‰‰Õ¹‘±•e½ÕQÕ‰”±½¥¸¡¥‘•ÌÑ¡”±¥•¹ĞM•É•Ğ™¥•±ˆ¤ì((%‘Í¬èé=ÕÑÁÕÑQ…É•Ğ‰Õ¹‘±•ì(%‘¥…±½œ¹™¥±±Q…É•Ğ¡‰Õ¹‘±•¤ì(%¡•¬¡‰Õ¹‘±•¹…ÕÑ¡5½‘”€ôô‘Í¬èéQ…É•ÑÕÑ¡5½‘”èée½ÕQÕ‰•=ÕÑ °($€€€€€€‰‰Õ¹‘±•e½ÕQÕ‰”±½¥¸ÁÉ•Í•ÉÙ•ÌÑ¡”e½ÕQÕ‰”…ÕÑ µ½‘”ˆ¤ì(%¡•¬¡‰Õ¹‘±•¹½…ÕÑ¡±¥•¹Ñ%¹¥ÍµÁÑä ¤€˜˜‰Õ¹‘±•¹½…ÕÑ¡±¥•¹ÑM•É•Ğ¹¥ÍµÁÑä ¤€˜˜($€€€€€‰Õ¹‘±•¹½…ÕÑ¡±¥•¹ÑM•É•ÑI•˜¹¥ÍµÁÑä ¤°($€€€€€€‰‰Õ¹‘±•ÁÕ‰±¥Í¡•ÈÉ•‘•¹Ñ¥…±Ì…É”¹•Ù•È½Á¥•¥¹Ñ¼Ñ…É•ĞÍ•ÑÑ¥¹Ìˆ¤ì((%ÕÍÑ½µÁÀ´ùÍ•Ñ¡•­•¡ÑÉÕ”¤ì(%¡•¬ …±¥•¹Ñ%´ù¥Í!¥‘‘•¸ ¤€˜˜€…±¥•¹ÑM•É•Ğ´ù¥Í!¥‘‘•¸ ¤°($€€€€€€‰ÕÍÑ½´½½±”=ÕÑ µ½‘”É•Ù•…±Ì‰½Ñ É•‘•¹Ñ¥…°™¥•±‘Ìˆ¤ì(%±¥•¹Ñ%´ùÍ•ÑQ•áĞ¡EMÑÉ¥¹1¥Ñ•É…° ‰ÕÍÑ½´µ±¥•¹Ğ¹…ÁÁÌ¹½½±•ÕÍ•É½¹Ñ•¹Ğ¹½´ˆ¤¤ì(%±¥•¹ÑM•É•Ğ´ùÍ•ÑQ•áĞ¡EMÑÉ¥¹1¥Ñ•É…° ‰ÕÍÑ½´µÍ•É•Ğˆ¤¤ì(%‘Í¬èé=ÕÑÁÕÑQ…É•ĞÕÍÑ½´ì(%‘¥…±½œ¹™¥±±Q…É•Ğ¡ÕÍÑ½´¤ì(%¡•¬¡ÕÍÑ½´¹½…ÕÑ¡±¥•¹Ñ%€ôô€‰ÕÍÑ½´µ±¥•¹Ğ¹…ÁÁÌ¹½½±•ÕÍ•É½¹Ñ•¹Ğ¹½´ˆ€˜˜($€€€€€ÕÍÑ½´¹½…ÕÑ¡±¥•¹ÑM•É•Ğ€ôô€‰ÕÍÑ½´µÍ•É•Ğˆ°($€€€€€€‰ÕÍÑ½´½½±”=ÕÑ µ½‘”Á•ÉÍ¥ÍÑÌ•áÁ±¥¥Ñ±ä•¹Ñ•É•É•‘•¹Ñ¥…±Ìˆ¤ì)ô()Ù½¥Ñ•ÍÑ-¥­AÕ‰±¥Í¡•É=ÕÑ¡U¥¹‘5¥É…Ñ¥½¸ ¤)ì(%‘Í¬èéA±…Ñ™½ÉµAÉ•Í•ÑI•¥ÍÑÉäÁ±…Ñ™½ÉµÌì(%‘Í¬èéQ…É•Ñ‘¥Ñ¥…±½œ‘¥…±½œ¡Á±…Ñ™½ÉµÌ¤ì(%‘Í¬èé=ÕÑÁÕÑQ…É•Ğ¥¹ÁÕĞì(%¥¹ÁÕĞ¹¥€ôEMÑÉ¥¹1¥Ñ•É…° ‰ÁÕ‰±¥Í¡•Èµ­¥¬ˆ¤ì(%¥¹ÁÕĞ¹¹…µ”€ôEMÑÉ¥¹1¥Ñ•É…° ‰-¥¬ˆ¤ì(%¥¹ÁÕĞ¹Á±…Ñ™½Éµ%€ôEMÑÉ¥¹1¥Ñ•É…° ‰­¥¬ˆ¤ì(%¥¹ÁÕĞ¹…ÕÑ¡5½‘”€ô‘Í¬èéQ…É•ÑÕÑ¡5½‘”èé-¥­=ÕÑ ì(%¥¹ÁÕĞ¹…ÕÑ¡½Õ¹Ñ9…µ”€ôEMÑÉ¥¹1¥Ñ•É…° ‰­¥¬µÕÍ•Èˆ¤ì(%¥¹ÁÕĞ¹…ÕÑ¡É•‘•¹Ñ¥…±I•˜€ôEMÑÉ¥¹1¥Ñ•É…° ‰M,5Õ±Ñ¥ÍÑÉ•…´½ÍÑÉ•…´µ­•ä½ÁÕ‰±¥Í¡•Èµ­¥¬ˆ¤ì(%¥¹ÁÕĞ¹½…ÕÑ¡±¥•¹Ñ%€ôEMÑÉ¥¹1¥Ñ•É…° ‰±•…äµÕÍ•Èµ±¥•¹Ğµ¥ˆ¤ì(%¥¹ÁÕĞ¹½…ÕÑ¡±¥•¹ÑM•É•Ğ€ôEMÑÉ¥¹1¥Ñ•É…° ‰±•…äµÕÍ•ÈµÍ•É•Ğˆ¤ì(%¥¹ÁÕĞ¹½…ÕÑ¡I•™É•Í¡Q½­•¸€ôEMÑÉ¥¹1¥Ñ•É…° ‰±•…äµÉ•™É•Í µÑ½­•¸ˆ¤ì(%¥¹ÁÕĞ¹Í•ÉÙ•ÉUÉ°€ôEMÑÉ¥¹1¥Ñ•É…° ‰ÉÑµÁÌè¼½ÍÑÉ•…´¹­¥¬¹½´¼ÄÈÌĞÔØÜàäÀˆ¤ì(%¥¹ÁÕĞ¹ÍÑÉ•…µ-•ä€ôEMÑÉ¥¹1¥Ñ•É…° ‰Í…Ù•µ­¥¬µÍÑÉ•…´µ­•äˆ¤ì((%‘¥…±½œ¹Í•ÑQ…É•Ğ¡¥¹ÁÕĞ¤ì(%…ÕÑ¼€©±¥•¹Ñ%€ô‘¥…±½œ¹™¥¹‘¡¥±ñE1¥¹•‘¥Ğ€¨ø¡EMÑÉ¥¹1¥Ñ•É…° ‰‘Í­=ÕÑ¡±¥•¹Ñ%ˆ¤¤ì(%…ÕÑ¼€©±¥•¹ÑM•É•Ğ€ô‘¥…±½œ¹™¥¹‘¡¥±ñE1¥¹•‘¥Ğ€¨ø¡EMÑÉ¥¹1¥Ñ•É…° ‰‘Í­=ÕÑ¡±¥•¹ÑM•É•Ğˆ¤¤ì(%…ÕÑ¼€©½¹¹•Ñ	ÕÑÑ½¸€ô‘¥…±½œ¹™¥¹‘¡¥±ñEAÕÍ¡	ÕÑÑ½¸€¨ø¡EMÑÉ¥¹1¥Ñ•É…° ‰‘Í­½¹¹•Ñ=ÕÑ ˆ¤¤ì(%…ÕÑ¼€©‘¥Í½¹¹•Ñ	ÕÑÑ½¸€ô‘¥…±½œ¹™¥¹‘¡¥±ñEAÕÍ¡	ÕÑÑ½¸€¨ø¡EMÑÉ¥¹1¥Ñ•É…° ‰‘Í­¥Í½¹¹•Ñ=ÕÑ ˆ¤¤ì(%¡•¬¡±¥•¹Ñ%€˜˜±¥•¹Ñ%´ù¥Í!¥‘‘•¸ ¤°€‰-¥¬ÁÕ‰±¥Í¡•È±½¥¸¡¥‘•ÌÑ¡”ÕÍ•È±¥•¹Ğ%™¥•±ˆ¤ì(%¡•¬¡±¥•¹ÑM•É•Ğ€˜˜±¥•¹ÑM•É•Ğ´ù¥Í!¥‘‘•¸ ¤°€‰-¥¬ÁÕ‰±¥Í¡•È±½¥¸¡¥‘•ÌÑ¡”ÕÍ•È±¥•¹ĞM•É•Ğ™¥•±ˆ¤ì(%¡•¬¡½¹¹•Ñ	ÕÑÑ½¸€˜˜½¹¹•Ñ	ÕÑÑ½¸´ù¥Í¹…‰±• ¤€˜˜½¹¹•Ñ	ÕÑÑ½¸´ùÑ•áĞ ¤€ôô€‰I•½¹¹•Ğ-¥¬ˆ°($€€€€€€‰½¹¹•Ñ•-¥¬ÁÕ‰±¥Í¡•È±½¥¸•áÁ½Í•Ì½¹”±•…ÈI•½¹¹•Ğ-¥¬…Ñ¥½¸ˆ¤ì(%¡•¬¡‘¥Í½¹¹•Ñ	ÕÑÑ½¸€˜˜€…‘¥Í½¹¹•Ñ	ÕÑÑ½¸´ù¥Í!¥‘‘•¸ ¤€˜˜‘¥Í½¹¹•Ñ	ÕÑÑ½¸´ù¥Í¹…‰±• ¤°($€€€€€€‰½¹¹•Ñ•-¥¬ÁÕ‰±¥Í¡•È±½¥¸•áÁ½Í•Ì„¥Í½¹¹•Ğ…Ñ¥½¸ˆ¤ì((%‘Í¬èé=ÕÑÁÕÑQ…É•Ğ…•ÁÑ•ì(%‘¥…±½œ¹™¥±±Q…É•Ğ¡…•ÁÑ•¤ì(%¡•¬¡…•ÁÑ•¹…ÕÑ¡5½‘”€ôô‘Í¬èéQ…É•ÑÕÑ¡5½‘”èé-¥­=ÕÑ °€‰-¥¬ÁÕ‰±¥Í¡•È±½¥¸ÁÉ•Í•ÉÙ•Ì…ÕÑ µ½‘”ˆ¤ì(%¡•¬¡…•ÁÑ•¹…ÕÑ¡½Õ¹Ñ9…µ”€ôô¥¹ÁÕĞ¹…ÕÑ¡½Õ¹Ñ9…µ”°€‰-¥¬ÁÕ‰±¥Í¡•È±½¥¸ÁÉ•Í•ÉÙ•ÌÑ¡”…½Õ¹Ğ±…‰•°ˆ¤ì(%¡•¬¡…•ÁÑ•¹½…ÕÑ¡±¥•¹Ñ%¹¥ÍµÁÑä ¤€˜˜…•ÁÑ•¹½…ÕÑ¡±¥•¹ÑM•É•Ğ¹¥ÍµÁÑä ¤€˜˜($$€€€€€…•ÁÑ•¹½…ÕÑ¡I•™É•Í¡Q½­•¸¹¥ÍµÁÑä ¤°($€€€€€€‰-¥¬ÁÕ‰±¥Í¡•È±½¥¸É•µ½Ù•Ì½‰Í½±•Ñ”‘•Í­Ñ½À=ÕÑ É•‘•¹Ñ¥…±Ìˆ¤ì(%¡•¬¡…•ÁÑ•¹ÍÑÉ•…µ-•ä€ôô¥¹ÁÕĞ¹ÍÑÉ•…µ-•ä°€‰-¥¬ÁÕ‰±¥Í¡•È±½¥¸ÁÉ•Í•ÉÙ•ÌÑ¡”É•ÑÉ¥•Ù•ÍÑÉ•…´­•äˆ¤ì((%¡•¬¡E5•Ñ…=‰©•Ğèé¥¹Ù½­•5•Ñ¡½ ™‘¥…±½œ°€‰‘¥Í½¹¹•Ñ=ÕÑ¡½Õ¹Ğˆ°EĞèé¥É•Ñ½¹¹•Ñ¥½¸¤°($€€€€€€‰-¥¬¥Í½¹¹•Ğ…Ñ¥½¸¥Ì¥¹Ù½­…‰±”ˆ¤ì(%‘¥…±½œ¹™¥±±Q…É•Ğ¡…•ÁÑ•¤ì(%¡•¬¡…•ÁÑ•¹…ÕÑ¡½Õ¹Ñ9…µ”¹¥ÍµÁÑä ¤°€‰-¥¬¥Í½¹¹•Ğ±•…ÉÌÑ¡”Í…Ù•…½Õ¹Ğ±…‰•°ˆ¤ì(%¡•¬¡…•ÁÑ•¹…ÕÑ¡É•‘•¹Ñ¥…±I•˜¹¥ÍµÁÑä ¤°€‰-¥¬¥Í½¹¹•Ğ±•…ÉÌÑ¡”ÍÑÉ•…´­•äÉ•™•É•¹”ˆ¤ì(%¡•¬¡…•ÁÑ•¹ÍÑÉ•…µ-•ä¹¥ÍµÁÑä ¤°€‰-¥¬¥Í½¹¹•Ğ±•…ÉÌÑ¡”ÍÑÉ•…´­•äˆ¤ì(%¡•¬¡‘¥Í½¹¹•Ñ	ÕÑÑ½¸´ù¥Í!¥‘‘•¸ ¤°€‰-¥¬¥Í½¹¹•Ğ…Ñ¥½¸¡¥‘•Ì…™Ñ•È±½…°‘¥Í½¹¹•Ñ¥½¸ˆ¤ì(%¡•¬¡½¹¹•Ñ	ÕÑÑ½¸´ùÑ•áĞ ¤€ôô€‰½¹¹•Ğ-¥¬ˆ°€‰-¥¬¥Í½¹¹•ĞÉ•ÑÕÉ¹ÌÑ¡”…Ñ¥½¸Ñ¼½¹¹•Ğ-¥¬ˆ¤ì)ô()ô€¼¼¹…µ•ÍÁ…”()¥¹Ğµ…¥¸¡¥¹Ğ…ÉŒ°¡…È€¨©…ÉØ¤)ì(%EÁÁ±¥…Ñ¥½¸…ÁÀ¡…ÉŒ°…ÉØ¤ì((%½¹ÍĞ…ÕÑ¼ÉÕ¸€ômt¡½¹ÍĞ¡…È€©¹…µ”°…ÕÑ¼Ñ•ÍĞ¤ì($%ÍÑèé•ÉÈ€ğğ€‰IU8è€ˆ€ğğ¹…µ”€ğğ€q¸œì($%Ñ•ÍĞ ¤ì($%ÍÑèé•ÉÈ€ğğ€‰=9è€ˆ€ğğ¹…µ”€ğğ€q¸œì(%ôì(%ÉÕ¸ ‰Ñ…É•Ğ…‘‘•™…Õ±ÑÌˆ°Ñ•ÍÑQ…É•Ñ‘¥Ñ¥…±½‘‘•™…Õ±ÑÌ¤ì(%ÉÕ¸ ‰±•…ÈÙ•ÉÑ¥…°ÁÉ•Ù¥•ÜÍ•±•Ñ¥½¸ˆ°Ñ•ÍÑ1¥ÍÑM•±•Ñ¥½¹…¹	•±•…É•‘½ÉAÉ•Ù¥•İ	…­É½Õ¹‘±¥¬¤ì(%ÉÕ¸ ‰Í•¹”É½ÕÑ¥¹œ¡¥‘‘•¸‰ä‘•™…Õ±Ğˆ°Ñ•ÍÑM•¹•I½ÕÑ¥¹½¹ÑÉ½±ÍÉ•!¥‘‘•¹	å•™…Õ±Ğ¤ì(%ÉÕ¸ ‰ÕÍÑ½´Í•ÉÙ•ÈÁÉ•Í•ÉÙ…Ñ¥½¸ˆ°Ñ•ÍÑQ…É•Ñ‘¥Ñ¥…±½AÉ•Í•ÉÙ•ÍÕÍÑ½µM•ÉÙ•ÉÉ½ÍÍA±…Ñ™½Éµ¡…¹”¤ì(%ÉÕ¸ ‰Ñ…É•ĞÉ½Õ¹ÑÉ¥ÁÌˆ°Ñ•ÍÑQ…É•Ñ‘¥Ñ¥…±½I½Õ¹‘QÉ¥ÁÌ¤ì(%ÉÕ¸ ‰±•…ÈÕ¹ÕÍ•=ÕÑ Í•É•ÑÌˆ°Ñ•ÍÑQ…É•Ñ‘¥Ñ¥…±½±•…ÉÍU¹ÕÍ•‘=ÕÑ¡M•É•ÑÌ¤ì(%ÉÕ¸ ‰É•Á•…Ñ•‘¥…±½œÕÍ”ˆ°Ñ•ÍÑQ…É•Ñ‘¥Ñ¥…±½I•Á•…Ñ•‘UÍ”¤ì(%ÉÕ¸ ‰…•ÁĞ…¡•ÌÉ•ÍÕ±Ğˆ°Ñ•ÍÑQ…É•Ñ‘¥Ñ¥…±½•ÁÑ…¡•ÍI•ÍÕ±Ğ¤ì(%ÉÕ¸ ‰Í…Ù”Ù…±¥‘…Ñ¥½¸ˆ°Ñ•ÍÑQ…É•Ñ‘¥Ñ¥…±½Y…±¥‘…Ñ•Í	•™½É•M…Ù”¤ì(%ÉÕ¸ ‰=ÕÑ )M=8•áÑÉ…Ñ¥½¸ˆ°Ñ•ÍÑQ…É•Ñ‘¥Ñ¥…±½=ÕÑ¡)Í½¹áÑÉ…Ñ¥½¸¤ì(%ÉÕ¸ ‰±¥•¹Ğ¡…¹”¥¹Ù…±¥‘…Ñ•Ì±½¥¸ˆ°Ñ•ÍÑQ…É•Ñ‘¥Ñ¥…±½±¥•¹Ñ¡…¹•%¹Ù…±¥‘…Ñ•Í=±‘1½¥¸¤ì(%ÉÕ¸ ‰Í…Ù•ÍÑÉ•…´­•äÉ•™•É•¹”ˆ°Ñ•ÍÑQ…É•Ñ‘¥Ñ¥…±½-••ÁÍM…Ù•‘MÑÉ•…µ-•åI•™•É•¹”¤ì(%ÉÕ¸ ‰ÍÉ½±±…‰±”™½É´ˆ°Ñ•ÍÑQ…É•Ñ‘¥Ñ¥…±½UÍ•ÍMÉ½±±…‰±•½É´¤ì(%ÉÕ¸ ‰É•™É•Í É½İÌ¡¥‘”‰•™½É”‘•™•ÉÉ•‘•±•Ñ”ˆ°Ñ•ÍÑI•™É•Í¡I½İÍ!¥‘•	•™½É••™•ÉÉ•‘•±•Ñ”¤ì(%ÉÕ¸ ‰Õ¹ÍÕÁÁ½ÉÑ•=ÕÑ µ½‘”ˆ°Ñ•ÍÑ=ÕÑ¡½¹¹•Ñ½ÉI•©•ÑÍU¹ÍÕÁÁ½ÉÑ•‘5½‘”¤ì(%ÉÕ¸ ‰Qİ¥Ñ ÁÕ‰±¥Í¡•È=ÕÑ U$ˆ°Ñ•ÍÑQİ¥Ñ¡AÕ‰±¥Í¡•É=ÕÑ¡U¥¹‘5¥É…Ñ¥½¸¤ì(%ÉÕ¸ ‰-¥¬ÁÕ‰±¥Í¡•È=ÕÑ U$ˆ°Ñ•ÍÑ-¥­AÕ‰±¥Í¡•É=ÕÑ¡U¥¹‘5¥É…Ñ¥½¸¤ì(%ÉÕ¸ ‰e½ÕQÕ‰”‰Õ¹‘±•=ÕÑ U$ˆ°Ñ•ÍÑe½ÕQÕ‰•	Õ¹‘±•‘=ÕÑ¡U¤¤ì((%¥˜€¡™…¥±ÕÉ•Ì€ø€À¤ì($%ÍÑèé•ÉÈ€ğğ™…¥±ÕÉ•Ì€ğğ€ˆU$Íµ½­”Ñ•ÍĞ¡•­Ì™…¥±•¹q¸ˆì($%É•ÑÕÉ¸€Äì(%ô((%ÍÑèé½ÕĞ€ğğ€‰±°U$Íµ½­”Ñ•ÍÑÌÁ…ÍÍ•¹q¸ˆì(%É•ÑÕÉ¸€Àì)ô(
+	youtube.sceneRoutes.push_back({"Game", "game-uuid", "Game YouTube", "game-youtube-uuid"});
+	youtube.sceneRoutes.push_back({"Talk", "talk-uuid", "Talk YouTube", "talk-youtube-uuid"});
+	youtube.enabled = false;
+	youtube.startWithAll = false;
+	youtube.state = dsk::TargetState::Error;
+	youtube.lastError = "previous error";
+	checkRoundTrip(youtube, "YouTube OAuth target");
+
+	dsk::OutputTarget twitch = youtube;
+	twitch.id = "target-twitch";
+	twitch.name = "Twitch Horizontal";
+	twitch.platformId = "twitch";
+	twitch.authMode = dsk::TargetAuthMode::TwitchOAuth;
+	twitch.authAccountName = "twitch-user";
+	twitch.authCredentialRef = "DSK Multistream/oauth/twitch";
+	twitch.oauthRefreshToken.clear();
+	twitch.oauthRefreshTokenRef.clear();
+	twitch.serverUrl = "rtmp://live.twitch.tv/app";
+	twitch.encoderGroup = dsk::EncoderGroup::DskHorizontal;
+	twitch.enabled = true;
+	twitch.startWithAll = true;
+	twitch.state = dsk::TargetState::Live;
+	twitch.lastError.clear();
+	checkRoundTrip(twitch, "Twitch OAuth target");
+
+	dsk::OutputTarget kick = twitch;
+	kick.id = "target-kick";
+	kick.name = "Kick Horizontal";
+	kick.platformId = "kick";
+	kick.authMode = dsk::TargetAuthMode::KickOAuth;
+	kick.authAccountName = "kick-user";
+	kick.authCredentialRef = "DSK Multistream/oauth/kick";
+	kick.serverUrl = "rtmps://stream.kick.com/1234567890";
+	checkRoundTrip(kick, "Kick OAuth target");
+
+	dsk::OutputTarget tiktok = youtube;
+	tiktok.id = "target-tiktok";
+	tiktok.name = "TikTok Vertical";
+	tiktok.platformId = "tiktok";
+	tiktok.authMode = dsk::TargetAuthMode::ManualRtmp;
+	tiktok.authAccountName.clear();
+	tiktok.authCredentialRef.clear();
+	tiktok.oauthClientId.clear();
+	tiktok.oauthClientSecret.clear();
+	tiktok.oauthClientSecretRef.clear();
+	tiktok.oauthRefreshToken.clear();
+	tiktok.oauthRefreshTokenRef.clear();
+	tiktok.serverUrl = "rtmp://push.tiktokcdn.com/live";
+	tiktok.encoderGroup = dsk::EncoderGroup::DskVertical;
+	tiktok.videoEncoderId.clear();
+	tiktok.audioEncoderId.clear();
+	tiktok.state = dsk::TargetState::Stopped;
+	tiktok.lastError.clear();
+	checkRoundTrip(tiktok, "TikTok manual target");
+}
+
+void testTargetEditDialogClearsUnusedOAuthSecrets()
+{
+	dsk::PlatformPresetRegistry platforms;
+	dsk::TargetEditDialog dialog(platforms);
+
+	dsk::OutputTarget input;
+	input.id = QStringLiteral("target-stale-oauth");
+	input.name = QStringLiteral("Manual target");
+	input.platformId = QStringLiteral("custom");
+	input.authMode = dsk::TargetAuthMode::ManualRtmp;
+	input.oauthClientId = QStringLiteral("stale-client");
+	input.oauthClientSecret = QStringLiteral("stale-secret");
+	input.oauthClientSecretRef = QStringLiteral("DSK Multistream/oauth-client-secret/stale");
+	input.oauthRefreshToken = QStringLiteral("stale-token");
+	input.oauthRefreshTokenRef = QStringLiteral("DSK Multistream/oauth-refresh-token/stale");
+	input.serverUrl = QStringLiteral("rtmp://example.test/live");
+	input.streamKey = QStringLiteral("stream-key");
+
+	dialog.setTarget(input);
+	dsk::OutputTarget accepted;
+	dialog.fillTarget(accepted);
+
+	check(accepted.oauthClientId.isEmpty(), "manual target clears stale OAuth client id");
+	check(accepted.oauthClientSecret.isEmpty(), "manual target clears stale OAuth client secret");
+	check(accepted.oauthClientSecretRef.isEmpty(), "manual target clears stale OAuth client secret ref");
+	check(accepted.oauthRefreshToken.isEmpty(), "manual target clears stale OAuth refresh token");
+	check(accepted.oauthRefreshTokenRef.isEmpty(), "manual target clears stale OAuth refresh token ref");
+}
+
+void testTargetEditDialogRepeatedUse()
+{
+	dsk::PlatformPresetRegistry platforms;
+	dsk::TargetEditDialog dialog(platforms);
+
+	for (int i = 0; i < 50; ++i) {
+		dialog.setNewTargetDefaults(QString("new-target-%1").arg(i));
+		dsk::OutputTarget accepted;
+		dialog.fillTarget(accepted);
+		check(accepted.id == QString("new-target-%1").arg(i), "repeated new target preserves id");
+		check(accepted.platformId == "twitch", "repeated new target defaults Twitch");
+		check(accepted.authCredentialRef.isEmpty(), "repeated new target clears credential ref");
+		check(accepted.oauthClientId.isEmpty(), "repeated new target clears OAuth client id");
+		check(accepted.oauthClientSecret.isEmpty(), "repeated new target clears OAuth client secret");
+		check(accepted.oauthClientSecretRef.isEmpty(), "repeated new target clears OAuth client secret ref");
+		check(accepted.oauthRefreshToken.isEmpty(), "repeated new target clears OAuth refresh token");
+		check(accepted.oauthRefreshTokenRef.isEmpty(), "repeated new target clears OAuth refresh token ref");
+		check(accepted.videoEncoderId.isEmpty(), "repeated new target clears video encoder id");
+		check(accepted.lastError.isEmpty(), "repeated new target clears last error");
+	}
+}
+
+void testTargetEditDialogAcceptCachesResult()
+{
+	dsk::PlatformPresetRegistry platforms;
+	dsk::TargetEditDialog dialog(platforms);
+
+	dsk::OutputTarget input;
+	input.id = "target-save-path";
+	input.name = "Save Path YouTube";
+	input.platformId = "youtube";
+	input.authMode = dsk::TargetAuthMode::YouTubeOAuth;
+	input.authAccountName = "youtube-user";
+	input.authCredentialRef = "DSK Multistream/oauth/youtube";
+	input.oauthClientId = "client-id";
+	input.oauthClientSecret = "client-secret";
+	input.oauthClientSecretRef = "DSK Multistream/oauth-client-secret/youtube";
+	input.oauthRefreshToken = "refresh-token";
+	input.oauthRefreshTokenRef = "DSK Multistream/oauth-refresh-token/youtube";
+	input.serverUrl = " rtmps://a.rtmps.youtube.com/live2 ";
+	input.streamKey = "saved-key";
+	input.encoderGroup = dsk::EncoderGroup::DskVertical;
+	input.useSharedEncoder = false;
+	input.autoStartWithObs = false;
+	input.autoStopWithObs = false;
+	input.reconnectEnabled = true;
+	input.reconnectMaxRetries = 12;
+	input.reconnectDelaySeconds = 4;
+	input.videoBitrateKbps = 6500;
+	input.audioBitrateKbps = 160;
+	input.keyframeSeconds = 2;
+	input.videoEncoderId = "obs_x264";
+	input.audioEncoderId = "ffmpeg_aac";
+	input.enabled = true;
+	input.startWithAll = false;
+
+	dialog.setTarget(input);
+	dialog.accept();
+
+	const dsk::OutputTarget cached = dialog.acceptedTarget();
+	check(cached.id == input.id, "accepted dialog exposes cached target id");
+	check(cached.platformId == input.platformId, "cached accepted target preserves platform");
+
+	dsk::OutputTarget accepted;
+	dialog.fillTarget(accepted);
+	check(accepted.id == input.id, "accepted dialog preserves id after Save");
+	check(accepted.platformId == input.platformId, "accepted dialog preserves platform after Save");
+	check(accepted.authMode == input.authMode, "accepted dialog preserves auth mode after Save");
+	check(accepted.oauthClientSecret == input.oauthClientSecret, "accepted dialog preserves OAuth client secret after Save");
+	check(accepted.oauthRefreshToken == input.oauthRefreshToken, "accepted dialog preserves OAuth refresh token after Save");
+	check(accepted.serverUrl == input.serverUrl.trimmed(), "accepted dialog trims server after Save");
+	check(accepted.streamKey == input.streamKey, "accepted dialog preserves stream key after Save");
+	check(accepted.encoderGroup == input.encoderGroup, "accepted dialog preserves output mode after Save");
+	check(accepted.enabled == input.enabled, "accepted dialog preserves enabled after Save");
+	check(accepted.startWithAll == input.startWithAll, "accepted dialog preserves Start All flag after Save");
+}
+
+void testTargetEditDialogValidatesBeforeSave()
+{
+	dsk::PlatformPresetRegistry platforms;
+	dsk::TargetEditDialog dialog(platforms);
+	dsk::OutputTarget input;
+	input.id = "invalid-save-target";
+	input.name = "Invalid target";
+	input.platformId = "custom";
+	input.authMode = dsk::TargetAuthMode::ManualRtmp;
+	input.serverUrl = "not-an-rtmp-url";
+	input.streamKey = "key";
+	dialog.setTarget(input);
+
+	QString error;
+	check(!dialog.validateForSave(&error), "dialog rejects an invalid server before Save");
+	check(error == "Server URL must start with rtmp:// or rtmps://.", "dialog reports the invalid server reason");
+
+	input.serverUrl = "rtmps://ingest.example.test/live";
+	input.streamKey.clear();
+	dialog.setTarget(input);
+	check(!dialog.validateForSave(&error), "dialog rejects a missing stream key before Save");
+	check(error == "Stream key is empty.", "dialog reports the missing stream key reason");
+
+	input.platformId = "tiktok";
+	input.serverUrl = "rtmp://push.tiktokcdn.com/live";
+	input.streamKey = "key";
+	dialog.setTarget(input);
+	check(!dialog.validateForSave(&error), "dialog rejects the legacy generic TikTok URL before Save");
+	check(error == "TikTok needs the server URL shown in TikTok LIVE setup.",
+	      "dialog reports how to replace the legacy TikTok URL");
+
+	input.platformId = "custom";
+	input.serverUrl = "rtmps://ingest.example.test/live";
+	input.streamKey = "key";
+	dialog.setTarget(input);
+	check(dialog.validateForSave(&error), "dialog accepts a complete manual RTMP target");
+}
+
+void testTargetEditDialogOAuthJsonExtraction()
+{
+	dsk::PlatformPresetRegistry platforms;
+	dsk::TargetEditDialog dialog(platforms);
+
+	dsk::OutputTarget input;
+	input.id = "target-google-json";
+	input.name = "YouTube JSON";
+	input.platformId = "youtube";
+	input.authMode = dsk::TargetAuthMode::YouTubeOAuth;
+	input.oauthClientId = "placeholder-client-id";
+	input.oauthClientSecret =
+		R"({"installed":{"client_id":"json-client-id.apps.googleusercontent.com","client_secret":"json-client-secret"}})";
+	input.serverUrl = "rtmp://a.rtmp.youtube.com/live2";
+	input.streamKey = "stream-key";
+
+	dialog.setTarget(input);
+	dsk::OutputTarget accepted;
+	dialog.fillTarget(accepted);
+
+	check(accepted.oauthClientId == "json-client-id.apps.googleusercontent.com", "dialog extracts Google OAuth client id from JSON");
+	check(accepted.oauthClientSecret == "json-client-secret", "dialog extracts Google OAuth client secret from JSON");
+}
+
+void testTargetEditDialogClientChangeInvalidatesOldLogin()
+{
+	dsk::PlatformPresetRegistry platforms;
+	dsk::TargetEditDialog dialog(platforms);
+
+	dsk::OutputTarget input;
+	input.id = "target-google-client-change";
+	input.name = "YouTube client change";
+	input.platformId = "youtube";
+	input.authMode = dsk::TargetAuthMode::YouTubeOAuth;
+	input.authAccountName = "old-channel";
+	input.oauthClientId = "old-client-id.apps.googleusercontent.com";
+	input.oauthClientSecret =
+		R"({"installed":{"client_id":"new-client-id.apps.googleusercontent.com","client_secret":"new-client-secret"}})";
+	input.oauthRefreshToken = "old-refresh-token";
+	input.oauthRefreshTokenRef = "DSK Multistream/oauth-refresh-token/client-change";
+	input.serverUrl = "rtmp://a.rtmp.youtube.com/live2";
+	input.streamKey = "stream-key";
+
+	dialog.setTarget(input);
+	dsk::OutputTarget accepted;
+	dialog.fillTarget(accepted);
+
+	check(accepted.oauthClientId == "new-client-id.apps.googleusercontent.com", "client change extracts new Google client id");
+	check(accepted.authAccountName.isEmpty(), "client change clears the old OAuth account label");
+	check(accepted.oauthRefreshToken.isEmpty(), "client change clears the old OAuth refresh token");
+	check(accepted.oauthRefreshTokenRef.isEmpty(), "client change clears the old OAuth refresh token reference");
+}
+
+void testTargetEditDialogKeepsSavedStreamKeyReference()
+{
+	dsk::PlatformPresetRegistry platforms;
+	dsk::TargetEditDialog dialog(platforms);
+
+	dsk::OutputTarget input;
+	input.id = "target-saved-key";
+	input.name = "Saved Key Target";
+	input.platformId = "twitch";
+	input.authMode = dsk::TargetAuthMode::ManualRtmp;
+	input.authCredentialRef = "DSK Multistream/stream-key/target-saved-key";
+	input.serverUrl = "rtmp://live.twitch.tv/app";
+	input.streamKey.clear();
+
+	dialog.setTarget(input);
+	dsk::OutputTarget accepted;
+	dialog.fillTarget(accepted);
+
+	QString error;
+	check(accepted.streamKey.isEmpty(), "blank stream key edit keeps key out of dialog target");
+	check(accepted.authCredentialRef == input.authCredentialRef, "blank stream key edit preserves saved credential ref");
+	check(dsk::validateOutputTargetConfig(accepted, &error), "saved stream key ref remains a valid target");
+}
+
+void testTargetEditDialogUsesScrollableForm()
+{
+	dsk::PlatformPresetRegistry platforms;
+	dsk::TargetEditDialog dialog(platforms);
+
+	auto *scrollArea = dialog.findChild<QScrollArea *>();
+	check(scrollArea != nullptr, "target edit dialog has a scrollable form area");
+	check(scrollArea && scrollArea->widgetResizable(), "target edit dialog scroll area resizes its form");
+	check(scrollArea && scrollArea->maximumHeight() >= 280, "target edit dialog keeps a usable scroll height");
+}
+
+void testRefreshRowsHideBeforeDeferredDelete()
+{
+	QWidget parent;
+	auto *layout = new QVBoxLayout(&parent);
+	parent.show();
+
+	QVector<QPointer<QWidget>> retiredRows;
+	for (int i = 0; i < 4; ++i) {
+		auto *row = new QWidget(&parent);
+		row->setObjectName(QStringLiteral("targetRow"));
+		row->setMinimumHeight(24);
+		layout->addWidget(row);
+		retiredRows.push_back(row);
+	}
+	layout->addStretch(1);
+	QCoreApplication::processEvents();
+	for (const QPointer<QWidget> &row : retiredRows)
+		check(row && row->isVisible(), "stream control rows start visible before a refresh");
+
+	dsk::clearLayoutWidgetsForRefresh(layout, 1);
+	check(layout->count() == 1 && layout->itemAt(0)->spacerItem(),
+	      "refresh removes retired rows while preserving the trailing layout stretch");
+	for (const QPointer<QWidget> &row : retiredRows) {
+		check(row, "retired stream control rows remain valid until DeferredDelete runs");
+		check(row && row->isHidden(), "retired stream control rows hide before DeferredDelete can run");
+	}
+
+	// Stop All can queue several target state changes before Qt processes
+	// DeferredDelete. Replacement rows must be the only visible generation.
+	QVector<QPointer<QWidget>> replacementRows;
+	for (int i = 0; i < 4; ++i) {
+		auto *row = new QWidget(&parent);
+		row->setObjectName(QStringLiteral("targetRow"));
+		row->setMinimumHeight(24);
+		layout->insertWidget(layout->count() - 1, row);
+		replacementRows.push_back(row);
+	}
+	QCoreApplication::processEvents();
+	int visibleTargetRows = 0;
+	for (QWidget *row : parent.findChildren<QWidget *>(QStringLiteral("targetRow"))) {
+		if (row->isVisible())
+			++visibleTargetRows;
+	}
+	check(visibleTargetRows == replacementRows.size(),
+	      "a refresh burst leaves only the final stream control row generation visible");
+
+	QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+	for (const QPointer<QWidget> &row : retiredRows)
+		check(row.isNull(), "retired stream control rows are deleted after DeferredDelete");
+}
+
+void testOAuthConnectorRejectsUnsupportedMode()
+{
+	dsk::OAuthConnector connector;
+	int finishCount = 0;
+	dsk::OAuthConnectionResult result;
+	QObject::connect(&connector, &dsk::OAuthConnector::finished, &connector,
+			 [&finishCount, &result](const dsk::OAuthConnectionResult &value) {
+				 ++finishCount;
+				 result = value;
+			 });
+
+	check(!connector.begin(dsk::TargetAuthMode::ManualRtmp, QStringLiteral("client"), QString()),
+	      "OAuth connector rejects manual RTMP mode");
+	check(finishCount == 1, "unsupported OAuth mode finishes exactly once");
+	check(!result.errorMessage.isEmpty(), "unsupported OAuth mode returns an explanation");
+	check(!connector.isRunning(), "unsupported OAuth mode leaves no running callback server");
+}
+
+void testTwitchPublisherOAuthUiAndMigration()
+{
+	dsk::PlatformPresetRegistry platforms;
+	dsk::TargetEditDialog dialog(platforms);
+	dsk::OutputTarget input;
+	input.id = QStringLiteral("publisher-twitch");
+	input.name = QStringLiteral("Twitch");
+	input.platformId = QStringLiteral("twitch");
+	input.authMode = dsk::TargetAuthMode::TwitchOAuth;
+	input.authAccountName = QStringLiteral("legacy-account");
+	input.authCredentialRef = QStringLiteral("DSK Multistream/stream-key/publisher-twitch");
+	input.oauthClientId = QStringLiteral("legacy-user-client-id");
+	input.oauthClientSecret = QStringLiteral("legacy-user-secret");
+	input.oauthClientSecretRef = QStringLiteral("DSK Multistream/oauth-client-secret/legacy");
+	input.serverUrl = QStringLiteral("rtmp://live.twitch.tv/app");
+	input.streamKey = QStringLiteral("saved-stream-key");
+
+	dialog.setTarget(input);
+	auto *clientId = dialog.findChild<QLineEdit *>(QStringLiteral("dskOAuthClientId"));
+	auto *clientSecret = dialog.findChild<QLineEdit *>(QStringLiteral("dskOAuthClientSecret"));
+	auto *connectButton = dialog.findChild<QPushButton *>(QStringLiteral("dskConnectOAuth"));
+	auto *disconnectButton = dialog.findChild<QPushButton *>(QStringLiteral("dskDisconnectOAuth"));
+	check(clientId && clientId->isHidden(), "Twitch publisher login hides the user Client ID field");
+	check(clientSecret && clientSecret->isHidden(), "Twitch publisher login hides the user Client Secret field");
+	check(connectButton && connectButton->isEnabled() && connectButton->text() == "Reconnect Twitch",
+	      "connected Twitch publisher login exposes one clear Reconnect Twitch action");
+	check(disconnectButton && !disconnectButton->isHidden() && disconnectButton->isEnabled(),
+	      "connected Twitch publisher login exposes a Disconnect action");
+
+	dsk::OutputTarget accepted;
+	dialog.fillTarget(accepted);
+	check(accepted.authMode == dsk::TargetAuthMode::TwitchOAuth, "Twitch publisher login preserves auth mode");
+	check(accepted.authAccountName == input.authAccountName, "Twitch publisher login preserves the connected account label");
+	check(accepted.oauthClientId.isEmpty(), "Twitch publisher login removes legacy user Client IDs");
+	check(accepted.oauthClientSecret.isEmpty(), "Twitch publisher login removes legacy user Client Secrets");
+	check(accepted.oauthClientSecretRef.isEmpty(), "Twitch publisher login removes legacy Client Secret references");
+	check(accepted.streamKey == input.streamKey, "Twitch publisher login preserves the automatically retrieved stream key");
+
+	check(QMetaObject::invokeMethod(&dialog, "disconnectOAuthAccount", Qt::DirectConnection),
+	      "Twitch Disconnect action is invokable");
+	dialog.fillTarget(accepted);
+	check(accepted.authAccountName.isEmpty(), "Twitch Disconnect clears the saved account label in the edited target");
+	check(accepted.authCredentialRef.isEmpty(), "Twitch Disconnect clears the saved stream key reference in the edited target");
+	check(accepted.streamKey.isEmpty(), "Twitch Disconnect clears the stream key in the edited target");
+	check(disconnectButton->isHidden(), "Twitch Disconnect action hides after local disconnection");
+	check(connectButton->text() == "Connect Twitch", "Twitch Disconnect returns the primary action to Connect Twitch");
+}
+
+void testYouTubeBundledOAuthUi()
+{
+	dsk::PlatformPresetRegistry platforms;
+	dsk::TargetEditDialog dialog(platforms);
+	dialog.setNewTargetDefaults(QStringLiteral("bundled-youtube"));
+
+	QComboBox *platform = nullptr;
+	for (QComboBox *combo : dialog.findChildren<QComboBox *>()) {
+		if (combo->findData(QStringLiteral("youtube")) >= 0) {
+			platform = combo;
+			break;
+		}
+	}
+	check(platform != nullptr, "YouTube bundled OAuth test finds the platform selector");
+	if (!platform)
+		return;
+	platform->setCurrentIndex(platform->findData(QStringLiteral("youtube")));
+
+	QComboBox *authMode = nullptr;
+	for (QComboBox *combo : dialog.findChildren<QComboBox *>()) {
+		if (combo->findData(QStringLiteral("youtube-oauth")) >= 0) {
+			authMode = combo;
+			break;
+		}
+	}
+	check(authMode != nullptr, "YouTube bundled OAuth test finds the connection selector");
+	if (!authMode)
+		return;
+	authMode->setCurrentIndex(authMode->findData(QStringLiteral("youtube-oauth")));
+
+	auto *customApp = dialog.findChild<QCheckBox *>(QStringLiteral("dskUseCustomOAuthApp"));
+	auto *clientId = dialog.findChild<QLineEdit *>(QStringLiteral("dskOAuthClientId"));
+	auto *clientSecret = dialog.findChild<QLineEdit *>(QStringLiteral("dskOAuthClientSecret"));
+	if (!dsk::oauthHasBundledClientCredentials(dsk::TargetAuthMode::YouTubeOAuth)) {
+		check(customApp && customApp->isHidden(),
+		      "unbundled builds hide the unavailable publisher-app selector");
+		check(clientId && !clientId->isHidden(),
+		      "unbundled builds show the custom YouTube Client ID field");
+		check(clientSecret && !clientSecret->isHidden(),
+		      "unbundled builds show the custom YouTube Client Secret field");
+		return;
+	}
+	check(customApp && !customApp->isHidden() && !customApp->isChecked(),
+	      "new YouTube targets default to the bundled OAuth application");
+	check(clientId && clientId->isHidden(), "bundled YouTube login hides the Client ID field");
+	check(clientSecret && clientSecret->isHidden(), "bundled YouTube login hides the Client Secret field");
+
+	dsk::OutputTarget bundled;
+	dialog.fillTarget(bundled);
+	check(bundled.authMode == dsk::TargetAuthMode::YouTubeOAuth,
+	      "bundled YouTube login preserves the YouTube auth mode");
+	check(bundled.oauthClientId.isEmpty() && bundled.oauthClientSecret.isEmpty() &&
+	      bundled.oauthClientSecretRef.isEmpty(),
+	      "bundled publisher credentials are never copied into target settings");
+
+	customApp->setChecked(true);
+	check(!clientId->isHidden() && !clientSecret->isHidden(),
+	      "custom Google OAuth mode reveals both credential fields");
+	clientId->setText(QStringLiteral("custom-client.apps.googleusercontent.com"));
+	clientSecret->setText(QStringLiteral("custom-secret"));
+	dsk::OutputTarget custom;
+	dialog.fillTarget(custom);
+	check(custom.oauthClientId == "custom-client.apps.googleusercontent.com" &&
+	      custom.oauthClientSecret == "custom-secret",
+	      "custom Google OAuth mode persists explicitly entered credentials");
+}
+
+void testKickPublisherOAuthUiAndMigration()
+{
+	dsk::PlatformPresetRegistry platforms;
+	dsk::TargetEditDialog dialog(platforms);
+	dsk::OutputTarget input;
+	input.id = QStringLiteral("publisher-kick");
+	input.name = QStringLiteral("Kick");
+	input.platformId = QStringLiteral("kick");
+	input.authMode = dsk::TargetAuthMode::KickOAuth;
+	input.authAccountName = QStringLiteral("kick-user");
+	input.authCredentialRef = QStringLiteral("DSK Multistream/stream-key/publisher-kick");
+	input.oauthClientId = QStringLiteral("legacy-user-client-id");
+	input.oauthClientSecret = QStringLiteral("legacy-user-secret");
+	input.oauthRefreshToken = QStringLiteral("legacy-refresh-token");
+	input.serverUrl = QStringLiteral("rtmps://stream.kick.com/1234567890");
+	input.streamKey = QStringLiteral("saved-kick-stream-key");
+
+	dialog.setTarget(input);
+	auto *clientId = dialog.findChild<QLineEdit *>(QStringLiteral("dskOAuthClientId"));
+	auto *clientSecret = dialog.findChild<QLineEdit *>(QStringLiteral("dskOAuthClientSecret"));
+	auto *connectButton = dialog.findChild<QPushButton *>(QStringLiteral("dskConnectOAuth"));
+	auto *disconnectButton = dialog.findChild<QPushButton *>(QStringLiteral("dskDisconnectOAuth"));
+	check(clientId && clientId->isHidden(), "Kick publisher login hides the user Client ID field");
+	check(clientSecret && clientSecret->isHidden(), "Kick publisher login hides the user Client Secret field");
+	check(connectButton && connectButton->isEnabled() && connectButton->text() == "Reconnect Kick",
+	      "connected Kick publisher login exposes one clear Reconnect Kick action");
+	check(disconnectButton && !disconnectButton->isHidden() && disconnectButton->isEnabled(),
+	      "connected Kick publisher login exposes a Disconnect action");
+
+	dsk::OutputTarget accepted;
+	dialog.fillTarget(accepted);
+	check(accepted.authMode == dsk::TargetAuthMode::KickOAuth, "Kick publisher login preserves auth mode");
+	check(accepted.authAccountName == input.authAccountName, "Kick publisher login preserves the account label");
+	check(accepted.oauthClientId.isEmpty() && accepted.oauthClientSecret.isEmpty() &&
+		      accepted.oauthRefreshToken.isEmpty(),
+	      "Kick publisher login removes obsolete desktop OAuth credentials");
+	check(accepted.streamKey == input.streamKey, "Kick publisher login preserves the retrieved stream key");
+
+	check(QMetaObject::invokeMethod(&dialog, "disconnectOAuthAccount", Qt::DirectConnection),
+	      "Kick Disconnect action is invokable");
+	dialog.fillTarget(accepted);
+	check(accepted.authAccountName.isEmpty(), "Kick Disconnect clears the saved account label");
+	check(accepted.authCredentialRef.isEmpty(), "Kick Disconnect clears the stream key reference");
+	check(accepted.streamKey.isEmpty(), "Kick Disconnect clears the stream key");
+	check(disconnectButton->isHidden(), "Kick Disconnect action hides after local disconnection");
+	check(connectButton->text() == "Connect Kick", "Kick Disconnect returns the action to Connect Kick");
+}
+
+} // namespace
+
+int main(int argc, char **argv)
+{
+	QApplication app(argc, argv);
+
+	const auto run = [](const char *name, auto test) {
+		std::cerr << "RUN: " << name << '\n';
+		test();
+		std::cerr << "DONE: " << name << '\n';
+	};
+	run("target add defaults", testTargetEditDialogAddDefaults);
+	run("clear vertical preview selection", testListSelectionCanBeClearedForPreviewBackgroundClick);
+	run("scene routing hidden by default", testSceneRoutingControlsAreHiddenByDefault);
+	run("custom server preservation", testTargetEditDialogPreservesCustomServerAcrossPlatformChange);
+	run("target round trips", testTargetEditDialogRoundTrips);
+	run("clear unused OAuth secrets", testTargetEditDialogClearsUnusedOAuthSecrets);
+	run("repeated dialog use", testTargetEditDialogRepeatedUse);
+	run("accept caches result", testTargetEditDialogAcceptCachesResult);
+	run("save validation", testTargetEditDialogValidatesBeforeSave);
+	run("OAuth JSON extraction", testTargetEditDialogOAuthJsonExtraction);
+	run("client change invalidates login", testTargetEditDialogClientChangeInvalidatesOldLogin);
+	run("saved stream key reference", testTargetEditDialogKeepsSavedStreamKeyReference);
+	run("scrollable form", testTargetEditDialogUsesScrollableForm);
+	run("refresh rows hide before deferred delete", testRefreshRowsHideBeforeDeferredDelete);
+	run("unsupported OAuth mode", testOAuthConnectorRejectsUnsupportedMode);
+	run("Twitch publisher OAuth UI", testTwitchPublisherOAuthUiAndMigration);
+	run("Kick publisher OAuth UI", testKickPublisherOAuthUiAndMigration);
+	run("YouTube bundled OAuth UI", testYouTubeBundledOAuthUi);
+
+	if (failures > 0) {
+		std::cerr << failures << " UI smoke test checks failed.\n";
+		return 1;
+	}
+
+	std::cout << "All UI smoke tests passed.\n";
+	return 0;
+}

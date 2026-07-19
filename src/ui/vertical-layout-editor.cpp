@@ -470,4 +470,1718 @@ private:
 			drawObsHandle(float(r.right()), float(r.center().y()));
 			drawObsHandle(float(r.left()), float(r.bottom()));
 			drawObsHandle(float(r.center().x()), float(r.bottom()));
-			drawObsHandle(float(r.right())×ùâÚ$z{-®éÜj×æTÆ–æµfW'F–6Å66VæT–E&öÆR’“° ––b‡fW'F–6Å66VæT–æFW‚ãÒ —66VæTÆ–æµFV×ÆFUòÓç6WD7W'&VçD–æFW‚‡fW'F–6Å66VæT–æFW‚“°§Ğ §fö–BfW'F–6ÄÆ–÷WDVF—F÷#£§6VÆV7E66VæTÆ–æ´f÷$ö'566VæR†6öç7B7G&–ærg66VæTæÖR§° ––b†ÆöF–æuòÇÂ66VæTÆ–æ·5ò —&WGW&ã°  –f÷"†–çB&÷rÒ²&÷rÂ66VæTÆ–æ·5òÓæ6÷VçB‚“²²·&÷r’° –6öç7BÆ—7Ev–FvWD—FVÒ¦—FVÒÒ66VæTÆ–æ·5òÓæ—FVÒ‡&÷r“° ––b†—FVÒbb—FVÒÓæFF…66VæTÆ–æµ&W6öÇfVDæÖU&öÆR’çFõ7G&–ær‚’ÓÒ66VæTæÖR’° —66VæTÆ–æ·5òÓç6WD7W'&VçE&÷r‡&÷r“° —6VÆV7E66VæTÆ–æ²‡&÷r“° —&WGW&ã° —Ğ —Ğ  —66VæTÆ–æ·5òÓç6WD7W'&VçE&÷r‚Ó“° —66VæTÆ–æ·5òÓæ6ÆV%6VÆV7F–öâ‚“°§Ğ §fö–BfW'F–6ÄÆ–÷WDVF—F÷#£§WFFTföÆÆ÷u66VæR†–çB7FFR§° –ÖævW%òÓç6WDföÆÆ÷tö'566VæR‡7FFRÓÒC£¤6†V6¶VB“° —WFFTö'4Æ–æµ7FGW2‚“°§Ğ §fö–BfW'F–6ÄÆ–÷WDVF—F÷#£¦6VçFW%6VÆV7FVD—FVÒ‚§° –6öç7B–çB–æFW‚Ò6VÆV7FVD–æFW‚‚“° –6öç7BWFòfÆ–÷WBÒÖævW%òÓæÆ–÷WG2‚’çfW'F–6ÄÆ–÷WB‚“° ––b†–æFW‚ÂÇÂ–æFW‚ãÒÆ–÷WBæ—FV×2ç6—¦R‚’ —&WGW&ã°  •&V7Db&V7BÒF—7Æ–VD6öçFVçE&V7B†Æ–÷WBæ—FV×5¶–æFW…ÒÂ6÷W&6Uf–FVõ6—¦R†Æ–÷WBæ—FV×5¶–æFW…Òç6÷W&6TæÖR’“° —&V7BæÖ÷fT6VçFW"…ö–çDb†Æ–÷WBçv–GF‚ò"ãÂÆ–÷WBæ†V–v‡Bò"ã’“° —6WE6VÆV7FVD—FVÕ&V7B‡&V7B“°§Ğ §fö–BfW'F–6ÄÆ–÷WDVF—F÷#£¦f—E6VÆV7FVD—FVÕFô6çf2‚§° –6öç7B–çB–æFW‚Ò6VÆV7FVD–æFW‚‚“° •fW'F–6ÄÆ–÷WBÆ–÷WBÒÖævW%òÓæÆ–÷WG2‚’çfW'F–6ÄÆ–÷WB‚“° ––b†–æFW‚ÂÇÂ–æFW‚ãÒÆ–÷WBæ—FV×2ç6—¦R‚’ —&WGW&ã°  •6—¦Tb6÷W&6U6—¦RÒ6÷W&6Uf–FVõ6—¦R†Æ–÷WBæ—FV×5¶–æFW…Òç6÷W&6TæÖR“° —6÷W&6U6—¦RÒ7&÷VE6÷W&6U6—¦R†Æ–÷WBæ—FV×5¶–æFW…ÒÂ6÷W&6U6—¦R“° –Æ–÷WBæ—FV×5¶–æFW…Òæf—DÖöFRÒf—DÖöFS£¤f—C° –Æ–÷WBæ—FV×5¶–æFW…Òç&V7BÒ6VçFW&VD7V7Df—E&V7B‡6÷W&6U6—¦RÂ6—¦Tb†Æ–÷WBçv–GF‚ÂÆ–÷WBæ†V–v‡B’“° –ÖævW%òÓæÆ–÷WG2‚’ç6WEfW'F–6ÄÆ–÷WB†Æ–÷WB“° —6fTæ÷r‚“° —&Vg&W6„—FV×2‚“° –—FV×5òÓç6WD7W'&VçE&÷r†–æFW‚“°§Ğ §fö–BfW'F–6ÄÆ–÷WDVF—F÷#£¦f–ÆÅ6VÆV7FVD—FVÕFô6çf2‚§° –6öç7B–çB–æFW‚Ò6VÆV7FVD–æFW‚‚“° •fW'F–6ÄÆ–÷WBÆ–÷WBÒÖævW%òÓæÆ–÷WG2‚’çfW'F–6ÄÆ–÷WB‚“° ––b†–æFW‚ÂÇÂ–æFW‚ãÒÆ–÷WBæ—FV×2ç6—¦R‚’ —&WGW&ã°  •6—¦Tb6÷W&6U6—¦RÒ6÷W&6Uf–FVõ6—¦R†Æ–÷WBæ—FV×5¶–æFW…Òç6÷W&6TæÖR“° —6÷W&6U6—¦RÒ7&÷VE6÷W&6U6—¦R†Æ–÷WBæ—FV×5¶–æFW…ÒÂ6÷W&6U6—¦R“° •&V7Db&V7BƒÂÂÆ–÷WBçv–GF‚ÂÆ–÷WBæ†V–v‡B“° ––b‡6÷W&6U6—¦Rçv–GF‚‚’âãbb6÷W&6U6—¦Ræ†V–v‡B‚’âã’° –6öç7BF÷V&ÆR66ÆRÒ7FC£¦Ö‚†Æ–÷WBçv–GF‚ò6÷W&6U6—¦Rçv–GF‚‚’ÂÆ–÷WBæ†V–v‡Bò6÷W&6U6—¦Ræ†V–v‡B‚’“° –6öç7B6—¦Tb6—¦R‡6÷W&6U6—¦Rçv–GF‚‚’¢66ÆRÂ6÷W&6U6—¦Ræ†V–v‡B‚’¢66ÆR“° —&V7BÒ&V7Db‚†Æ–÷WBçv–GF‚Ò6—¦Rçv–GF‚‚’’ò"ãÀ ’†Æ–÷WBæ†V–v‡BÒ6—¦Ræ†V–v‡B‚’’ò"ãÀ ’6—¦Rçv–GF‚‚’À ’6—¦Ræ†V–v‡B‚’“° —Ğ –Æ–÷WBæ—FV×5¶–æFW…Òæf—DÖöFRÒf—DÖöFS£¤f–ÆÃ° –Æ–÷WBæ—FV×5¶–æFW…Òç&V7BÒ&V7C° –ÖævW%òÓæÆ–÷WG2‚’ç6WEfW'F–6ÄÆ–÷WB†Æ–÷WB“° —6fTæ÷r‚“° —&Vg&W6„—FV×2‚“° –—FV×5òÓç6WD7W'&VçE&÷r†–æFW‚“°§Ğ §fö–BfW'F–6ÄÆ–÷WDVF—F÷#£¦FD—FVÒ‚§° –6öç7B7G&–ær6÷W&6TæÖRÒ6÷W&6UòÓæ7W'&VçEFW‡B‚’çG&–ÖÖVB‚“° ––b‡6÷W&6TæÖRæ—4V×G’‚’ —&WGW&ã°  •fW'F–6ÄÆ–÷WBÆ–÷WBÒÖævW%òÓæÆ–÷WG2‚’çfW'F–6ÄÆ–÷WB‚“° •fW'F–6ÄÆ–÷WD—FVÒ—FVÓ° –—FVÒæ–BÒæWuF&vWD–B‚“° –—FVÒç6÷W&6TæÖRÒ6÷W&6TæÖS° –—FVÒæf—DÖöFRÒf—DÖöFS£¤f—C° –—FVÒç&V7BÒ6VçFW&VD7V7Df—E&V7B‡6÷W&6Uf–FVõ6—¦R‡6÷W&6TæÖR’Â6—¦Tb†Æ–÷WBçv–GF‚ÂÆ–÷WBæ†V–v‡B’“° –Æ–÷WBæ—FV×2çW6…ö&6²†—FVÒ“° –ÖævW%òÓæÆ–÷WG2‚’ç6WEfW'F–6ÄÆ–÷WB†Æ–÷WB“° –ÖævW%òÓç6fUfW'F–6ÄÆ–÷WB‚“° —&Vg&W6„—FV×2‚“° –—FV×5òÓç6WD7W'&VçE&÷r†Æ–÷WBæ—FV×2ç6—¦R‚’Ò“°§Ğ §fö–BfW'F–6ÄÆ–÷WDVF—F÷#£§&VÖ÷fT—FVÒ‚§° –6öç7B–çB–æFW‚Ò6VÆV7FVD–æFW‚‚“° ––b†–æFW‚Â —&WGW&ã° •fW'F–6ÄÆ–÷WBÆ–÷WBÒÖævW%òÓæÆ–÷WG2‚’çfW'F–6ÄÆ–÷WB‚“° –Æ–÷WBæ—FV×2ç&VÖ÷fTB†–æFW‚“° –ÖævW%òÓæÆ–÷WG2‚’ç6WEfW'F–6ÄÆ–÷WB†Æ–÷WB“° –ÖævW%òÓç6fUfW'F–6ÄÆ–÷WB‚“° —&Vg&W6„—FV×2‚“°§Ğ §fö–BfW'F–6ÄÆ–÷WDVF—F÷#£¦Ö÷fT—FVÕW‚§° –6öç7B–çB–æFW‚Ò6VÆV7FVD–æFW‚‚“° ––b†–æFW‚ÃÒ —&WGW&ã° •fW'F–6ÄÆ–÷WBÆ–÷WBÒÖævW%òÓæÆ–÷WG2‚’çfW'F–6ÄÆ–÷WB‚“° –Æ–÷WBæ—FV×2æÖ÷fR†–æFW‚Â–æFW‚Ò“° –ÖævW%òÓæÆ–÷WG2‚’ç6WEfW'F–6ÄÆ–÷WB†Æ–÷WB“° —6fTæ÷r‚“° —&Vg&W6„—FV×2‚“° –—FV×5òÓç6WD7W'&VçE&÷r†–æFW‚Ò“°§Ğ §fö–BfW'F–6ÄÆ–÷WDVF—F÷#£¦Ö÷fT—FVÔF÷vâ‚§° –6öç7B–çB–æFW‚Ò6VÆV7FVD–æFW‚‚“° –6öç7BWFòf7W'&VçBÒÖævW%òÓæÆ–÷WG2‚’çfW'F–6ÄÆ–÷WB‚“° ––b†–æFW‚ÂÇÂ–æFW‚ãÒ7W'&VçBæ—FV×2ç6—¦R‚’Ò —&WGW&ã° •fW'F–6ÄÆ–÷WBÆ–÷WBÒ7W'&VçC° –Æ–÷WBæ—FV×2æÖ÷fR†–æFW‚Â–æFW‚²“° –ÖævW%òÓæÆ–÷WG2‚’ç6WEfW'F–6ÄÆ–÷WB†Æ–÷WB“° —6fTæ÷r‚“° —&Vg&W6„—FV×2‚“° –—FV×5òÓç6WD7W'&VçE&÷r†–æFW‚²“°§Ğ §fö–BfW'F–6ÄÆ–÷WDVF—F÷#£§6VÆV7D—FVÒ†–çB&÷r§° –6öç7BWFòfÆ–÷WBÒÖævW%òÓæÆ–÷WG2‚’çfW'F–6ÄÆ–÷WB‚“° ––b‡&÷rÂÇÂ&÷rãÒÆ–÷WBæ—FV×2ç6—¦R‚’’° —&Wf–WuòÓç6WE6VÆV7FVD–æFW‚‚Ó“° —6WDÆ–W$6öçG&öÇ4Væ&ÆVB†fÇ6R“° —&WGW&ã° —Ğ  –ÆöF–æuòÒG'VS° —6WDÆ–W$6öçG&öÇ4Væ&ÆVB‡G'VR“° –6öç7BWFòf—FVÒÒÆ–÷WBæ—FV×5·&÷uÓ° —…òÓç6WEfÇVR†–çB†—FVÒç&V7Bç‚‚’’“° —•òÓç6WEfÇVR†–çB†—FVÒç&V7Bç’‚’’“° —uòÓç6WEfÇVR†–çB†—FVÒç&V7Bçv–GF‚‚’’“° –…òÓç6WEfÇVR†–çB†—FVÒç&V7Bæ†V–v‡B‚’’“° –6öç7B–çBf—D–æFW‚Òf—EòÓæf–æDFF†f—DÖöFUFõ7G&–ær†—FVÒæf—DÖöFR’“° –f—EòÓç6WD7W'&VçD–æFW‚†f—D–æFW‚ãÒòf—D–æFW‚¢“° —f—6–&ÆUòÓç6WD6†V6¶VB†—FVÒçf—6–&ÆR“° –ÆöF–æuòÒfÇ6S° —&Wf–WuòÓç6WE6VÆV7FVD–æFW‚‡&÷r“°§Ğ §fö–BfW'F–6ÄÆ–÷WDVF—F÷#£§WFFT—FVÕf—6–&–Æ—G’…Æ—7Ev–FvWD—FVÒ¦—FVÒ§° ––b†ÆöF–æuòÇÂ—FVÒÇÂ—FV×5ò —&WGW&ã° –6öç7B–çB&÷rÒ—FV×5òÓç&÷r†—FVÒ“° –6öç7BWFòf7W'&VçBÒÖævW%òÓæÆ–÷WG2‚’çfW'F–6ÄÆ–÷WB‚“° ––b‡&÷rÂÇÂ&÷rãÒ7W'&VçBæ—FV×2ç6—¦R‚’ —&WGW&ã° –6öç7B&ööÂf—6–&ÆRÒ—FVÒÓæ6†V6µ7FFR‚’ÓÒC£¤6†V6¶VC° ––b†7W'&VçBæ—FV×5·&÷uÒçf—6–&ÆRÓÒf—6–&ÆR —&WGW&ã° •fW'F–6ÄÆ–÷WBÆ–÷WBÒ7W'&VçC° –Æ–÷WBæ—FV×5·&÷uÒçf—6–&ÆRÒf—6–&ÆS° –ÖævW%òÓæÆ–÷WG2‚’ç6WEfW'F–6ÄÆ–÷WB†Æ–÷WB“° —&Wf–WuòÓç6WDÆ–÷WDFF†Æ–÷WB“° •F–ÖW#£§6–ævÆU6†÷BƒÂF†—2Â·F†—5Ò‚’²6fTæ÷r‚“²Ò“°§Ğ §fö–BfW'F–6ÄÆ–÷WDVF—F÷#£§WFFU6VÆV7FVD—FVÒ‚§° ––b†ÆöF–æuò —&WGW&ã° –6öç7B–çB–æFW‚Ò6VÆV7FVD–æFW‚‚“° ––b†–æFW‚Â —&WGW&ã°  •fW'F–6ÄÆ–÷WBÆ–÷WBÒÖævW%òÓæÆ–÷WG2‚’çfW'F–6ÄÆ–÷WB‚“° –WFòf—FVÒÒÆ–÷WBæ—FV×5¶–æFW…Ó° –—FVÒç&V7BÒ&V7Db‡…òÓçfÇVR‚’Â•òÓçfÇVR‚’ÂuòÓçfÇVR‚’Â…òÓçfÇVR‚’“° –—FVÒæf—DÖöFRÒf—DÖöFTg&öÕ7G&–ær†f—EòÓæ7W'&VçDFF‚’çFõ7G&–ær‚’“° –—FVÒçf—6–&ÆRÒf—6–&ÆUòÓæ—46†V6¶VB‚“° –ÖævW%òÓæÆ–÷WG2‚’ç6WEfW'F–6ÄÆ–÷WB†Æ–÷WB“° –ÖævW%òÓç6fUfW'F–6ÄÆ–÷WB‚“° —&Vg&W6„—FV×2‚“° –—FV×5òÓç6WD7W'&VçE&÷r†–æFW‚“°§Ğ §fö–BfW'F–6ÄÆ–÷WDVF—F÷#£§&Vg&W6„—FV×2‚§° ––b‚—FV×5òÇÂfW'F–6Å66VæW5òÇÂ66VæTÆ–æ·5òÇÂ66VæTÆ–æµFV×ÆFUòÇÂ&Wf–Wuò —&WGW&ã°  –6öç7B–çB6VÆV7FVBÒ—FV×5òÓæ7W'&VçE&÷r‚“° •7G&–ær6VÆV7FVE66VæTÆ–æ´æÖS° •7G&–ær6VÆV7FVE66VæTÆ–æµWV–C° ––b†6öç7BÆ—7Ev–FvWD—FVÒ§6VÆV7FVDÆ–æ²Ò66VæTÆ–æ·5òÓæ7W'&VçD—FVÒ‚’’° —6VÆV7FVE66VæTÆ–æ´æÖRÒ6VÆV7FVDÆ–æ²ÓæFF…66VæTÆ–æ´æÖU&öÆR’çFõ7G&–ær‚“° —6VÆV7FVE66VæTÆ–æµWV–BÒ6VÆV7FVDÆ–æ²ÓæFF…66VæTÆ–æµWV–E&öÆR’çFõ7G&–ær‚“° —Ğ –ÆöF–æuòÒG'VS° –6öç7B6–væÄ&Æö6¶W"—FV×4&Æö6¶W"†—FV×5ò“° –6öç7B6–væÄ&Æö6¶W"fW'F–6Å66VæW4&Æö6¶W"‡fW'F–6Å66VæW5ò“° –6öç7B6–væÄ&Æö6¶W"Æ–æµ66VæT&Æö6¶W"‡66VæTÆ–æµFV×ÆFUò“° –6öç7B6–væÄ&Æö6¶W"66VæTÆ–æ·4&Æö6¶W"‡66VæTÆ–æ·5ò“° –—FV×5òÓæ6ÆV"‚“° —fW'F–6Å66VæW5òÓæ6ÆV"‚“° —66VæTÆ–æ·5òÓæ6ÆV"‚“° –6öç7B7G&–ær6VÆV7FVDÆ–æ¶VE66VæT–BÒ66VæTÆ–æµFV×ÆFUòÓæ7W'&VçDFF‚’çFõ7G&–ær‚“° —66VæTÆ–æµFV×ÆFUòÓæ6ÆV"‚“° ––çB7F—fUfW'F–6Å66VæU&÷rÒÓ° –f÷"†6öç7BWFòg66VæR¢ÖævW%òÓæÆ–÷WG2‚’çfW'F–6Å66VæW2‚’’° –6öç7B&ööÂ7F—fU66VæRÒ66VæRæ–BÓÒÖævW%òÓæÆ–÷WG2‚’æ7F—fUfW'F–6Å66VæT–B‚“° –WFò§66VæT—FVÒÒæWrÆ—7Ev–FvWD—FVÒ†7F—fU66VæRò7G–ÆR‚’Óç7FæF&D–6öâ…7G–ÆS£¥5ôÖVF–Æ’’¢–6öâ‚’À ’66VæRææÖR“° —66VæT—FVÒÓç6WDFF…C£¥W6W%&öÆRÂ66VæRæ–B“° —66VæT—FVÒÓç6WEFööÅF—†7F—fU66VæRò7G&–ætÆ—FW&Â‚$7F—fRE4²fW'F–6Â÷WGWB66VæR" ’¢7G&–ætÆ—FW&Â‚$E4²fW'F–6Â66VæR"’“° —fW'F–6Å66VæW5òÓæFD—FVÒ‡66VæT—FVÒ“° ––b†7F—fU66VæR –7F—fUfW'F–6Å66VæU&÷rÒfW'F–6Å66VæW5òÓæ6÷VçB‚’Ò° —66VæTÆ–æµFV×ÆFUòÓæFD—FVÒ‡66VæRææÖRÂ66VæRæ–B“° —Ğ ––b†7F—fUfW'F–6Å66VæU&÷rãÒ —fW'F–6Å66VæW5òÓç6WD7W'&VçE&÷r†7F—fUfW'F–6Å66VæU&÷r“° –6öç7B–çBÆ–æ¶VE66VæT–æFW‚Ò66VæTÆ–æµFV×ÆFUòÓæf–æDFF‡6VÆV7FVDÆ–æ¶VE66VæT–B“° ––b†Æ–æ¶VE66VæT–æFW‚ãÒ —66VæTÆ–æµFV×ÆFUòÓç6WD7W'&VçD–æFW‚†Æ–æ¶VE66VæT–æFW‚“° ––çB6VÆV7FVE66VæTÆ–æµ&÷rÒÓ° –f÷"†6öç7BWFòfÆ–æ²¢ÖævW%òÓç66VæTÆ–æ·2‚’’° –6öç7B7G&–ær66VæTæÖRÒÖævW%òÓæÆ–÷WG2‚’çfW'F–6Å66VæTæÖR†Æ–æ²çfW'F–6Å66VæT–B“° –6öç7B7G&–ærÆ–æ¶VDö'566VæRÒÖævW%òÓç&W6öÇfVDö'566VæTæÖR†Æ–æ²ç66VæUWV–BÂÆ–æ²ç66VæTæÖR“° –6öç7B7G&–ærÆ–æ¶VDö'566VæTF—7Æ’ÒÆ–æ¶VDö'566VæRæ—4V×G’‚ ’ò7G&–ætÆ—FW&Â‚$Ö—76–æs¢S"’æ&r†Æ–æ²ç66VæTæÖR ’¢Æ–æ¶VDö'566VæS° –6öç7B7G&–ær&Vf—‚Ò66VæTÆ–æ´ÖF6†W2†Æ–æ²ÂÖævW%òÓæ7W'&VçDö'566VæTæÖR‚’ÂÖævW%òÓæ7W'&VçDö'566VæUWV–B‚’ ’ò7G&–ætÆ—FW&Â‚$7W'&VçC¢" ’¢7G&–ær‚“° –WFò¦Æ–æ´—FVÒÒæWrÆ—7Ev–FvWD—FVÒ…7G&–ær‚"SS"ÓâS2"’æ&r€ —&Vf—‚À –Æ–æ¶VDö'566VæTF—7Æ’À —66VæTæÖRæ—4V×G’‚’ò7G&–ætÆ—FW&Â‚"†Ö—76–ærE4²66VæR’"’¢66VæTæÖR’“° –Æ–æ´—FVÒÓç6WDFF…66VæTÆ–æ´æÖU&öÆRÂÆ–æ²ç66VæTæÖR“° –Æ–æ´—FVÒÓç6WDFF…66VæTÆ–æµWV–E&öÆRÂÆ–æ²ç66VæUWV–B“° –Æ–æ´—FVÒÓç6WDFF…66VæTÆ–æµfW'F–6Å66VæT–E&öÆRÂÆ–æ²çfW'F–6Å66VæT–B“° –Æ–æ´—FVÒÓç6WDFF…66VæTÆ–æµ&W6öÇfVDæÖU&öÆRÂÆ–æ¶VDö'566VæR“° –Æ–æ´—FVÒÓç6WEFööÅF—…7G&–ætÆ—FW&Â‚%6VÆV7BF†—2Æ–æ²FòVF—B÷"VæÆ–æ²—Bâ"’“° —66VæTÆ–æ·5òÓæFD—FVÒ†Æ–æ´—FVÒ“° –6öç7B&ööÂ6VÆV7FVDÆ–æ´ÖF6†W2Ò6VÆV7FVE66VæTÆ–æµWV–Bæ—4V×G’‚ ’òÆ–æ²ç66VæUWV–BÓÒ6VÆV7FVE66VæTÆ–æµWV–@ ’¢Æ–æ²ç66VæTæÖRÓÒ6VÆV7FVE66VæTÆ–æ´æÖS° ––b‡6VÆV7FVDÆ–æ´ÖF6†W2 —6VÆV7FVE66VæTÆ–æµ&÷rÒ66VæTÆ–æ·5òÓæ6÷VçB‚’Ò° —Ğ —WFFTö'4Æ–æµ7FGW2‚“° –6öç7BWFòfÆ–÷WBÒÖævW%òÓæÆ–÷WG2‚’çfW'F–6ÄÆ–÷WB‚“° –f÷"†–çB’Ò²’ÂÆ–÷WBæ—FV×2ç6—¦R‚“²²¶’’° –6öç7BWFòfÆ–÷WD—FVÒÒÆ–÷WBæ—FV×5¶•Ó° –WFò§6÷W&6T—FVÒÒæWrÆ—7Ev–FvWD—FVÒ‡7G–ÆR‚’Óç7FæF&D–6öâ…7G–ÆS£¥5ôf–ÆT–6öâ’À –—FVÔÆ&VÂ†Æ–÷WD—FVÒÂ’’“° —6÷W&6T—FVÒÓç6WDfÆw2‡6÷W&6T—FVÒÓæfÆw2‚’ÂC£¤—FVÔ—5W6W$6†V6¶&ÆR“° —6÷W&6T—FVÒÓç6WD6†V6µ7FFR†Æ–÷WD—FVÒçf—6–&ÆRòC£¤6†V6¶VB¢C£¥Væ6†V6¶VB“° —6÷W&6T—FVÒÓç6WEFööÅF—…7G&–ætÆ—FW&Â‚"S‚S"BS2ÂSB" ’æ&r‡7FC£¦Ç&÷VæB†Æ–÷WD—FVÒç&V7Bçv–GF‚‚’’ ’æ&r‡7FC£¦Ç&÷VæB†Æ–÷WD—FVÒç&V7Bæ†V–v‡B‚’’ ’æ&r‡7FC£¦Ç&÷VæB†Æ–÷WD—FVÒç&V7Bç‚‚’’ ’æ&r‡7FC£¦Ç&÷VæB†Æ–÷WD—FVÒç&V7Bç’‚’’’“° –—FV×5òÓæFD—FVÒ‡6÷W&6T—FVÒ“° —Ğ —&Wf–WuòÓç6WDÆ–÷WDFF†Æ–÷WB“° —WFFU66VæU7FGW2‚“° –ÆöF–æuòÒfÇ6S° ––b‡6VÆV7FVE66VæTÆ–æµ&÷rãÒ’° —66VæTÆ–æ·5òÓç6WD7W'&VçE&÷r‡6VÆV7FVE66VæTÆ–æµ&÷r“° —6VÆV7E66VæTÆ–æ²‡6VÆV7FVE66VæTÆ–æµ&÷r“° —ÒVÇ6R° —6VÆV7E66VæTÆ–æ´f÷$ö'566VæR‡66VæTÆ–æµ66VæUòÓæ7W'&VçEFW‡B‚’“° —Ğ ––b‚6WGWFövvÆUòÇÂ6WGWFövvÆUòÓæ—46†V6¶VB‚’’° –—FV×5òÓç6WD7W'&VçE&÷r‚Ó“° –—FV×5òÓæ6ÆV%6VÆV7F–öâ‚“° —&Wf–WuòÓç6WE6VÆV7FVD–æFW‚‚Ó“° —6WDÆ–W$6öçG&öÇ4Væ&ÆVB†fÇ6R“° —ÒVÇ6R–b‡6VÆV7FVBãÒbb6VÆV7FVBÂÆ–÷WBæ—FV×2ç6—¦R‚’’° –—FV×5òÓç6WD7W'&VçE&÷r‡6VÆV7FVB“° —6VÆV7D—FVÒ‡6VÆV7FVB“° —ÒVÇ6R–b‚Æ–÷WBæ—FV×2æ—4V×G’‚’’° –—FV×5òÓç6WD7W'&VçE&÷rƒ“° —6VÆV7D—FVÒƒ“° —ÒVÇ6R° —&Wf–WuòÓç6WE6VÆV7FVD–æFW‚‚Ó“° —6WDÆ–W$6öçG&öÇ4Væ&ÆVB†fÇ6R“° —Ğ§Ğ ¦–çBfW'F–6ÄÆ–÷WDVF—F÷#£§6VÆV7FVD–æFW‚‚’6öç7@§° –6öç7B–çB&÷rÒ—FV×5òÓæ7W'&VçE&÷r‚“° –6öç7BWFòfÆ–÷WBÒÖævW%òÓæÆ–÷WG2‚’çfW'F–6ÄÆ–÷WB‚“° ––b‡&÷rÂÇÂ&÷rãÒÆ–÷WBæ—FV×2ç6—¦R‚’ —&WGW&âÓ° —&WGW&â&÷s°§Ğ §fö–BfW'F–6ÄÆ–÷WDVF—F÷#£§6WE6VÆV7FVD—FVÕ&V7B†6öç7B&V7Dbg&V7B§° –6öç7B–çB&÷rÒ6VÆV7FVD–æFW‚‚“° –6öç7BWFòf7W'&VçDÆ–÷WBÒÖævW%òÓæÆ–÷WG2‚’çfW'F–6ÄÆ–÷WB‚“° ––b‡&÷rÂÇÂ&÷rãÒ7W'&VçDÆ–÷WBæ—FV×2ç6—¦R‚’ —&WGW&ã°  •fW'F–6ÄÆ–÷WBÆ–÷WBÒ7W'&VçDÆ–÷WC° –Æ–÷WBæ—FV×5·&÷uÒç&V7BÒ&V7C° –ÖævW%òÓæÆ–÷WG2‚’ç6WEfW'F–6ÄÆ–÷WB†Æ–÷WB“° —6fTæ÷r‚“° —&Vg&W6„—FV×2‚“° –—FV×5òÓç6WD7W'&VçE&÷r‡&÷r“°§Ğ §fö–BfW'F–6ÄÆ–÷WDVF—F÷#£§66†VGVÆU6fR‚§° ––b‡6fUF–ÖW%ò —6fUF–ÖW%òÓç7F'B‚“°§Ğ §fö–BfW'F–6ÄÆ–÷WDVF—F÷#£§6fTæ÷r‚§° ––b‡6fUF–ÖW%ò —6fUF–ÖW%òÓç7F÷‚“° ––b†ÖævW%ò –ÖævW%òÓç6fUfW'F–6ÄÆ–÷WB‚“°§Ğ §fö–BfW'F–6ÄÆ–÷WDVF—F÷#£§6WE6WGWf—6–&ÆR†&ööÂf—6–&ÆRÂ&ööÂW'6—7B§° ––b‚6WGWæVÅòÇÂG&ç6f÷&ÕFövvÆUòÇÂö'4Æ–æ·5FövvÆUò —&WGW&ã°  —6WGWæVÅòÓç6WEf—6–&ÆR‡f—6–&ÆR“° —G&ç6f÷&ÕFövvÆUòÓç6WEf—6–&ÆR‡f—6–&ÆR“° –ö'4Æ–æ·5FövvÆUòÓç6WEf—6–&ÆR‡f—6–&ÆR“° ––b‚f—6–&ÆR’° ––b†—FV×5ò —6WGW6VÆV7FVE&÷uòÒ—FV×5òÓæ7W'&VçE&÷r‚“° —G&ç6f÷&ÕFövvÆUòÓç6WD6†V6¶VB†fÇ6R“° –ö'4Æ–æ·5FövvÆUòÓç6WD6†V6¶VB†fÇ6R“° ––b†—FV×5ò’° –6öç7B6–væÄ&Æö6¶W"&Æö6¶W"†—FV×5ò“° –—FV×5òÓç6WD7W'&VçE&÷r‚Ó“° –—FV×5òÓæ6ÆV%6VÆV7F–öâ‚“° —Ğ ––b‡&Wf–Wuò —&Wf–WuòÓç6WE6VÆV7FVD–æFW‚‚Ó“° —6WDÆ–W$6öçG&öÇ4Væ&ÆVB†fÇ6R“° —ÒVÇ6R–b†—FV×5òbb6WGW6VÆV7FVE&÷uòãÒbb6WGW6VÆV7FVE&÷uòÂ—FV×5òÓæ6÷VçB‚’’° –—FV×5òÓç6WD7W'&VçE&÷r‡6WGW6VÆV7FVE&÷uò“° —6VÆV7D—FVÒ‡6WGW6VÆV7FVE&÷uò“° —Ğ  ––b‡W'6—7B —6fUfW'F–6Å6WGWf—6–&ÆU&VfW&Væ6R‡f—6–&ÆR“°§Ğ §fö–BfW'F–6ÄÆ–÷WDVF—F÷#£§WFFT—FVÕ&V7Dg&öÕ&Wf–Wr†–çB&÷rÂ6öç7B&V7Dbg&V7BÂ&ööÂ6fR§° –6öç7BWFòf7W'&VçDÆ–÷WBÒÖævW%òÓæÆ–÷WG2‚’çfW'F–6ÄÆ–÷WB‚“° ––b‡&÷rÂÇÂ&÷rãÒ7W'&VçDÆ–÷WBæ—FV×2ç6—¦R‚’ —&WGW&ã°  •fW'F–6ÄÆ–÷WBÆ–÷WBÒ7W'&VçDÆ–÷WC° –Æ–÷WBæ—FV×5·&÷uÒç&V7BÒ&V7C° –ÖævW%òÓæÆ–÷WG2‚’ç6WEfW'F–6ÄÆ–÷WB†Æ–÷WB“° ––b‡6fR —6fTæ÷r‚“° –VÇ6P —66†VGVÆU6fR‚“°  –ÆöF–æuòÒG'VS° —…òÓç6WEfÇVR†–çB‡7FC£¦Ç&÷VæB‡&V7Bç‚‚’’’“° —•òÓç6WEfÇVR†–çB‡7FC£¦Ç&÷VæB‡&V7Bç’‚’’’“° —uòÓç6WEfÇVR†–çB‡7FC£¦Ç&÷VæB‡&V7Bçv–GF‚‚’’’“° –…òÓç6WEfÇVR†–çB‡7FC£¦Ç&÷VæB‡&V7Bæ†V–v‡B‚’’’“° ––b†WFò¦Æ—7D—FVÒÒ—FV×5òÓæ—FVÒ‡&÷r’ –Æ—7D—FVÒÓç6WEFW‡B†—FVÔÆ&VÂ†Æ–÷WBæ—FV×5·&÷uÒÂ&÷r’“° –ÆöF–æuòÒfÇ6S°  —&Wf–WuòÓç6WDÆ–÷WDFF†Æ–÷WB“° —&Wf–WuòÓç6WE6VÆV7FVD–æFW‚‡&÷r“° ––b†—FV×5òÓæ7W'&VçE&÷r‚’Ò&÷r –—FV×5òÓç6WD7W'&VçE&÷r‡&÷r“°§Ğ §fö–BfW'F–6ÄÆ–÷WDVF—F÷#£§6WDÆ–W$6öçG&öÇ4Væ&ÆVB†&ööÂVæ&ÆVB§° –f÷"†WFò§7–â¢·…òÂ•òÂuòÂ…÷Ò’° ––b‡7–â —7–âÓç6WDVæ&ÆVB†Væ&ÆVB“° —Ğ ––b†f—Eò –f—EòÓç6WDVæ&ÆVB†Væ&ÆVB“° ––b‡f—6–&ÆUò —f—6–&ÆUòÓç6WDVæ&ÆVB†Væ&ÆVB“°§Ğ §fö–BfW'F–6ÄÆ–÷WDVF—F÷#£§WFFU66VæU7FGW2‚§° ––b‚ÖævW%ò —&WGW&ã°  –6öç7B7G&–ær7F—fRÒÖævW%òÓæÆ–÷WG2‚’æ7F—fUfW'F–6Å66VæTæÖR‚’æ—4V×G’‚’ğ ’7G&–ætÆ—FW&Â‚"†æöæR’"’  ’ÖævW%òÓæÆ–÷WG2‚’æ7F—fUfW'F–6Å66VæTæÖR‚“°  ––b†7F—fU66VæU7FGW5ò –7F—fU66VæU7FGW5òÓç6WEFW‡B…7G&–ætÆ—FW&Â‚%fW'F–6Â&öw&Ó¢S"’æ&r†7F—fR’“°  ––b‡6÷W&6W4†VFW%ò —6÷W&6W4†VFW%òÓç6WEFW‡B…7G&–æs£¦çVÖ&W"†ÖævW%òÓæÆ–÷WG2‚’çfW'F–6ÄÆ–÷WB‚’æ—FV×2ç6—¦R‚’’“°§Ğ §fö–BfW'F–6ÄÆ–÷WDVF—F÷#£§WFFTö'4Æ–æµ7FGW2‚§° ––b‚ö'4Æ–æµ7FGW5òÇÂÖævW%ò —&WGW&ã°  –6öç7B7G&–ærö'566VæRÒ7W'&VçDg&öçFVæE66VæTæÖR‚“° –6öç7B7G&–ærö'566VæUWV–BÒÖævW%òÓæ7W'&VçDö'566VæUWV–B‚“° •7G&–ærÆ–æ¶VE66VæS° –f÷"†6öç7BWFòfÆ–æ²¢ÖævW%òÓç66VæTÆ–æ·2‚’’° ––b‡66VæTÆ–æ´ÖF6†W2†Æ–æ²Âö'566VæRÂö'566VæUWV–B’’° –Æ–æ¶VE66VæRÒÖævW%òÓæÆ–÷WG2‚’çfW'F–6Å66VæTæÖR†Æ–æ²çfW'F–6Å66VæT–B“° ––b†Æ–æ¶VE66VæRæ—4V×G’‚’ –Æ–æ¶VE66VæRÒ7G&–ætÆ—FW&Â‚"†Ö—76–ærE4²66VæR’"“° –'&V³° —Ğ —Ğ  –6öç7B7G&–ærö'4æÖRÒö'566VæRæ—4V×G’‚’ò7G&–ætÆ—FW&Â‚"†æòô%266VæR’"’¢ö'566VæS° –6öç7B7G&–ærÆ–æµFW‡BÒÆ–æ¶VE66VæRæ—4V×G’‚’ò7G&–ætÆ—FW&Â‚$æ÷BÆ–æ¶VB"’¢Æ–æ¶VE66VæS° –ö'4Æ–æµ7FGW5òÓç6WEFW‡B…7G&–ætÆ—FW&Â‚"SÓâS""’æ&r†ö'4æÖRÂÆ–æµFW‡B’“° —WFFU66VæU7FGW2‚“°§Ğ §ÒòòæÖW76RG6°
+			drawObsHandle(float(r.right()), float(r.bottom()));
+		}
+	}
+
+	void createDisplay()
+	{
+		if (display_ || !isVisible())
+			return;
+
+		QWindow *window = windowHandle();
+		if (!window) {
+			winId();
+			window = windowHandle();
+		}
+		if (!window)
+			return;
+
+		const QSize size = pixelSize(this);
+		gs_init_data info = {};
+		info.cx = uint32_t(size.width());
+		info.cy = uint32_t(size.height());
+		info.format = GS_BGRA;
+		info.zsformat = GS_ZS_NONE;
+
+#ifdef _WIN32
+		info.window.hwnd = reinterpret_cast<HWND>(window->winId());
+#else
+		return;
+#endif
+
+		display_ = obs_display_create(&info, 0xFF18181C);
+		if (!display_)
+			return;
+
+		obs_display_add_draw_callback(display_, VerticalRenderWidget::drawPreview, this);
+		drawCallbackAdded_ = true;
+		rebuildSceneIfVisible();
+		syncSceneShowing();
+	}
+
+	void destroyDisplay()
+	{
+		if (!display_)
+			return;
+		setSceneSource(nullptr);
+		if (drawCallbackAdded_)
+			obs_display_remove_draw_callback(display_, VerticalRenderWidget::drawPreview, this);
+		drawCallbackAdded_ = false;
+		obs_display_destroy(display_);
+		display_ = nullptr;
+	}
+
+	void setSceneSource(obs_source_t *source)
+	{
+		obs_source_t *replacement = source ? obs_source_get_ref(source) : nullptr;
+		obs_source_t *previous = nullptr;
+		bool previousShowing = false;
+		bool replacementShowing = false;
+		bool sameSource = false;
+		{
+			QMutexLocker<QRecursiveMutex> locker(&renderStateMutex_);
+			sameSource = source == sceneSource_;
+			if (!sameSource) {
+				previous = sceneSource_;
+				previousShowing = sceneSourceShowing_;
+				sceneSource_ = replacement;
+				replacement = nullptr;
+				replacementShowing = display_ && isVisible() && sceneSource_;
+				sceneSourceShowing_ = replacementShowing;
+			}
+		}
+
+		if (replacement)
+			obs_source_release(replacement);
+		if (sameSource) {
+			syncSceneShowing();
+			return;
+		}
+		if (previousShowing && previous)
+			obs_source_dec_showing(previous);
+		if (replacementShowing && source)
+			obs_source_inc_showing(source);
+		if (previous)
+			obs_source_release(previous);
+	}
+
+	void rebuildSceneIfVisible()
+	{
+		VerticalLayout layout;
+		{
+			QMutexLocker<QRecursiveMutex> locker(&renderStateMutex_);
+			if (!sceneDirty_ || !display_ || !isVisible())
+				return;
+			layout = layout_;
+		}
+
+		QString errorMessage;
+		obs_canvas_t *previewCanvas = nullptr;
+#ifdef DSK_ENABLE_OBS_CANVAS_API
+		obs_video_info previewInfo = {};
+		if (layout.width <= 0 || layout.height <= 0 || !obs_get_video_info(&previewInfo)) {
+			previewSceneWidth.store(0, std::memory_order_relaxed);
+			previewSceneHeight.store(0, std::memory_order_relaxed);
+			return;
+		}
+		previewInfo.base_width = uint32_t(layout.width);
+		previewInfo.base_height = uint32_t(layout.height);
+		previewInfo.output_width = uint32_t(layout.width);
+		previewInfo.output_height = uint32_t(layout.height);
+
+		obs_video_info currentInfo = {};
+		const bool previewCanvasMatches =
+			previewCanvas_ && !obs_canvas_removed(previewCanvas_) && obs_canvas_has_video(previewCanvas_) &&
+			obs_canvas_get_video_info(previewCanvas_, &currentInfo) &&
+			currentInfo.base_width == previewInfo.base_width &&
+			currentInfo.base_height == previewInfo.base_height &&
+			currentInfo.output_width == previewInfo.output_width &&
+			currentInfo.output_height == previewInfo.output_height;
+		if (previewCanvas_ && !previewCanvasMatches) {
+			setSceneSource(nullptr);
+			sceneBuilder_.release();
+			obs_canvas_release(previewCanvas_);
+			previewCanvas_ = nullptr;
+		}
+		if (!previewCanvas_) {
+			constexpr uint32_t previewFlags = ACTIVATE | SCENE_REF | EPHEMERAL;
+			previewCanvas_ =
+				obs_canvas_create_private("DSK Vertical Preview Canvas", &previewInfo, previewFlags);
+		}
+		previewCanvas = previewCanvas_;
+		if (!previewCanvas) {
+			previewSceneWidth.store(0, std::memory_order_relaxed);
+			previewSceneHeight.store(0, std::memory_order_relaxed);
+			return;
+		}
+#endif
+		obs_source_t *rebuiltSource = sceneBuilder_.rebuild(layout, previewCanvas, &errorMessage);
+		setSceneSource(rebuiltSource);
+		previewSceneWidth.store(rebuiltSource ? obs_source_get_width(rebuiltSource) : 0, std::memory_order_relaxed);
+		previewSceneHeight.store(rebuiltSource ? obs_source_get_height(rebuiltSource) : 0, std::memory_order_relaxed);
+		QMutexLocker<QRecursiveMutex> locker(&renderStateMutex_);
+		sceneDirty_ = rebuiltSource == nullptr;
+	}
+
+	void syncSceneShowing()
+	{
+		obs_source_t *source = nullptr;
+		bool increment = false;
+		bool decrement = false;
+		{
+			QMutexLocker<QRecursiveMutex> locker(&renderStateMutex_);
+			const bool shouldShow = display_ && isVisible() && sceneSource_;
+			if (shouldShow == sceneSourceShowing_)
+				return;
+			source = sceneSource_;
+			increment = shouldShow;
+			decrement = !shouldShow;
+			sceneSourceShowing_ = shouldShow;
+		}
+		if (increment && source)
+			obs_source_inc_showing(source);
+		else if (decrement && source)
+			obs_source_dec_showing(source);
+	}
+
+	VerticalLayout layout_;
+	QVector<bool> itemHasVideo_;
+	QVector<QRectF> itemDisplayRects_;
+	QVector<double> snapXGuides_;
+	QVector<double> snapYGuides_;
+	VerticalSceneBuilder sceneBuilder_;
+	// This widget owns one reference; render snapshots take temporary references.
+	obs_source_t *sceneSource_ = nullptr;
+	obs_display_t *display_ = nullptr;
+#ifdef DSK_ENABLE_OBS_CANVAS_API
+	obs_canvas_t *previewCanvas_ = nullptr;
+#endif
+	int selectedIndex_ = -1;
+	bool drawCallbackAdded_ = false;
+	bool sceneSourceShowing_ = false;
+	bool sceneDirty_ = true;
+	std::uint64_t layoutGeneration_ = 0;
+	QRecursiveMutex renderStateMutex_;
+};
+
+class VerticalPreviewWidget : public QWidget {
+public:
+	explicit VerticalPreviewWidget(QWidget *parent = nullptr) : QWidget(parent)
+	{
+		setMinimumSize(VerticalPreviewMinimumWidth, VerticalPreviewMinimumHeight);
+		setMouseTracking(true);
+		setFocusPolicy(Qt::StrongFocus);
+		render_ = new VerticalRenderWidget(this);
+	}
+
+	void prepareForUnload()
+	{
+		if (render_)
+			render_->prepareForUnload();
+	}
+
+	void handleSceneCollectionChanged()
+	{
+		if (render_)
+			render_->handleSceneCollectionChanged();
+	}
+
+	bool exerciseCanvasReplacementForTest()
+	{
+		return render_ && render_->exerciseCanvasReplacementForTest();
+	}
+
+	void setLayoutData(const VerticalLayout &layout)
+	{
+		layout_ = layout;
+		selectedIndex_ = validIndex(selectedIndex_) ? selectedIndex_ : -1;
+		rebuildDisplayRects();
+		render_->setLayoutData(layout);
+		render_->setSelectedIndex(selectedIndex_);
+	}
+
+	void setSelectedIndex(int index)
+	{
+		selectedIndex_ = validIndex(index) ? index : -1;
+		render_->setSelectedIndex(selectedIndex_);
+	}
+	void setSnappingEnabled(bool enabled)
+	{
+		snappingEnabled_ = enabled;
+		if (!snappingEnabled_)
+			clearActiveSnapGuides();
+	}
+	void setSelectionChanged(std::function<void(int)> callback) { selectionChanged_ = std::move(callback); }
+	void setRectChanged(std::function<void(int, const QRectF &, bool)> callback) { rectChanged_ = std::move(callback); }
+
+protected:
+	void resizeEvent(QResizeEvent *event) override
+	{
+		QWidget::resizeEvent(event);
+		render_->setGeometry(rect());
+	}
+
+private:
+	enum class DragMode { None, Move, Resize };
+
+	bool validIndex(int index) const { return index >= 0 && index < layout_.items.size(); }
+
+	void rebuildDisplayRects()
+	{
+		itemDisplayRects_.clear();
+		itemDisplayRects_.reserve(layout_.items.size());
+		for (const auto &item : layout_.items)
+			itemDisplayRects_.push_back(displayedContentRect(item, sourceVideoSize(item.sourceName)));
+	}
+
+	QRectF displayRectForItem(int index) const
+	{
+		if (index >= 0 && index < itemDisplayRects_.size())
+			return itemDisplayRects_[index];
+		return validIndex(index) ? layout_.items[index].rect : QRectF();
+	}
+
+	QRectF canvasRect() const { return scaledCanvasRect(size(), layout_); }
+
+	double scale() const
+	{
+		const QRectF canvas = canvasRect();
+		return canvas.isValid() && layout_.width > 0 ? canvas.width() / double(layout_.width) : 1.0;
+	}
+
+	QRectF itemToWidget(const QRectF &rect) const
+	{
+		const QRectF canvas = canvasRect();
+		const double s = scale();
+		return QRectF(canvas.x() + rect.x() * s, canvas.y() + rect.y() * s, rect.width() * s, rect.height() * s);
+	}
+
+	QPointF widgetToLayout(const QPointF &point) const
+	{
+		const QRectF canvas = canvasRect();
+		const double s = scale();
+		return QPointF((point.x() - canvas.x()) / s, (point.y() - canvas.y()) / s);
+	}
+
+	QVector<QPair<int, QRectF>> handleRects(const QRectF &itemRect) const
+	{
+		constexpr double size = 11.0;
+		constexpr double half = size / 2.0;
+		const QPointF tl = itemRect.topLeft();
+		const QPointF tr = itemRect.topRight();
+		const QPointF bl = itemRect.bottomLeft();
+		const QPointF br = itemRect.bottomRight();
+		const QPointF tc(itemRect.center().x(), itemRect.top());
+		const QPointF bc(itemRect.center().x(), itemRect.bottom());
+		const QPointF lc(itemRect.left(), itemRect.center().y());
+		const QPointF rc(itemRect.right(), itemRect.center().y());
+
+		auto box = [](const QPointF &point) { return QRectF(point.x() - half, point.y() - half, size, size); };
+		return {
+			{ResizeLeft | ResizeTop, box(tl)},	  {ResizeTop, box(tc)},
+			{ResizeRight | ResizeTop, box(tr)},	  {ResizeLeft, box(lc)},
+			{ResizeRight, box(rc)},			  {ResizeLeft | ResizeBottom, box(bl)},
+			{ResizeBottom, box(bc)},		  {ResizeRight | ResizeBottom, box(br)},
+		};
+	}
+
+	int handleAt(const QPointF &point) const
+	{
+		if (!validIndex(selectedIndex_))
+			return 0;
+		const QRectF canvas = canvasRect();
+		if (!canvas.contains(point))
+			return 0;
+		const QRectF selectedRect = itemToWidget(displayRectForItem(selectedIndex_));
+		for (const auto &handle : handleRects(selectedRect)) {
+			if (handle.second.adjusted(-4, -4, 4, 4).contains(point))
+				return handle.first;
+		}
+		constexpr double edgeGrab = 8.0;
+		if (selectedRect.adjusted(-edgeGrab, -edgeGrab, edgeGrab, edgeGrab).contains(point)) {
+			int edges = 0;
+			if (std::abs(point.x() - selectedRect.left()) <= edgeGrab)
+				edges |= ResizeLeft;
+			if (std::abs(point.x() - selectedRect.right()) <= edgeGrab)
+				edges |= ResizeRight;
+			if (std::abs(point.y() - selectedRect.top()) <= edgeGrab)
+				edges |= ResizeTop;
+			if (std::abs(point.y() - selectedRect.bottom()) <= edgeGrab)
+				edges |= ResizeBottom;
+			if (edges)
+				return edges;
+		}
+		const QRectF visibleRect = selectedRect.intersected(canvas);
+		if (visibleRect.isValid() && visibleRect != selectedRect &&
+		    visibleRect.adjusted(-edgeGrab, -edgeGrab, edgeGrab, edgeGrab).contains(point)) {
+			int edges = 0;
+			if (selectedRect.left() < canvas.left() && std::abs(point.x() - visibleRect.left()) <= edgeGrab)
+				edges |= ResizeLeft;
+			if (selectedRect.right() > canvas.right() && std::abs(point.x() - visibleRect.right()) <= edgeGrab)
+				edges |= ResizeRight;
+			if (selectedRect.top() < canvas.top() && std::abs(point.y() - visibleRect.top()) <= edgeGrab)
+				edges |= ResizeTop;
+			if (selectedRect.bottom() > canvas.bottom() && std::abs(point.y() - visibleRect.bottom()) <= edgeGrab)
+				edges |= ResizeBottom;
+			if (edges)
+				return edges;
+		}
+		return 0;
+	}
+
+	int itemAt(const QPointF &point) const
+	{
+		return verticalPreviewHitItemAtWidgetPoint(layout_, itemDisplayRects_, canvasRect(), point, selectedIndex_);
+	}
+
+	QRectF clampedRect(QRectF rect, DragMode mode, int edges) const
+	{
+		constexpr double minSize = 32.0;
+		constexpr double minVisible = 24.0;
+		if (mode == DragMode::Move) {
+			const double minX = -rect.width() + minVisible;
+			const double maxX = double(layout_.width) - minVisible;
+			const double minY = -rect.height() + minVisible;
+			const double maxY = double(layout_.height) - minVisible;
+			rect.moveLeft(std::clamp(rect.x(), minX, maxX));
+			rect.moveTop(std::clamp(rect.y(), minY, maxY));
+			return rect;
+		}
+
+		double left = rect.left();
+		double right = rect.right();
+		double top = rect.top();
+		double bottom = rect.bottom();
+
+		const double minLeft = -double(layout_.width);
+		const double maxRight = double(layout_.width) * 2.0;
+		const double minTop = -double(layout_.height);
+		const double maxBottom = double(layout_.height) * 2.0;
+		left = std::clamp(left, minLeft, maxRight - minSize);
+		right = std::clamp(right, minLeft + minSize, maxRight);
+		top = std::clamp(top, minTop, maxBottom - minSize);
+		bottom = std::clamp(bottom, minTop + minSize, maxBottom);
+
+		if (edges & ResizeLeft)
+			left = std::min(left, right - minSize);
+		if (edges & ResizeRight)
+			right = std::max(right, left + minSize);
+		if (edges & ResizeTop)
+			top = std::min(top, bottom - minSize);
+		if (edges & ResizeBottom)
+			bottom = std::max(bottom, top + minSize);
+
+		return QRectF(QPointF(left, top), QPointF(right, bottom)).normalized();
+	}
+
+	double snapValue(double value, double target) const
+	{
+		constexpr double threshold = 12.0;
+		return std::abs(value - target) <= threshold ? target : value;
+	}
+
+	double snapValue(double value, const QVector<double> &targets) const
+	{
+		constexpr double threshold = 12.0;
+		double bestValue = value;
+		double bestDistance = threshold + 1.0;
+		for (const double target : targets) {
+			const double distance = std::abs(value - target);
+			if (distance <= threshold && distance < bestDistance) {
+				bestDistance = distance;
+				bestValue = target;
+			}
+		}
+		return bestValue;
+	}
+
+	void clearActiveSnapGuides()
+	{
+		render_->setSnapGuides({}, {});
+	}
+
+	void updateActiveSnapGuides(const QRectF &rect)
+	{
+		constexpr double threshold = 0.5;
+		QVector<double> xActive;
+		QVector<double> yActive;
+		const auto collect = [threshold](QVector<double> &active, double value, const QVector<double> &guides) {
+			for (const double guide : guides) {
+				if (std::abs(value - guide) <= threshold && !active.contains(guide))
+					active.push_back(guide);
+			}
+		};
+		const QVector<double> xGuides = horizontalSnapGuides();
+		const QVector<double> yGuides = verticalSnapGuides();
+		collect(xActive, rect.left(), xGuides);
+		collect(xActive, rect.center().x(), xGuides);
+		collect(xActive, rect.right(), xGuides);
+		collect(yActive, rect.top(), yGuides);
+		collect(yActive, rect.center().y(), yGuides);
+		collect(yActive, rect.bottom(), yGuides);
+		render_->setSnapGuides(xActive, yActive);
+	}
+
+	QVector<double> horizontalSnapGuides() const
+	{
+		QVector<double> guides{0.0, double(layout_.width) / 2.0, double(layout_.width)};
+		for (int i = 0; i < layout_.items.size(); ++i) {
+			if (i == selectedIndex_ || !layout_.items[i].visible)
+				continue;
+			const QRectF rect = displayRectForItem(i);
+			guides.push_back(rect.left());
+			guides.push_back(rect.center().x());
+			guides.push_back(rect.right());
+		}
+		return guides;
+	}
+
+	QVector<double> verticalSnapGuides() const
+	{
+		QVector<double> guides{0.0, double(layout_.height) / 2.0, double(layout_.height)};
+		for (int i = 0; i < layout_.items.size(); ++i) {
+			if (i == selectedIndex_ || !layout_.items[i].visible)
+				continue;
+			const QRectF rect = displayRectForItem(i);
+			guides.push_back(rect.top());
+			guides.push_back(rect.center().y());
+			guides.push_back(rect.bottom());
+		}
+		return guides;
+	}
+
+	double snappedMovePosition(double start, double length, const QVector<double> &guides) const
+	{
+		constexpr double threshold = 12.0;
+		double bestStart = start;
+		double bestDistance = threshold + 1.0;
+		const auto consider = [&](double value, double target, double candidateStart) {
+			const double distance = std::abs(value - target);
+			if (distance <= threshold && distance < bestDistance) {
+				bestDistance = distance;
+				bestStart = candidateStart;
+			}
+		};
+
+		for (const double guide : guides) {
+			consider(start, guide, guide);
+			consider(start + length / 2.0, guide, guide - length / 2.0);
+			consider(start + length, guide, guide - length);
+		}
+		return bestStart;
+	}
+
+	QRectF snappedRect(QRectF rect, DragMode mode, int edges) const
+	{
+		if (!snappingEnabled_ || layout_.width <= 0 || layout_.height <= 0)
+			return rect;
+
+		const QVector<double> xGuides = horizontalSnapGuides();
+		const QVector<double> yGuides = verticalSnapGuides();
+		if (mode == DragMode::Move) {
+			const double width = rect.width();
+			const double height = rect.height();
+			double left = snappedMovePosition(rect.left(), width, xGuides);
+			double top = snappedMovePosition(rect.top(), height, yGuides);
+			rect.moveLeft(left);
+			rect.moveTop(top);
+			return rect;
+		}
+
+		double left = rect.left();
+		double right = rect.right();
+		double top = rect.top();
+		double bottom = rect.bottom();
+		if (edges & ResizeLeft)
+			left = snapValue(left, xGuides);
+		if (edges & ResizeRight)
+			right = snapValue(right, xGuides);
+		if (edges & ResizeTop)
+			top = snapValue(top, yGuides);
+		if (edges & ResizeBottom)
+			bottom = snapValue(bottom, yGuides);
+		return QRectF(QPointF(left, top), QPointF(right, bottom)).normalized();
+	}
+
+	void commitRect(const QRectF &rect, bool save)
+	{
+		if (!validIndex(selectedIndex_))
+			return;
+		layout_.items[selectedIndex_].rect = rect;
+		rebuildDisplayRects();
+		render_->setLayoutData(layout_);
+		render_->setSelectedIndex(selectedIndex_);
+		if (rectChanged_)
+			rectChanged_(selectedIndex_, rect, save);
+	}
+
+	void updateCursorForPoint(const QPointF &point)
+	{
+		const int handle = handleAt(point);
+		if (handle == (ResizeLeft | ResizeTop) || handle == (ResizeRight | ResizeBottom)) {
+			setCursor(Qt::SizeFDiagCursor);
+		} else if (handle == (ResizeRight | ResizeTop) || handle == (ResizeLeft | ResizeBottom)) {
+			setCursor(Qt::SizeBDiagCursor);
+		} else if (handle & (ResizeLeft | ResizeRight)) {
+			setCursor(Qt::SizeHorCursor);
+		} else if (handle & (ResizeTop | ResizeBottom)) {
+			setCursor(Qt::SizeVerCursor);
+		} else if (itemAt(point) >= 0) {
+			setCursor(Qt::SizeAllCursor);
+		} else {
+			unsetCursor();
+		}
+	}
+
+	void mousePressEvent(QMouseEvent *event) override
+	{
+		if (event->button() != Qt::LeftButton) {
+			QWidget::mousePressEvent(event);
+			return;
+		}
+
+		const QPointF point = event->position();
+		const int handle = handleAt(point);
+		const int clickedItem = handle ? selectedIndex_ : itemAt(point);
+
+		if (clickedItem < 0) {
+			dragMode_ = DragMode::None;
+			dragEdges_ = 0;
+			clearActiveSnapGuides();
+			selectedIndex_ = -1;
+			render_->setSelectedIndex(-1);
+			if (selectionChanged_)
+				selectionChanged_(-1);
+			unsetCursor();
+			event->accept();
+			return;
+		}
+
+		selectedIndex_ = clickedItem;
+		render_->setSelectedIndex(clickedItem);
+		setFocus(Qt::MouseFocusReason);
+		if (selectionChanged_)
+			selectionChanged_(clickedItem);
+
+		dragMode_ = handle ? DragMode::Resize : DragMode::Move;
+		dragEdges_ = handle;
+		dragStart_ = widgetToLayout(point);
+		originalRect_ = displayRectForItem(clickedItem);
+		grabMouse();
+		setCursor(handle ? cursor() : Qt::SizeAllCursor);
+		event->accept();
+	}
+
+	void mouseMoveEvent(QMouseEvent *event) override
+	{
+		const QPointF point = event->position();
+		if (dragMode_ == DragMode::None || !validIndex(selectedIndex_)) {
+			updateCursorForPoint(point);
+			return;
+		}
+
+		const QPointF current = widgetToLayout(point);
+		const QPointF delta = current - dragStart_;
+		QRectF next = originalRect_;
+		if (dragMode_ == DragMode::Move) {
+			next.translate(delta);
+		} else {
+			if (dragEdges_ & ResizeLeft)
+				next.setLeft(originalRect_.left() + delta.x());
+			if (dragEdges_ & ResizeRight)
+				next.setRight(originalRect_.right() + delta.x());
+			if (dragEdges_ & ResizeTop)
+				next.setTop(originalRect_.top() + delta.y());
+			if (dragEdges_ & ResizeBottom)
+				next.setBottom(originalRect_.bottom() + delta.y());
+		}
+
+		next = clampedRect(next, dragMode_, dragEdges_);
+		const bool preserveFitAspect = dragMode_ == DragMode::Resize &&
+					       layout_.items[selectedIndex_].fitMode == FitMode::Fit;
+		if (preserveFitAspect)
+			next = aspectConstrainedResize(next, originalRect_, dragEdges_);
+		const bool useSnap = snappingEnabled_ && !(event->modifiers() & Qt::AltModifier);
+		if (useSnap)
+			next = snappedRect(next, dragMode_, dragEdges_);
+		if (preserveFitAspect)
+			next = aspectConstrainedResize(next, originalRect_, dragEdges_);
+		if (useSnap) {
+			updateActiveSnapGuides(next);
+		} else {
+			clearActiveSnapGuides();
+		}
+		commitRect(next, false);
+		event->accept();
+	}
+
+	void mouseReleaseEvent(QMouseEvent *event) override
+	{
+		if (dragMode_ != DragMode::None && validIndex(selectedIndex_) && rectChanged_)
+			rectChanged_(selectedIndex_, layout_.items[selectedIndex_].rect, true);
+		if (mouseGrabber() == this)
+			releaseMouse();
+		dragMode_ = DragMode::None;
+		dragEdges_ = 0;
+		clearActiveSnapGuides();
+		updateCursorForPoint(event->position());
+		event->accept();
+	}
+
+	void keyPressEvent(QKeyEvent *event) override
+	{
+		if (!validIndex(selectedIndex_)) {
+			QWidget::keyPressEvent(event);
+			return;
+		}
+
+		QPointF delta;
+		switch (event->key()) {
+		case Qt::Key_Left:
+			delta.setX(-1.0);
+			break;
+		case Qt::Key_Right:
+			delta.setX(1.0);
+			break;
+		case Qt::Key_Up:
+			delta.setY(-1.0);
+			break;
+		case Qt::Key_Down:
+			delta.setY(1.0);
+			break;
+		default:
+			QWidget::keyPressEvent(event);
+			return;
+		}
+
+		double step = 1.0;
+		if (event->modifiers() & Qt::ShiftModifier)
+			step = 10.0;
+		if (event->modifiers() & Qt::ControlModifier)
+			step = 50.0;
+		QRectF next = displayRectForItem(selectedIndex_).translated(delta * step);
+		commitRect(clampedRect(next, DragMode::Move, 0), true);
+		event->accept();
+	}
+
+	VerticalLayout layout_;
+	VerticalRenderWidget *render_ = nullptr;
+	QVector<QRectF> itemDisplayRects_;
+	int selectedIndex_ = -1;
+	DragMode dragMode_ = DragMode::None;
+	int dragEdges_ = 0;
+	QPointF dragStart_;
+	QRectF originalRect_;
+	bool snappingEnabled_ = true;
+	std::function<void(int)> selectionChanged_;
+	std::function<void(int, const QRectF &, bool)> rectChanged_;
+};
+
+VerticalLayoutEditor::VerticalLayoutEditor(OutputManager *manager, QWidget *parent)
+	: QWidget(parent),
+	  manager_(manager)
+{
+	auto *root = new QVBoxLayout(this);
+	root->setContentsMargins(4, 4, 4, 4);
+	root->setSpacing(4);
+	saveTimer_ = new QTimer(this);
+	saveTimer_->setSingleShot(true);
+	saveTimer_->setInterval(250);
+	connect(saveTimer_, &QTimer::timeout, this, [this]() { saveNow(); });
+	connect(manager_, &OutputManager::verticalLayoutChanged, this, &VerticalLayoutEditor::refreshItems);
+
+	const auto makeTextToolButton = [this](const QString &text, const QString &toolTip) {
+		auto *button = new QToolButton(this);
+		button->setText(text);
+		button->setToolTip(toolTip);
+		button->setAccessibleName(toolTip);
+		button->setAutoRaise(true);
+		button->setFixedSize(28, 26);
+		button->setStyleSheet(QStringLiteral("QToolButton { font-size: 17px; font-weight: 600; }"));
+		return button;
+	};
+	const auto makeIconToolButton = [this](QStyle::StandardPixmap icon, const QString &toolTip) {
+		auto *button = new QToolButton(this);
+		button->setIcon(style()->standardIcon(icon));
+		button->setToolTip(toolTip);
+		button->setAccessibleName(toolTip);
+		button->setAutoRaise(true);
+		button->setFixedSize(28, 26);
+		return button;
+	};
+
+	activeSceneStatus_ = new QLabel(this);
+	activeSceneStatus_->setObjectName(QStringLiteral("dskVerticalProgramLabel"));
+	activeSceneStatus_->setStyleSheet(QStringLiteral("QLabel { font-weight: 700; padding: 2px 4px; }"));
+	// The program label must not define the dock's minimum width. At compact
+	// widths Qt clips the text while leaving Snap and Setup usable.
+	activeSceneStatus_->setMinimumWidth(0);
+	activeSceneStatus_->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
+
+	snapping_ = new QCheckBox("Snap", this);
+	snapping_->setChecked(true);
+	snapping_->setToolTip("Snap source edges and centers. Hold Alt while dragging to bypass.");
+
+	setupToggle_ = new QToolButton(this);
+	setupToggle_->setObjectName(QStringLiteral("dskVerticalSetupToggle"));
+	setupToggle_->setText(QStringLiteral("Setup"));
+	setupToggle_->setIcon(style()->standardIcon(QStyle::SP_FileDialogDetailedView));
+	setupToggle_->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+	setupToggle_->setCheckable(true);
+	setupToggle_->setChecked(verticalSetupVisiblePreference());
+	setupToggle_->setAutoRaise(true);
+	setupToggle_->setToolTip(QStringLiteral("Show vertical scene and source setup."));
+	transformToggle_ = new QToolButton(this);
+	transformToggle_->setText(QStringLiteral("Transform"));
+	transformToggle_->setCheckable(true);
+	transformToggle_->setAutoRaise(true);
+	transformToggle_->setToolTip(QStringLiteral("Show transform controls for the selected vertical source."));
+	obsLinksToggle_ = new QToolButton(this);
+	obsLinksToggle_->setText(QStringLiteral("OBS Link"));
+	obsLinksToggle_->setCheckable(true);
+	obsLinksToggle_->setAutoRaise(true);
+	obsLinksToggle_->setToolTip(QStringLiteral("Show OBS scene link controls."));
+
+	auto *topBar = new QHBoxLayout();
+	topBar->setContentsMargins(0, 0, 0, 0);
+	topBar->setSpacing(6);
+	topBar->addWidget(activeSceneStatus_, 1);
+	topBar->addWidget(snapping_);
+	topBar->addWidget(setupToggle_);
+	topBar->addWidget(transformToggle_);
+	topBar->addWidget(obsLinksToggle_);
+	root->addLayout(topBar);
+
+	preview_ = new VerticalPreviewWidget(this);
+	preview_->setObjectName(QStringLiteral("dskVerticalPreview"));
+	connect(snapping_, &QCheckBox::toggled, preview_, &VerticalPreviewWidget::setSnappingEnabled);
+	preview_->setSelectionChanged([this](int row) {
+		if (row < 0) {
+			clearListWidgetSelection(items_);
+			selectItem(-1);
+			return;
+		}
+		if (items_->currentRow() != row)
+			items_->setCurrentRow(row);
+		else
+			selectItem(row);
+	});
+	preview_->setRectChanged(
+		[this](int row, const QRectF &rect, bool save) { updateItemRectFromPreview(row, rect, save); });
+	root->addWidget(preview_, 1);
+
+	auto *transformPanel = new QWidget(this);
+	transformPanel->setObjectName(QStringLiteral("dskVerticalTransformPanel"));
+	auto *transformLayout = new QGridLayout(transformPanel);
+	transformLayout->setContentsMargins(4, 3, 4, 3);
+	transformLayout->setHorizontalSpacing(5);
+	transformLayout->setVerticalSpacing(3);
+	x_ = new QSpinBox(this);
+	y_ = new QSpinBox(this);
+	w_ = new QSpinBox(this);
+	h_ = new QSpinBox(this);
+	x_->setRange(-4000, 4000);
+	y_->setRange(-4000, 4000);
+	w_->setRange(1, 4000);
+	h_->setRange(1, 4000);
+	for (auto *spin : {x_, y_, w_, h_}) {
+		spin->setMinimumWidth(74);
+		connect(spin, &QSpinBox::valueChanged, this, &VerticalLayoutEditor::updateSelectedItem);
+	}
+	fit_ = new QComboBox(this);
+	fit_->addItem("Fit", fitModeToString(FitMode::Fit));
+	fit_->addItem("Fill", fitModeToString(FitMode::Fill));
+	fit_->addItem("Stretch", fitModeToString(FitMode::Stretch));
+	connect(fit_, &QComboBox::currentIndexChanged, this, &VerticalLayoutEditor::updateSelectedItem);
+	visible_ = new QCheckBox("Visible", this);
+	connect(visible_, &QCheckBox::checkStateChanged, this, &VerticalLayoutEditor::updateSelectedItem);
+
+	auto *center = new QPushButton("Center", this);
+	auto *fitCanvas = new QPushButton("Fit Canvas", this);
+	auto *fillCanvas = new QPushButton("Fill Canvas", this);
+	connect(center, &QPushButton::clicked, this, &VerticalLayoutEditor::centerSelectedItem);
+	connect(fitCanvas, &QPushButton::clicked, this, &VerticalLayoutEditor::fitSelectedItemToCanvas);
+	connect(fillCanvas, &QPushButton::clicked, this, &VerticalLayoutEditor::fillSelectedItemToCanvas);
+
+	transformLayout->addWidget(new QLabel("X", this), 0, 0);
+	transformLayout->addWidget(x_, 0, 1);
+	transformLayout->addWidget(new QLabel("Y", this), 0, 2);
+	transformLayout->addWidget(y_, 0, 3);
+	transformLayout->addWidget(new QLabel("W", this), 0, 4);
+	transformLayout->addWidget(w_, 0, 5);
+	transformLayout->addWidget(new QLabel("H", this), 0, 6);
+	transformLayout->addWidget(h_, 0, 7);
+	transformLayout->addWidget(fit_, 1, 0, 1, 2);
+	transformLayout->addWidget(visible_, 1, 2);
+	transformLayout->addWidget(center, 1, 3, 1, 2);
+	transformLayout->addWidget(fitCanvas, 1, 5);
+	transformLayout->addWidget(fillCanvas, 1, 6, 1, 2);
+	transformPanel->setVisible(false);
+	connect(transformToggle_, &QToolButton::toggled, transformPanel, &QWidget::setVisible);
+	root->addWidget(transformPanel);
+
+	auto *workspace = new QSplitter(Qt::Horizontal, this);
+	workspace->setObjectName(QStringLiteral("dskVerticalLists"));
+	setupPanel_ = workspace;
+	workspace->setChildrenCollapsible(false);
+	workspace->setMinimumHeight(170);
+
+	auto *scenesPanel = new QWidget(workspace);
+	auto *scenesLayout = new QVBoxLayout(scenesPanel);
+	scenesLayout->setContentsMargins(0, 0, 0, 0);
+	scenesLayout->setSpacing(3);
+	auto *scenesLabel = new QLabel(QStringLiteral("Vertical Scenes"), scenesPanel);
+	scenesLabel->setStyleSheet(QStringLiteral("QLabel { font-weight: 700; padding-left: 2px; }"));
+	verticalScenes_ = new QListWidget(scenesPanel);
+	verticalScenes_->setObjectName(QStringLiteral("dskVerticalScenes"));
+	verticalScenes_->setSelectionMode(QAbstractItemView::SingleSelection);
+	connect(verticalScenes_, &QListWidget::currentRowChanged, this, &VerticalLayoutEditor::selectVerticalScene);
+	connect(verticalScenes_, &QListWidget::itemDoubleClicked, this, [this](QListWidgetItem *) { renameScene(); });
+
+	auto *sceneTools = new QHBoxLayout();
+	sceneTools->setContentsMargins(0, 0, 0, 0);
+	sceneTools->setSpacing(1);
+	auto *newScene = makeTextToolButton("+", QStringLiteral("Create vertical scene"));
+	auto *removeSceneButton = makeTextToolButton("-", QStringLiteral("Remove vertical scene"));
+	auto *renameSceneButton = makeIconToolButton(QStyle::SP_FileDialogDetailedView, QStringLiteral("Rename vertical scene"));
+	auto *sceneUp = makeIconToolButton(QStyle::SP_ArrowUp, QStringLiteral("Move vertical scene up"));
+	auto *sceneDown = makeIconToolButton(QStyle::SP_ArrowDown, QStringLiteral("Move vertical scene down"));
+	connect(newScene, &QToolButton::clicked, this, &VerticalLayoutEditor::createScene);
+	connect(removeSceneButton, &QToolButton::clicked, this, &VerticalLayoutEditor::removeScene);
+	connect(renameSceneButton, &QToolButton::clicked, this, &VerticalLayoutEditor::renameScene);
+	connect(sceneUp, &QToolButton::clicked, this, &VerticalLayoutEditor::moveSceneUp);
+	connect(sceneDown, &QToolButton::clicked, this, &VerticalLayoutEditor::moveSceneDown);
+	sceneTools->addWidget(newScene);
+	sceneTools->addWidget(removeSceneButton);
+	sceneTools->addWidget(renameSceneButton);
+	sceneTools->addStretch(1);
+	sceneTools->addWidget(sceneUp);
+	sceneTools->addWidget(sceneDown);
+	scenesLayout->addWidget(scenesLabel);
+	scenesLayout->addWidget(verticalScenes_, 1);
+	scenesLayout->addLayout(sceneTools);
+
+	auto *sourcesPanel = new QWidget(workspace);
+	auto *sourcesLayout = new QVBoxLayout(sourcesPanel);
+	sourcesLayout->setContentsMargins(0, 0, 0, 0);
+	sourcesLayout->setSpacing(3);
+	auto *sourcesTitleRow = new QHBoxLayout();
+	auto *sourcesLabel = new QLabel(QStringLiteral("Vertical Sources"), sourcesPanel);
+	sourcesLabel->setStyleSheet(QStringLiteral("QLabel { font-weight: 700; padding-left: 2px; }"));
+	sourcesHeader_ = new QLabel(sourcesPanel);
+	sourcesHeader_->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+	sourcesHeader_->setStyleSheet(QStringLiteral("QLabel { color: #aeb4be; padding-right: 2px; }"));
+	sourcesTitleRow->addWidget(sourcesLabel);
+	sourcesTitleRow->addWidget(sourcesHeader_, 1);
+	items_ = new QListWidget(sourcesPanel);
+	items_->setObjectName(QStringLiteral("dskVerticalSources"));
+	items_->setSelectionMode(QAbstractItemView::SingleSelection);
+	connect(items_, &QListWidget::currentRowChanged, this, &VerticalLayoutEditor::selectItem);
+	connect(items_, &QListWidget::itemChanged, this, &VerticalLayoutEditor::updateItemVisibility);
+	connect(items_, &QListWidget::itemDoubleClicked, this,
+		[this](QListWidgetItem *) { transformToggle_->setChecked(true); });
+
+	source_ = new QComboBox(this);
+	source_->hide();
+	auto *sourceTools = new QHBoxLayout();
+	sourceTools->setContentsMargins(0, 0, 0, 0);
+	sourceTools->setSpacing(1);
+	auto *addSourceButton = makeTextToolButton("+", QStringLiteral("Add OBS source to vertical scene"));
+	auto *sourceMenu = new QMenu(addSourceButton);
+	connect(sourceMenu, &QMenu::aboutToShow, this, [this, sourceMenu]() {
+		refreshSourceList();
+		sourceMenu->clear();
+		for (int i = 0; i < source_->count(); ++i) {
+			const QString sourceName = source_->itemText(i);
+			auto *action = sourceMenu->addAction(sourceName);
+			connect(action, &QAction::triggered, this, [this, sourceName]() {
+				const int sourceIndex = source_->findText(sourceName);
+				if (sourceIndex >= 0)
+					source_->setCurrentIndex(sourceIndex);
+				addItem();
+			});
+		}
+		if (sourceMenu->isEmpty()) {
+			auto *empty = sourceMenu->addAction(QStringLiteral("No OBS sources available"));
+			empty->setEnabled(false);
+		}
+	});
+	connect(addSourceButton, &QToolButton::clicked, this, [addSourceButton, sourceMenu]() {
+		sourceMenu->popup(addSourceButton->mapToGlobal(QPoint(0, addSourceButton->height())));
+	});
+	auto *removeSourceButton = makeTextToolButton("-", QStringLiteral("Remove vertical source"));
+	auto *sourceProperties = makeIconToolButton(QStyle::SP_FileDialogDetailedView, QStringLiteral("Edit source transform"));
+	auto *sourceUp = makeIconToolButton(QStyle::SP_ArrowUp, QStringLiteral("Move source up"));
+	auto *sourceDown = makeIconToolButton(QStyle::SP_ArrowDown, QStringLiteral("Move source down"));
+	connect(removeSourceButton, &QToolButton::clicked, this, &VerticalLayoutEditor::removeItem);
+	connect(sourceProperties, &QToolButton::clicked, this,
+		[this]() { transformToggle_->setChecked(!transformToggle_->isChecked()); });
+	connect(sourceUp, &QToolButton::clicked, this, &VerticalLayoutEditor::moveItemUp);
+	connect(sourceDown, &QToolButton::clicked, this, &VerticalLayoutEditor::moveItemDown);
+	sourceTools->addWidget(addSourceButton);
+	sourceTools->addWidget(removeSourceButton);
+	sourceTools->addWidget(sourceProperties);
+	sourceTools->addStretch(1);
+	sourceTools->addWidget(sourceUp);
+	sourceTools->addWidget(sourceDown);
+	sourcesLayout->addLayout(sourcesTitleRow);
+	sourcesLayout->addWidget(items_, 1);
+	sourcesLayout->addLayout(sourceTools);
+
+	workspace->addWidget(scenesPanel);
+	workspace->addWidget(sourcesPanel);
+	workspace->setStretchFactor(0, 1);
+	workspace->setStretchFactor(1, 1);
+	workspace->setSizes({260, 340});
+	root->addWidget(workspace);
+
+	followScene_ = new QCheckBox("Follow OBS scene", this);
+	followScene_->setToolTip("Activate the linked DSK vertical scene when the main OBS scene changes.");
+	followScene_->setChecked(manager_->followObsScene());
+	connect(followScene_, &QCheckBox::checkStateChanged, this,
+		[this](Qt::CheckState state) { updateFollowScene(int(state)); });
+
+	auto *sceneLinkRow = new QHBoxLayout();
+	sceneLinkScene_ = new QComboBox(this);
+	sceneLinkScene_->setObjectName(QStringLiteral("dskObsLinkScene"));
+	sceneLinkTemplate_ = new QComboBox(this);
+	sceneLinkTemplate_->setObjectName(QStringLiteral("dskObsLinkVerticalScene"));
+	sceneLinkTemplate_->setToolTip("DSK vertical scene to activate when the selected OBS scene becomes active.");
+	auto *linkScene = new QPushButton("Link", this);
+	auto *unlinkScene = new QPushButton("Unlink", this);
+	unlinkScene->setObjectName(QStringLiteral("dskObsUnlinkScene"));
+	auto *refreshScenes = new QPushButton("Refresh", this);
+	connect(linkScene, &QPushButton::clicked, this, &VerticalLayoutEditor::addSceneLink);
+	connect(unlinkScene, &QPushButton::clicked, this, &VerticalLayoutEditor::removeSceneLink);
+	connect(refreshScenes, &QPushButton::clicked, this, &VerticalLayoutEditor::refreshSceneList);
+	connect(sceneLinkScene_, &QComboBox::currentTextChanged, this, &VerticalLayoutEditor::selectSceneLinkForObsScene);
+	sceneLinkRow->addWidget(sceneLinkScene_, 1);
+	sceneLinkRow->addWidget(sceneLinkTemplate_);
+	sceneLinkRow->addWidget(linkScene);
+	sceneLinkRow->addWidget(unlinkScene);
+	sceneLinkRow->addWidget(refreshScenes);
+
+	sceneLinks_ = new QListWidget(this);
+	sceneLinks_->setObjectName(QStringLiteral("dskObsSceneLinks"));
+	sceneLinks_->setMaximumHeight(68);
+	connect(sceneLinks_, &QListWidget::currentRowChanged, this, &VerticalLayoutEditor::selectSceneLink);
+
+	auto *obsLinksPage = new QWidget(this);
+	auto *obsLinksControls = new QVBoxLayout(obsLinksPage);
+	obsLinksControls->setContentsMargins(4, 3, 4, 3);
+	obsLinksControls->setSpacing(4);
+	obsLinkStatus_ = new QLabel(this);
+	obsLinkStatus_->setTextInteractionFlags(Qt::TextSelectableByMouse);
+	obsLinkStatus_->setStyleSheet(QStringLiteral("QLabel { color: #cfd4dc; padding: 2px; }"));
+	auto *followRow = new QHBoxLayout();
+	followRow->addWidget(followScene_);
+	followRow->addWidget(obsLinkStatus_, 1);
+	obsLinksControls->addLayout(followRow);
+	obsLinksControls->addLayout(sceneLinkRow);
+	obsLinksControls->addWidget(sceneLinks_, 1);
+	obsLinksPage->setVisible(false);
+	connect(obsLinksToggle_, &QToolButton::toggled, obsLinksPage, &QWidget::setVisible);
+	root->addWidget(obsLinksPage);
+	connect(setupToggle_, &QToolButton::toggled, this,
+		[this](bool visible) { setSetupVisible(visible, true); });
+
+	loading_ = true;
+	loading_ = false;
+	refreshSceneList();
+	refreshSourceList();
+	refreshItems();
+	setSetupVisible(setupToggle_->isChecked(), false);
+}
+
+void VerticalLayoutEditor::prepareForUnload()
+{
+	if (saveTimer_)
+		saveTimer_->stop();
+	if (preview_)
+		preview_->prepareForUnload();
+}
+
+void VerticalLayoutEditor::handleSceneCollectionChanged()
+{
+	refreshSceneList();
+	refreshSourceList();
+	refreshItems();
+	if (preview_)
+		preview_->handleSceneCollectionChanged();
+}
+
+bool VerticalLayoutEditor::exercisePreviewCanvasReplacementForTest()
+{
+	return preview_ && preview_->exerciseCanvasReplacementForTest();
+}
+
+bool VerticalLayoutEditor::exerciseSourceVisibilityToggleForTest()
+{
+	if (!items_ || items_->count() == 0 || !manager_)
+		return false;
+	const int row = items_->currentRow() >= 0 ? items_->currentRow() : 0;
+	auto *item = items_->item(row);
+	const auto &layout = manager_->layouts().verticalLayout();
+	if (!item || row < 0 || row >= layout.items.size())
+		return false;
+	const bool initiallyVisible = layout.items[row].visible;
+	item->setCheckState(initiallyVisible ? Qt::Unchecked : Qt::Checked);
+	item->setCheckState(initiallyVisible ? Qt::Checked : Qt::Unchecked);
+	return manager_->layouts().verticalLayout().items[row].visible == initiallyVisible;
+}
+
+bool VerticalLayoutEditor::exerciseSetupVisibilityToggleForTest()
+{
+	if (!setupToggle_ || !setupPanel_ || !transformToggle_ || !obsLinksToggle_ || !preview_)
+		return false;
+
+	const bool originalVisible = setupToggle_->isChecked();
+	{
+		const QSignalBlocker blocker(setupToggle_);
+		setupToggle_->setChecked(false);
+	}
+	setSetupVisible(false, false);
+	refreshItems();
+	const bool hidden = !setupPanel_->isVisible() && !transformToggle_->isVisible() &&
+			    !obsLinksToggle_->isVisible() && preview_->isVisible() && items_->currentRow() < 0;
+
+	{
+		const QSignalBlocker blocker(setupToggle_);
+		setupToggle_->setChecked(true);
+	}
+	setSetupVisible(true, false);
+	const bool shown = setupPanel_->isVisible() && transformToggle_->isVisible() &&
+			   obsLinksToggle_->isVisible() && preview_->isVisible();
+
+	{
+		const QSignalBlocker blocker(setupToggle_);
+		setupToggle_->setChecked(originalVisible);
+	}
+	setSetupVisible(originalVisible, false);
+	return hidden && shown;
+}
+
+void VerticalLayoutEditor::refreshSourceList()
+{
+	source_->clear();
+
+	obs_enum_sources(
+		[](void *context, obs_source_t *source) {
+			auto *combo = static_cast<QComboBox *>(context);
+			const char *name = obs_source_get_name(source);
+			const QString sourceName = name ? QString::fromUtf8(name) : QString();
+			if (!sourceName.isEmpty() && sourceName != QStringLiteral("DSK Vertical Layout") &&
+			    sourceName != QStringLiteral("DSK Vertical Program") &&
+			    sourceName != QStringLiteral("DSK Vertical Preview"))
+				combo->addItem(sourceName);
+			return true;
+		},
+		source_);
+}
+
+void VerticalLayoutEditor::refreshSceneList()
+{
+	const QString selected = sceneLinkScene_->currentText();
+	const QSignalBlocker blocker(sceneLinkScene_);
+	sceneLinkScene_->clear();
+
+	obs_frontend_source_list scenes = {};
+	obs_frontend_get_scenes(&scenes);
+	for (size_t i = 0; i < scenes.sources.num; ++i) {
+		obs_source_t *scene = scenes.sources.array[i];
+		const char *name = obs_source_get_name(scene);
+		if (name && *name)
+			sceneLinkScene_->addItem(QString::fromUtf8(name));
+	}
+	obs_frontend_source_list_free(&scenes);
+
+	const int index = sceneLinkScene_->findText(selected);
+	if (index >= 0)
+		sceneLinkScene_->setCurrentIndex(index);
+	selectSceneLinkForObsScene(sceneLinkScene_->currentText());
+}
+
+void VerticalLayoutEditor::createScene()
+{
+	bool accepted = false;
+	const QString requestedName =
+		QInputDialog::getText(this, QStringLiteral("New DSK Vertical Scene"), QStringLiteral("Scene name"),
+				      QLineEdit::Normal, QStringLiteral("Vertical Scene"), &accepted)
+			.trimmed();
+	if (!accepted || requestedName.isEmpty())
+		return;
+
+	const QString id = manager_->createVerticalScene(requestedName);
+	if (id.isEmpty())
+		return;
+	refreshItems();
+	for (int row = 0; row < verticalScenes_->count(); ++row) {
+		if (verticalScenes_->item(row)->data(Qt::UserRole).toString() == id) {
+			verticalScenes_->setCurrentRow(row);
+			break;
+		}
+	}
+}
+
+void VerticalLayoutEditor::removeScene()
+{
+	const int row = verticalScenes_ ? verticalScenes_->currentRow() : -1;
+	if (row < 0 || manager_->layouts().verticalScenes().size() <= 1)
+		return;
+	const auto *item = verticalScenes_->item(row);
+	if (!item)
+		return;
+	const QString sceneId = item->data(Qt::UserRole).toString();
+	const QString sceneName = item->text();
+	if (QMessageBox::question(this,
+				  QStringLiteral("Remove Vertical Scene"),
+				  QStringLiteral("Remove '%1'?").arg(sceneName),
+				  QMessageBox::Yes | QMessageBox::No,
+				  QMessageBox::No) != QMessageBox::Yes)
+		return;
+	manager_->removeVerticalScene(sceneId);
+}
+
+void VerticalLayoutEditor::renameScene()
+{
+	const int row = verticalScenes_ ? verticalScenes_->currentRow() : -1;
+	if (row < 0)
+		return;
+	const auto *item = verticalScenes_->item(row);
+	if (!item)
+		return;
+	const QString sceneId = item->data(Qt::UserRole).toString();
+	const QString currentName = item->text();
+	bool accepted = false;
+	const QString name = QInputDialog::getText(this,
+						     QStringLiteral("Rename Vertical Scene"),
+						     QStringLiteral("Scene name"),
+						     QLineEdit::Normal,
+						     currentName,
+						     &accepted)
+				     .trimmed();
+	if (accepted && !name.isEmpty())
+		manager_->renameVerticalScene(sceneId, name);
+}
+
+void VerticalLayoutEditor::moveSceneUp()
+{
+	const int row = verticalScenes_ ? verticalScenes_->currentRow() : -1;
+	if (row <= 0)
+		return;
+	const auto *item = verticalScenes_->item(row);
+	if (item && manager_->moveVerticalScene(item->data(Qt::UserRole).toString(), -1))
+		verticalScenes_->setCurrentRow(row - 1);
+}
+
+void VerticalLayoutEditor::moveSceneDown()
+{
+	const int row = verticalScenes_ ? verticalScenes_->currentRow() : -1;
+	if (row < 0 || row >= verticalScenes_->count() - 1)
+		return;
+	const auto *item = verticalScenes_->item(row);
+	if (item && manager_->moveVerticalScene(item->data(Qt::UserRole).toString(), 1))
+		verticalScenes_->setCurrentRow(row + 1);
+}
+
+void VerticalLayoutEditor::selectVerticalScene(int row)
+{
+	if (loading_ || row < 0 || !verticalScenes_)
+		return;
+	const auto *item = verticalScenes_->item(row);
+	if (!item)
+		return;
+	if (!manager_->layouts().selectVerticalScene(item->data(Qt::UserRole).toString()))
+		return;
+	QTimer::singleShot(0, this, [this]() { manager_->saveVerticalLayout(); });
+}
+
+void VerticalLayoutEditor::addSceneLink()
+{
+	if (sceneLinkScene_->currentText().trimmed().isEmpty() || sceneLinkTemplate_->currentData().toString().isEmpty())
+		return;
+	SceneLayoutLink link;
+	link.sceneName = sceneLinkScene_->currentText();
+	link.verticalSceneId = sceneLinkTemplate_->currentData().toString();
+	manager_->upsertSceneLink(link);
+	refreshItems();
+	selectSceneLinkForObsScene(link.sceneName);
+}
+
+void VerticalLayoutEditor::removeSceneLink()
+{
+	QString sceneName = sceneLinkScene_->currentText();
+	QString sceneUuid;
+	if (const QListWidgetItem *selectedLink = sceneLinks_->currentItem()) {
+		sceneName = selectedLink->data(SceneLinkNameRole).toString();
+		sceneUuid = selectedLink->data(SceneLinkUuidRole).toString();
+	}
+	if (sceneName.trimmed().isEmpty())
+		return;
+	manager_->removeSceneLink(sceneName, sceneUuid);
+	refreshItems();
+}
+
+void VerticalLayoutEditor::selectSceneLink(int row)
+{
+	if (loading_ || !sceneLinks_ || row < 0 || row >= sceneLinks_->count())
+		return;
+
+	const QListWidgetItem *item = sceneLinks_->item(row);
+	if (!item)
+		return;
+
+	const QString sceneName = item->data(SceneLinkResolvedNameRole).toString();
+	const int sceneIndex = sceneLinkScene_->findText(sceneName);
+	if (sceneIndex >= 0)
+		sceneLinkScene_->setCurrentIndex(sceneIndex);
+
+	const int verticalSceneIndex = sceneLinkTemplate_->findData(item->data(SceneLinkVerticalSceneIdRole));
+	if (verticalSceneIndex >= 0)
+		sceneLinkTemplate_->setCurrentIndex(verticalSceneIndex);
+}
+
+void VerticalLayoutEditor::selectSceneLinkForObsScene(const QString &sceneName)
+{
+	if (loading_ || !sceneLinks_)
+		return;
+
+	for (int row = 0; row < sceneLinks_->count(); ++row) {
+		const QListWidgetItem *item = sceneLinks_->item(row);
+		if (item && item->data(SceneLinkResolvedNameRole).toString() == sceneName) {
+			sceneLinks_->setCurrentRow(row);
+			selectSceneLink(row);
+			return;
+		}
+	}
+
+	sceneLinks_->setCurrentRow(-1);
+	sceneLinks_->clearSelection();
+}
+
+void VerticalLayoutEditor::updateFollowScene(int state)
+{
+	manager_->setFollowObsScene(state == Qt::Checked);
+	updateObsLinkStatus();
+}
+
+void VerticalLayoutEditor::centerSelectedItem()
+{
+	const int index = selectedIndex();
+	const auto &layout = manager_->layouts().verticalLayout();
+	if (index < 0 || index >= layout.items.size())
+		return;
+
+	QRectF rect = displayedContentRect(layout.items[index], sourceVideoSize(layout.items[index].sourceName));
+	rect.moveCenter(QPointF(layout.width / 2.0, layout.height / 2.0));
+	setSelectedItemRect(rect);
+}
+
+void VerticalLayoutEditor::fitSelectedItemToCanvas()
+{
+	const int index = selectedIndex();
+	VerticalLayout layout = manager_->layouts().verticalLayout();
+	if (index < 0 || index >= layout.items.size())
+		return;
+
+	QSizeF sourceSize = sourceVideoSize(layout.items[index].sourceName);
+	sourceSize = croppedSourceSize(layout.items[index], sourceSize);
+	layout.items[index].fitMode = FitMode::Fit;
+	layout.items[index].rect = centeredAspectFitRect(sourceSize, QSizeF(layout.width, layout.height));
+	manager_->layouts().setVerticalLayout(layout);
+	saveNow();
+	refreshItems();
+	items_->setCurrentRow(index);
+}
+
+void VerticalLayoutEditor::fillSelectedItemToCanvas()
+{
+	const int index = selectedIndex();
+	VerticalLayout layout = manager_->layouts().verticalLayout();
+	if (index < 0 || index >= layout.items.size())
+		return;
+
+	QSizeF sourceSize = sourceVideoSize(layout.items[index].sourceName);
+	sourceSize = croppedSourceSize(layout.items[index], sourceSize);
+	QRectF rect(0, 0, layout.width, layout.height);
+	if (sourceSize.width() > 0.0 && sourceSize.height() > 0.0) {
+		const double scale = std::max(layout.width / sourceSize.width(), layout.height / sourceSize.height());
+		const QSizeF size(sourceSize.width() * scale, sourceSize.height() * scale);
+		rect = QRectF((layout.width - size.width()) / 2.0,
+			      (layout.height - size.height()) / 2.0,
+			      size.width(),
+			      size.height());
+	}
+	layout.items[index].fitMode = FitMode::Fill;
+	layout.items[index].rect = rect;
+	manager_->layouts().setVerticalLayout(layout);
+	saveNow();
+	refreshItems();
+	items_->setCurrentRow(index);
+}
+
+void VerticalLayoutEditor::addItem()
+{
+	const QString sourceName = source_->currentText().trimmed();
+	if (sourceName.isEmpty())
+		return;
+
+	VerticalLayout layout = manager_->layouts().verticalLayout();
+	VerticalLayoutItem item;
+	item.id = newTargetId();
+	item.sourceName = sourceName;
+	item.fitMode = FitMode::Fit;
+	item.rect = centeredAspectFitRect(sourceVideoSize(sourceName), QSizeF(layout.width, layout.height));
+	layout.items.push_back(item);
+	manager_->layouts().setVerticalLayout(layout);
+	manager_->saveVerticalLayout();
+	refreshItems();
+	items_->setCurrentRow(layout.items.size() - 1);
+}
+
+void VerticalLayoutEditor::removeItem()
+{
+	const int index = selectedIndex();
+	if (index < 0)
+		return;
+	VerticalLayout layout = manager_->layouts().verticalLayout();
+	layout.items.removeAt(index);
+	manager_->layouts().setVerticalLayout(layout);
+	manager_->saveVerticalLayout();
+	refreshItems();
+}
+
+void VerticalLayoutEditor::moveItemUp()
+{
+	const int index = selectedIndex();
+	if (index <= 0)
+		return;
+	VerticalLayout layout = manager_->layouts().verticalLayout();
+	layout.items.move(index, index - 1);
+	manager_->layouts().setVerticalLayout(layout);
+	saveNow();
+	refreshItems();
+	items_->setCurrentRow(index - 1);
+}
+
+void VerticalLayoutEditor::moveItemDown()
+{
+	const int index = selectedIndex();
+	const auto &current = manager_->layouts().verticalLayout();
+	if (index < 0 || index >= current.items.size() - 1)
+		return;
+	VerticalLayout layout = current;
+	layout.items.move(index, index + 1);
+	manager_->layouts().setVerticalLayout(layout);
+	saveNow();
+	refreshItems();
+	items_->setCurrentRow(index + 1);
+}
+
+void VerticalLayoutEditor::selectItem(int row)
+{
+	const auto &layout = manager_->layouts().verticalLayout();
+	if (row < 0 || row >= layout.items.size()) {
+		preview_->setSelectedIndex(-1);
+		setLayerControlsEnabled(false);
+		return;
+	}
+
+	loading_ = true;
+	setLayerControlsEnabled(true);
+	const auto &item = layout.items[row];
+	x_->setValue(int(item.rect.x()));
+	y_->setValue(int(item.rect.y()));
+	w_->setValue(int(item.rect.width()));
+	h_->setValue(int(item.rect.height()));
+	const int fitIndex = fit_->findData(fitModeToString(item.fitMode));
+	fit_->setCurrentIndex(fitIndex >= 0 ? fitIndex : 1);
+	visible_->setChecked(item.visible);
+	loading_ = false;
+	preview_->setSelectedIndex(row);
+}
+
+void VerticalLayoutEditor::updateItemVisibility(QListWidgetItem *item)
+{
+	if (loading_ || !item || !items_)
+		return;
+	const int row = items_->row(item);
+	const auto &current = manager_->layouts().verticalLayout();
+	if (row < 0 || row >= current.items.size())
+		return;
+	const bool visible = item->checkState() == Qt::Checked;
+	if (current.items[row].visible == visible)
+		return;
+	VerticalLayout layout = current;
+	layout.items[row].visible = visible;
+	manager_->layouts().setVerticalLayout(layout);
+	preview_->setLayoutData(layout);
+	QTimer::singleShot(0, this, [this]() { saveNow(); });
+}
+
+void VerticalLayoutEditor::updateSelectedItem()
+{
+	if (loading_)
+		return;
+	const int index = selectedIndex();
+	if (index < 0)
+		return;
+
+	VerticalLayout layout = manager_->layouts().verticalLayout();
+	auto &item = layout.items[index];
+	item.rect = QRectF(x_->value(), y_->value(), w_->value(), h_->value());
+	item.fitMode = fitModeFromString(fit_->currentData().toString());
+	item.visible = visible_->isChecked();
+	manager_->layouts().setVerticalLayout(layout);
+	manager_->saveVerticalLayout();
+	refreshItems();
+	items_->setCurrentRow(index);
+}
+
+void VerticalLayoutEditor::refreshItems()
+{
+	if (!items_ || !verticalScenes_ || !sceneLinks_ || !sceneLinkTemplate_ || !preview_)
+		return;
+
+	const int selected = items_->currentRow();
+	QString selectedSceneLinkName;
+	QString selectedSceneLinkUuid;
+	if (const QListWidgetItem *selectedLink = sceneLinks_->currentItem()) {
+		selectedSceneLinkName = selectedLink->data(SceneLinkNameRole).toString();
+		selectedSceneLinkUuid = selectedLink->data(SceneLinkUuidRole).toString();
+	}
+	loading_ = true;
+	const QSignalBlocker itemsBlocker(items_);
+	const QSignalBlocker verticalScenesBlocker(verticalScenes_);
+	const QSignalBlocker linkSceneBlocker(sceneLinkTemplate_);
+	const QSignalBlocker sceneLinksBlocker(sceneLinks_);
+	items_->clear();
+	verticalScenes_->clear();
+	sceneLinks_->clear();
+	const QString selectedLinkedSceneId = sceneLinkTemplate_->currentData().toString();
+	sceneLinkTemplate_->clear();
+	int activeVerticalSceneRow = -1;
+	for (const auto &scene : manager_->layouts().verticalScenes()) {
+		const bool activeScene = scene.id == manager_->layouts().activeVerticalSceneId();
+		auto *sceneItem = new QListWidgetItem(activeScene ? style()->standardIcon(QStyle::SP_MediaPlay) : QIcon(),
+						      scene.name);
+		sceneItem->setData(Qt::UserRole, scene.id);
+		sceneItem->setToolTip(activeScene ? QStringLiteral("Active DSK vertical output scene")
+						  : QStringLiteral("DSK vertical scene"));
+		verticalScenes_->addItem(sceneItem);
+		if (activeScene)
+			activeVerticalSceneRow = verticalScenes_->count() - 1;
+		sceneLinkTemplate_->addItem(scene.name, scene.id);
+	}
+	if (activeVerticalSceneRow >= 0)
+		verticalScenes_->setCurrentRow(activeVerticalSceneRow);
+	const int linkedSceneIndex = sceneLinkTemplate_->findData(selectedLinkedSceneId);
+	if (linkedSceneIndex >= 0)
+		sceneLinkTemplate_->setCurrentIndex(linkedSceneIndex);
+	int selectedSceneLinkRow = -1;
+	for (const auto &link : manager_->sceneLinks()) {
+		const QString sceneName = manager_->layouts().verticalSceneName(link.verticalSceneId);
+		const QString linkedObsScene = manager_->resolvedObsSceneName(link.sceneUuid, link.sceneName);
+		const QString linkedObsSceneDisplay = linkedObsScene.isEmpty()
+						      ? QStringLiteral("Missing: %1").arg(link.sceneName)
+						      : linkedObsScene;
+		const QString prefix = sceneLinkMatches(link, manager_->currentObsSceneName(), manager_->currentObsSceneUuid())
+					       ? QStringLiteral("Current: ")
+					       : QString();
+		auto *linkItem = new QListWidgetItem(QString("%1%2 -> %3").arg(
+			prefix,
+			linkedObsSceneDisplay,
+			sceneName.isEmpty() ? QStringLiteral("(missing DSK scene)") : sceneName));
+		linkItem->setData(SceneLinkNameRole, link.sceneName);
+		linkItem->setData(SceneLinkUuidRole, link.sceneUuid);
+		linkItem->setData(SceneLinkVerticalSceneIdRole, link.verticalSceneId);
+		linkItem->setData(SceneLinkResolvedNameRole, linkedObsScene);
+		linkItem->setToolTip(QStringLiteral("Select this link to edit or unlink it."));
+		sceneLinks_->addItem(linkItem);
+		const bool selectedLinkMatches = !selectedSceneLinkUuid.isEmpty()
+						 ? link.sceneUuid == selectedSceneLinkUuid
+						 : link.sceneName == selectedSceneLinkName;
+		if (selectedLinkMatches)
+			selectedSceneLinkRow = sceneLinks_->count() - 1;
+	}
+	updateObsLinkStatus();
+	const auto &layout = manager_->layouts().verticalLayout();
+	for (int i = 0; i < layout.items.size(); ++i) {
+		const auto &layoutItem = layout.items[i];
+		auto *sourceItem = new QListWidgetItem(style()->standardIcon(QStyle::SP_FileIcon),
+							itemLabel(layoutItem, i));
+		sourceItem->setFlags(sourceItem->flags() | Qt::ItemIsUserCheckable);
+		sourceItem->setCheckState(layoutItem.visible ? Qt::Checked : Qt::Unchecked);
+		sourceItem->setToolTip(QStringLiteral("%1x%2 at %3,%4")
+					       .arg(std::lround(layoutItem.rect.width()))
+					       .arg(std::lround(layoutItem.rect.height()))
+					       .arg(std::lround(layoutItem.rect.x()))
+					       .arg(std::lround(layoutItem.rect.y())));
+		items_->addItem(sourceItem);
+	}
+	preview_->setLayoutData(layout);
+	updateSceneStatus();
+	loading_ = false;
+	if (selectedSceneLinkRow >= 0) {
+		sceneLinks_->setCurrentRow(selectedSceneLinkRow);
+		selectSceneLink(selectedSceneLinkRow);
+	} else {
+		selectSceneLinkForObsScene(sceneLinkScene_->currentText());
+	}
+	if (!setupToggle_ || !setupToggle_->isChecked()) {
+		items_->setCurrentRow(-1);
+		items_->clearSelection();
+		preview_->setSelectedIndex(-1);
+		setLayerControlsEnabled(false);
+	} else if (selected >= 0 && selected < layout.items.size()) {
+		items_->setCurrentRow(selected);
+		selectItem(selected);
+	} else if (!layout.items.isEmpty()) {
+		items_->setCurrentRow(0);
+		selectItem(0);
+	} else {
+		preview_->setSelectedIndex(-1);
+		setLayerControlsEnabled(false);
+	}
+}
+
+int VerticalLayoutEditor::selectedIndex() const
+{
+	const int row = items_->currentRow();
+	const auto &layout = manager_->layouts().verticalLayout();
+	if (row < 0 || row >= layout.items.size())
+		return -1;
+	return row;
+}
+
+void VerticalLayoutEditor::setSelectedItemRect(const QRectF &rect)
+{
+	const int row = selectedIndex();
+	const auto &currentLayout = manager_->layouts().verticalLayout();
+	if (row < 0 || row >= currentLayout.items.size())
+		return;
+
+	VerticalLayout layout = currentLayout;
+	layout.items[row].rect = rect;
+	manager_->layouts().setVerticalLayout(layout);
+	saveNow();
+	refreshItems();
+	items_->setCurrentRow(row);
+}
+
+void VerticalLayoutEditor::scheduleSave()
+{
+	if (saveTimer_)
+		saveTimer_->start();
+}
+
+void VerticalLayoutEditor::saveNow()
+{
+	if (saveTimer_)
+		saveTimer_->stop();
+	if (manager_)
+		manager_->saveVerticalLayout();
+}
+
+void VerticalLayoutEditor::setSetupVisible(bool visible, bool persist)
+{
+	if (!setupPanel_ || !transformToggle_ || !obsLinksToggle_)
+		return;
+
+	setupPanel_->setVisible(visible);
+	transformToggle_->setVisible(visible);
+	obsLinksToggle_->setVisible(visible);
+	if (!visible) {
+		if (items_)
+			setupSelectedRow_ = items_->currentRow();
+		transformToggle_->setChecked(false);
+		obsLinksToggle_->setChecked(false);
+		if (items_) {
+			const QSignalBlocker blocker(items_);
+			items_->setCurrentRow(-1);
+			items_->clearSelection();
+		}
+		if (preview_)
+			preview_->setSelectedIndex(-1);
+		setLayerControlsEnabled(false);
+	} else if (items_ && setupSelectedRow_ >= 0 && setupSelectedRow_ < items_->count()) {
+		items_->setCurrentRow(setupSelectedRow_);
+		selectItem(setupSelectedRow_);
+	}
+
+	if (persist)
+		saveVerticalSetupVisiblePreference(visible);
+}
+
+void VerticalLayoutEditor::updateItemRectFromPreview(int row, const QRectF &rect, bool save)
+{
+	const auto &currentLayout = manager_->layouts().verticalLayout();
+	if (row < 0 || row >= currentLayout.items.size())
+		return;
+
+	VerticalLayout layout = currentLayout;
+	layout.items[row].rect = rect;
+	manager_->layouts().setVerticalLayout(layout);
+	if (save)
+		saveNow();
+	else
+		scheduleSave();
+
+	loading_ = true;
+	x_->setValue(int(std::lround(rect.x())));
+	y_->setValue(int(std::lround(rect.y())));
+	w_->setValue(int(std::lround(rect.width())));
+	h_->setValue(int(std::lround(rect.height())));
+	if (auto *listItem = items_->item(row))
+		listItem->setText(itemLabel(layout.items[row], row));
+	loading_ = false;
+
+	preview_->setLayoutData(layout);
+	preview_->setSelectedIndex(row);
+	if (items_->currentRow() != row)
+		items_->setCurrentRow(row);
+}
+
+void VerticalLayoutEditor::setLayerControlsEnabled(bool enabled)
+{
+	for (auto *spin : {x_, y_, w_, h_}) {
+		if (spin)
+			spin->setEnabled(enabled);
+	}
+	if (fit_)
+		fit_->setEnabled(enabled);
+	if (visible_)
+		visible_->setEnabled(enabled);
+}
+
+void VerticalLayoutEditor::updateSceneStatus()
+{
+	if (!manager_)
+		return;
+
+	const QString active = manager_->layouts().activeVerticalSceneName().isEmpty() ?
+				       QStringLiteral("(none)") :
+				       manager_->layouts().activeVerticalSceneName();
+
+	if (activeSceneStatus_)
+		activeSceneStatus_->setText(QStringLiteral("Vertical Program: %1").arg(active));
+
+	if (sourcesHeader_)
+		sourcesHeader_->setText(QString::number(manager_->layouts().verticalLayout().items.size()));
+}
+
+void VerticalLayoutEditor::updateObsLinkStatus()
+{
+	if (!obsLinkStatus_ || !manager_)
+		return;
+
+	const QString obsScene = currentFrontendSceneName();
+	const QString obsSceneUuid = manager_->currentObsSceneUuid();
+	QString linkedScene;
+	for (const auto &link : manager_->sceneLinks()) {
+		if (sceneLinkMatches(link, obsScene, obsSceneUuid)) {
+			linkedScene = manager_->layouts().verticalSceneName(link.verticalSceneId);
+			if (linkedScene.isEmpty())
+				linkedScene = QStringLiteral("(missing DSK scene)");
+			break;
+		}
+	}
+
+	const QString obsName = obsScene.isEmpty() ? QStringLiteral("(no OBS scene)") : obsScene;
+	const QString linkText = linkedScene.isEmpty() ? QStringLiteral("Not linked") : linkedScene;
+	obsLinkStatus_->setText(QStringLiteral("%1 -> %2").arg(obsName, linkText));
+	updateSceneStatus();
+}
+
+} // namespace dsk

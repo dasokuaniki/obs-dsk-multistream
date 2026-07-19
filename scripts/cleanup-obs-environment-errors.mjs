@@ -406,256 +406,391 @@ function restoreBackupAtomically(entry, expectedCurrentSha256) {
         (!fs.existsSync(entry.filePath) || fileSha256(entry.filePath) !== expectedCurrentSha256)) {
       throw new Error(`${entry.label} changed before rollback; refusing to overwrite the newer file.`);
     }
-    fs.renameSync(rollbã‹h‘éì¶»§q«^tœÈH×NÂˆ™[[Ý™T]™\ÝY™›Ü
-›Û˜XÚÕ[\]™[[Ý™H›Û˜XÚÈ[\Ü˜\žHš[H›Üˆ	Ù[žK›X™[XÛX[\\œ›ÜœÊNÂˆYˆ
-™\ÝÜ™Q\œ›ÜŠH›ÝÈÚ]ÛX[\]Z[
-™\ÝÜ™Q\œ›Ü‹ÛX[\\œ›ÜœÊNÂˆYˆ
-ÛX[\\œ›ÜœË›[™Ý
-Bˆ›ÝÈ™]È\œ›ÜŠ˜XÚÝ\™\ÝÜ™HÛÛ\]Y›Üˆ	Ù[žK›X™[K]ÛX[\˜Z[Yˆ	ØÛX[\\œ›ÜœËš›Ú[ŠŽÈŠ_X
-NÂŸB‚™[˜Ý[Ûˆ˜[Y]U˜[œØXÝ[Û‘[žJ˜[YJHÂˆÛÛœÝ[žHHÂˆX™[ˆÝš[™Ê˜[YOË›X™[ÏÈˆŠKˆš[T]ˆ]œ™\ÛÛ™JÝš[™Ê˜[YOË™š[T]ÏÈˆŠJKˆ˜XÚÝ\]ˆ]œ™\ÛÛ™JÝš[™Ê˜[YOË˜˜XÚÝ\]ÏÈˆŠJKˆ[\]ˆ]œ™\ÛÛ™JÝš[™Ê˜[YOË[\]ÏÈˆŠJKˆ™Y›Ü™TÚLMŽˆÝš[™Ê˜[YOË˜™Y›Ü™TÚLMˆÏÈˆŠKÓÝÙ\Ø\ÙJ
-KˆY\”ÚLMŽˆÝš[™Ê˜[YOË˜Y\”ÚLMˆÏÈˆŠKÓÝÙ\Ø\ÙJ
-KˆNÂˆÛÛœÝ]Ù^HH
-˜[YT]
-HOˆ˜[YT]ÓÝÙ\Ø\ÙJ
-NÂˆÛÛœÝ[ÝÙYš[\ÈH™]ÈÙ]
-Ü]Ù^J]œ™\ÛÛ™JØÙ[™T]
-JK]Ù^J]œ™\ÛÛ™J[Ù[\Ô]
-JWJNÂˆÛÛœÝš[S˜[YHH]˜˜\Ù[˜[YJ[žK™š[T]
-KÓÝÙ\Ø\ÙJ
-NÂˆÛÛœÝØ[YQ\™XÝÜžHH]Ù^J]™\›˜[YJ[žK™š[T]
-JNÂˆYˆ
-Y[žK›X™[X[ÝÙYš[\Ëš\Ê]Ù^J[žK™š[T]
-JHˆ]Ù^J]™\›˜[YJ[žK˜˜XÚÝ\]
-JHOOHØ[YQ\™XÝÜžHˆ]Ù^J]™\›˜[YJ[žK[\]
-JHOOHØ[YQ\™XÝÜžHˆ\]˜˜\Ù[˜[YJ[žK˜˜XÚÝ\]
-KÓÝÙ\Ø\ÙJ
-KœÝ\ÕÚ]
-	Ùš[S˜[Y_K™ÚËXÛX[\X˜XÚÝ\X
-Hˆ\]˜˜\Ù[˜[YJ[žK[\]
-KÓÝÙ\Ø\ÙJ
-KœÝ\ÕÚ]
-	Ùš[S˜[Y_K™ÚËXÛX[\][\X
-HˆK×–ÌNXKY—^ÍIË\Ý
-[žK˜™Y›Ü™TÚLMŠHK×–ÌNXKY—^ÍIË\Ý
-[žK˜Y\”ÚLMŠJHÂˆ›ÝÈ™]È\œ›ÜŠ’[\œ\YÛX[\›Ý\›˜[ÛÛZ[œÈ[ˆ[˜[Y]È™Y\Ú[™È]]ÛX]XÈ™XÛÝ™\žKˆŠNÂˆBˆ™]\›ˆ[žNÂŸB‚™[˜Ý[ÛˆÜš]U˜[œØXÝ[Û’›Ý\›˜[
-[šY\ÊHÂˆÛÛœÝ›Ý\›˜[[\]H	Ý˜[œØXÝ[Û”]K[\IÝ˜[œØXÝ[Û’YXÂˆÛÛœÝ^[ØYH	Ò”ÓÓ‹œÝš[™ÚYžJÂˆ™\œÚ[ÛŽˆ‹ˆÜ™X]Y]ˆ™]È]J
-KÒTÓÔÝš[™Ê
-Kˆ[šY\Îˆ[šY\Ë›X\
+    fs.renameSync(rollbackTempPath, entry.filePath);
+    fsyncFile(entry.filePath);
+  } catch (error) {
+    restoreError = error;
+  }
+  const cleanupErrors = [];
+  removePathBestEffort(rollbackTempPath, `remove rollback temporary file for ${entry.label}`, cleanupErrors);
+  if (restoreError) throw withCleanupDetail(restoreError, cleanupErrors);
+  if (cleanupErrors.length)
+    throw new Error(`Backup restore completed for ${entry.label}, but cleanup failed: ${cleanupErrors.join("; ")}`);
+}
 
-ÈX™[š[T]˜XÚÝ\][\]™Y›Ü™TÚLM‹Y\”ÚLMˆJHOˆ
-ÂˆX™[ˆš[T]ˆ˜XÚÝ\]ˆ[\]ˆ™Y›Ü™TÚLM‹ˆY\”ÚLM‹ˆJJKˆK[Š_IÛÜË‘SÓXÂˆYˆ
-œË™^\ÝÔÞ[˜Ê˜[œØXÝ[Û”]
-JHÂˆ›ÝÈ™]È\œ›ÜŠ[ˆ[\œ\YÛX[\˜[œØXÝ[Ûˆ]\Ý™H™XÛÝ™\™Yš\œÝˆ	Ý˜[œØXÝ[Û”]X
-NÂˆB‚ˆ]›Ý\›˜[\œ›ÜŽÂˆžHÂˆÛÛœÝ[™HHœË›Ü[”Þ[˜Ê›Ý\›˜[[\]ÞŠNÂˆžHÂˆœËÜš]Qš[TÞ[˜Ê[™K^[ØY]ŽŠNÂˆœË™œÞ[˜ÔÞ[˜Ê[™JNÂˆHš[˜[HÂˆœË˜ÛÜÙTÞ[˜Ê[™JNÂˆBˆ”ÓÓ‹œ\œÙJœËœ™XYš[TÞ[˜Ê›Ý\›˜[[\]]ŽŠJNÂˆœËœ™[˜[YTÞ[˜Ê›Ý\›˜[[\]˜[œØXÝ[Û”]
-NÂˆœÞ[˜Ñš[J˜[œØXÝ[Û”]
-NÂˆHØ]Ú
-\œ›ÜŠHÂˆ›Ý\›˜[\œ›ÜˆH\œ›ÜŽÂˆBˆÛÛœÝÛX[\\œ›ÜœÈH×NÂˆ™[[Ý™T]™\ÝY™›Ü
-›Ý\›˜[[\]œ™[[Ý™H˜[œØXÝ[Ûˆ›Ý\›˜[[\Ü˜\žHš[H‹ÛX[\\œ›ÜœÊNÂˆYˆ
-›Ý\›˜[\œ›ÜŠH›ÝÈÚ]ÛX[\]Z[
-›Ý\›˜[\œ›Ü‹ÛX[\\œ›ÜœÊNÂˆYˆ
-ÛX[\\œ›ÜœË›[™Ý
-Bˆ›ÝÈ™]È\œ›ÜŠ˜[œØXÝ[Ûˆ›Ý\›˜[Ø\ÈÜš][‹][\Ü˜\žHÛX[\˜Z[Yˆ	ØÛX[\\œ›ÜœËš›Ú[ŠŽÈŠ_X
-NÂŸB‚™[˜Ý[Ûˆ™XÛÝ™\’[\œ\Y˜[œØXÝ[ÛŠ
-HÂˆYˆ
-YœË™^\ÝÔÞ[˜Ê˜[œØXÝ[Û”]
-JH™]\›ˆ×NÂ‚ˆÛÛœÝ›Ý\›˜[H™XYœÛÛŠ˜[œØXÝ[Û”]
-NÂˆYˆ
-›Ý\›˜[™\œÚ[ÛˆOOHˆP\œ˜^Kš\Ð\œ˜^J›Ý\›˜[™[šY\ÊH›Ý\›˜[™[šY\Ë›[™ÝOOH
-Bˆ›ÝÈ™]È\œ›ÜŠ[\œ\YÛX[\›Ý\›˜[\È[˜[Yˆ	Ý˜[œØXÝ[Û”]X
-NÂˆÛÛœÝ[šY\ÈH›Ý\›˜[™[šY\Ë›X\
-˜[Y]U˜[œØXÝ[Û‘[žJNÂˆÛÛœÝ\™Ù]Ù^\ÈH[šY\Ë›X\
+function validateTransactionEntry(value) {
+  const entry = {
+    label: String(value?.label ?? ""),
+    filePath: path.resolve(String(value?.filePath ?? "")),
+    backupPath: path.resolve(String(value?.backupPath ?? "")),
+    tempPath: path.resolve(String(value?.tempPath ?? "")),
+    beforeSha256: String(value?.beforeSha256 ?? "").toLowerCase(),
+    afterSha256: String(value?.afterSha256 ?? "").toLowerCase(),
+  };
+  const pathKey = (valuePath) => valuePath.toLowerCase();
+  const allowedFiles = new Set([pathKey(path.resolve(scenePath)), pathKey(path.resolve(modulesPath))]);
+  const fileName = path.basename(entry.filePath).toLowerCase();
+  const sameDirectory = pathKey(path.dirname(entry.filePath));
+  if (!entry.label || !allowedFiles.has(pathKey(entry.filePath)) ||
+      pathKey(path.dirname(entry.backupPath)) !== sameDirectory ||
+      pathKey(path.dirname(entry.tempPath)) !== sameDirectory ||
+      !path.basename(entry.backupPath).toLowerCase().startsWith(`${fileName}.dsk-cleanup-backup-`) ||
+      !path.basename(entry.tempPath).toLowerCase().startsWith(`${fileName}.dsk-cleanup-temp-`) ||
+      !/^[0-9a-f]{64}$/.test(entry.beforeSha256) || !/^[0-9a-f]{64}$/.test(entry.afterSha256)) {
+    throw new Error("Interrupted cleanup journal contains an invalid path; refusing automatic recovery.");
+  }
+  return entry;
+}
 
-[žJHOˆ[žK™š[T]ÓÝÙ\Ø\ÙJ
-JNÂˆYˆ
-™]ÈÙ]
-\™Ù]Ù^\ÊKœÚ^™HOOH\™Ù]Ù^\Ë›[™Ý
-Bˆ›ÝÈ™]È\œ›ÜŠ’[\œ\YÛX[\›Ý\›˜[ÛÛZ[œÈ\XØ]H\™Ù]š[\ÎÈ™Y\Ú[™È]]ÛX]XÈ™XÛÝ™\žKˆŠNÂ‚ˆÛÛœÝ˜[Y][Û‘\œ›ÜœÈH×NÂˆ›Üˆ
-ÛÛœÝ[žHÙˆ[šY\ÊHÂˆžHÂˆYˆ
-YœË™^\ÝÔÞ[˜Ê[žK˜˜XÚÝ\]
-JBˆ›ÝÈ™]È\œ›ÜŠ˜XÚÝ\Z\ÜÚ[™Îˆ	Ù[žK˜˜XÚÝ\]X
-NÂˆYˆ
-š[TÚLMŠ[žK˜˜XÚÝ\]
-HOOH[žK˜™Y›Ü™TÚLMŠBˆ›ÝÈ™]È\œ›ÜŠ˜XÚÝ\\ÚÚ[™ÙYˆ	Ù[žK˜˜XÚÝ\]X
-NÂˆYˆ
-YœË™^\ÝÔÞ[˜Ê[žK™š[T]
-JBˆ›ÝÈ™]È\œ›ÜŠ\™Ù]Z\ÜÚ[™Îˆ	Ù[žK™š[T]X
-NÂˆÛÛœÝÝ\œ™[ÚLMˆHš[TÚLMŠ[žK™š[T]
-NÂˆYˆ
-Ý\œ™[ÚLMˆOOH[žK˜™Y›Ü™TÚLMˆ	‰ˆÝ\œ™[ÚLMˆOOH[žK˜Y\”ÚLMŠBˆ›ÝÈ™]È\œ›ÜŠ\™Ù]Ú[™ÙYÝ]ÚYHH[\œ\Y˜[œØXÝ[ÛŽˆ	Ù[žK™š[T]X
-NÂˆHØ]Ú
-\œ›ÜŠHÂˆ˜[Y][Û‘\œ›ÜœËœ\Ú
-	Ù[žK›X™[Nˆ	Ù\œ›Ü‹›Y\ÜØYÙ_X
-NÂˆBˆBˆYˆ
-˜[Y][Û‘\œ›ÜœË›[™Ý
-HÂˆ›ÝÈ™]È\œ›ÜŠ[\œ\YÐ”ÈÛX[\™YYÈX[X[™\ÛÛ][ÛŽÈ›Èš[\ÈÙ\™H™\ÝÜ™Yˆ	Ý˜[Y][Û‘\œ›ÜœËš›Ú[ŠŽÈŠ_X
-NÂˆB‚ˆÛÛœÝ™\ÝÜ™Q\œ›ÜœÈH×NÂˆ›Üˆ
-ÛÛœÝ[žHÙˆË‹‹™[šY\×Kœ™]™\œÙJ
-JHÂˆžHÂˆÛÛœÝÝ\œ™[ÚLMˆHš[TÚLMŠ[žK™š[T]
-NÂˆYˆ
-Ý\œ™[ÚLMˆOOH[žK˜Y\”ÚLMŠBˆ™\ÝÜ™P˜XÚÝ\]ÛZXØ[J[žK[žK˜Y\”ÚLMŠNÂˆ[ÙHYˆ
-Ý\œ™[ÚLMˆOOH[žK˜™Y›Ü™TÚLMŠBˆ›ÝÈ™]È\œ›ÜŠ\™Ù]Ú[™ÙY\š[™È™XÛÝ™\žNˆ	Ù[žK™š[T]X
-NÂˆHØ]Ú
-\œ›ÜŠHÂˆ™\ÝÜ™Q\œ›ÜœËœ\Ú
-	Ù[žK›X™[Nˆ	Ù\œ›Ü‹›Y\ÜØYÙ_X
-NÂˆBˆBˆYˆ
-™\ÝÜ™Q\œ›ÜœË›[™Ý
-HÂˆ›ÝÈ™]È\œ›ÜŠ[\œ\YÐ”ÈÛX[\™XÛÝ™\žH˜Z[YÈH›Ý\›˜[Ø\È™]Z[™Yˆ	Ü™\ÝÜ™Q\œ›ÜœËš›Ú[ŠŽÈŠ_X
-NÂˆB‚ˆÛÛœÝÛX[\\œ›ÜœÈH×NÂˆ›Üˆ
-ÛÛœÝ[žHÙˆ[šY\ÊBˆ™[[Ý™T]™\ÝY™›Ü
-[žK[\]™[[Ý™H[\œ\Y[\Ü˜\žHš[H›Üˆ	Ù[žK›X™[XÛX[\\œ›ÜœÊNÂˆ™[[Ý™T]™\ÝY™›Ü
-˜[œØXÝ[Û”]œ™[[Ý™H™XÛÝ™\™Y˜[œØXÝ[Ûˆ›Ý\›˜[‹ÛX[\\œ›ÜœÊNÂˆYˆ
-ÛX[\\œ›ÜœË›[™Ý
-Bˆ›ÝÈ™]È\œ›ÜŠ[\œ\YÐ”ÈÛX[\Ø\È™\ÝÜ™Y]™XÛÝ™\žHÛX[\˜Z[Yˆ	ØÛX[\\œ›ÜœËš›Ú[ŠŽÈŠ_X
-NÂˆ™]\›ˆ[šY\ÎÂŸB‚™[˜Ý[Ûˆ˜[Y]T™\\™Y[žJ[žJHÂˆYˆ
-YœË™^\ÝÔÞ[˜Ê[žK™š[T]
-Hš[TÚLMŠ[žK™š[T]
-HOOH[žK˜™Y›Ü™TÚLMŠBˆ›ÝÈ™]È\œ›ÜŠ	Ù[žK›X™[HÚ[™ÙYÚ[HÛX[\Ø\È™Z[™È™\\™YÈ™Y\Ú[™ÈÈÝ™\Üš]H]˜
-NÂˆYˆ
-YœË™^\ÝÔÞ[˜Ê[žK˜˜XÚÝ\]
-Hš[TÚLMŠ[žK˜˜XÚÝ\]
-HOOH[žK˜™Y›Ü™TÚLMŠBˆ›ÝÈ™]È\œ›ÜŠ	Ù[žK›X™[H˜XÚÝ\›ÈÛ™Ù\ˆX]Ú\ÈHÛÝ\˜ÙHÛ˜\ÚÝ˜
-NÂˆYˆ
-YœË™^\ÝÔÞ[˜Ê[žK[\]
-Hš[TÚLMŠ[žK[\]
-HOOH[žK˜Y\”ÚLMŠBˆ›ÝÈ™]È\œ›ÜŠ	Ù[žK›X™[H[\Ü˜\žH\]H›ÈÛ™Ù\ˆX]Ú\ÈH™\\™Y^[ØY˜
-NÂŸB‚™[˜Ý[ÛˆÛÛ[Z]œÛÛ•Üš]\Ê[šY\ÊHÂˆYˆ
-Y[šY\Ë›[™Ý
-H™]\›ŽÂˆÛÛœÝÛÛ[Z]YH×NÂˆ]ÛÛ[Z]\œ›ÜŽÂˆžHÂˆ›Üˆ
-ÛÛœÝ[žHÙˆ[šY\ÊBˆ˜[Y]T™\\™Y[žJ[žJNÂˆÜš]U˜[œØXÝ[Û’›Ý\›˜[
-[šY\ÊNÂˆ›Üˆ
-ÛÛœÝ[žHÙˆ[šY\ÊHÂˆ˜[Y]T™\\™Y[žJ[žJNÂˆœËœ™[˜[YTÞ[˜Ê[žK[\][žK™š[T]
-NÂˆÛÛ[Z]Yœ\Ú
-[žJNÂˆœÞ[˜Ñš[J[žK™š[T]
-NÂˆBˆœËœ›TÞ[˜Ê˜[œØXÝ[Û”]
-NÂˆHØ]Ú
-\œ›ÜŠHÂˆÛÛ[Z]\œ›ÜˆH\œ›ÜŽÂˆB‚ˆÛÛœÝÛX[\\œ›ÜœÈH×NÂˆYˆ
-ÛÛ[Z]\œ›ÜŠHÂˆÛÛœÝ™\ÝÜ™Q\œ›ÜœÈH×NÂˆ›Üˆ
-ÛÛœÝ[žHÙˆÛÛ[Z]Yœ™]™\œÙJ
-JHÂˆžHÂˆYˆ
-YœË™^\ÝÔÞ[˜Ê[žK™š[T]
-JBˆ›ÝÈ™]È\œ›ÜŠ\™Ù]\ÈZ\ÜÚ[™ÈY\ˆÛÛ[Z]ŠNÂˆÛÛœÝÝ\œ™[ÚLMˆHš[TÚLMŠ[žK™š[T]
-NÂˆYˆ
-Ý\œ™[ÚLMˆOOH[žK˜Y\”ÚLMŠBˆ™\ÝÜ™P˜XÚÝ\]ÛZXØ[J[žK[žK˜Y\”ÚLMŠNÂˆ[ÙHYˆ
-Ý\œ™[ÚLMˆOOH[žK˜™Y›Ü™TÚLMŠBˆ›ÝÈ™]È\œ›ÜŠ\™Ù]Ú[™ÙYY\ˆÛÛ[Z]È]]ÛX]XÈ›Û˜XÚÈØ\ÈÚÚ\YÈ™\Ù\™HH™]Ù\ˆš[HŠNÂˆHØ]Ú
-™\ÝÜ™Q\œ›ÜŠHÂˆ™\ÝÜ™Q\œ›ÜœËœ\Ú
-	Ù[žK›X™[Nˆ	Ü™\ÝÜ™Q\œ›Ü‹›Y\ÜØYÙ_X
-NÂˆBˆBˆYˆ
-\™\ÝÜ™Q\œ›ÜœË›[™Ý
-Bˆ™[[Ý™T]™\ÝY™›Ü
-˜[œØXÝ[Û”]œ™[[Ý™H›ÛYX˜XÚÈ˜[œØXÝ[Ûˆ›Ý\›˜[‹ÛX[\\œ›ÜœÊNÂˆÛÛœÝ™\ÝÜ™Q]Z[H™\ÝÜ™Q\œ›ÜœË›[™ÝˆÈ™\ÝÜ™H[ÛÈ˜Z[Y›Üˆ	Ü™\ÝÜ™Q\œ›ÜœËš›Ú[ŠŽÈŠ_XˆˆˆÜšYÚ[˜[š[\ÈÙ\™H™\ÝÜ™Yœ›ÛH˜XÚÝ\ËˆŽÂˆÛÛœÝ˜XÚÝ\]Z[H˜XÚÝ\Îˆ	Ù[šY\Ë›X\
+function writeTransactionJournal(entries) {
+  const journalTempPath = `${transactionPath}.temp-${transactionId}`;
+  const payload = `${JSON.stringify({
+    version: 2,
+    createdAt: new Date().toISOString(),
+    entries: entries.map(({ label, filePath, backupPath, tempPath, beforeSha256, afterSha256 }) => ({
+      label,
+      filePath,
+      backupPath,
+      tempPath,
+      beforeSha256,
+      afterSha256,
+    })),
+  }, null, 2)}${os.EOL}`;
+  if (fs.existsSync(transactionPath)) {
+    throw new Error(`An interrupted cleanup transaction must be recovered first: ${transactionPath}`);
+  }
 
-[žJHOˆ[žK˜˜XÚÝ\]
-Kš›Ú[ŠŽÈŠ_K˜ÂˆÛÛ[Z]\œ›ÜˆH™]È\œ›ÜŠ]ÛZXÈÐ”ÈÛÛ™šYÝ\˜][Ûˆ\]H˜Z[Y‰Ü™\ÝÜ™Q]Z[IØ˜XÚÝ\]Z[H	ØÛÛ[Z]\œ›Ü‹›Y\ÜØYÙ_X
-NÂˆB‚ˆ›Üˆ
-ÛÛœÝ[žHÙˆ[šY\ÊBˆ™[[Ý™T]™\ÝY™›Ü
-[žK[\]™[[Ý™H[\Ü˜\žHš[H›Üˆ	Ù[žK›X™[XÛX[\\œ›ÜœÊNÂˆYˆ
-ÛÛ[Z]\œ›ÜŠH›ÝÈÚ]ÛX[\]Z[
-ÛÛ[Z]\œ›Ü‹ÛX[\\œ›ÜœÊNÂˆYˆ
-ÛX[\\œ›ÜœË›[™Ý
-Bˆ›ÝÈ™]È\œ›ÜŠÐ”ÈÛÛ™šYÝ\˜][ÛˆØ\ÈÛÛ[Z]Y][\Ü˜\žHÛX[\˜Z[Yˆ	ØÛX[\\œ›ÜœËš›Ú[ŠŽÈŠ_X
-NÂŸB‚™[˜Ý[Ûˆ\œ˜^SÙŠ˜[YJHÂˆYˆ
-]˜[YJH™]\›ˆ×NÂˆ™]\›ˆ\œ˜^Kš\Ð\œ˜^J˜[YJHÈ˜[YHˆÝ˜[YWNÂŸB‚™[˜Ý[Ûˆ\Ù\™›\YÓÜ[ÛŠÜ[ÛœËÙ^K˜[YJHÂˆÛÛœÝ[œ]HÝš[™ÊÜ[ÛœÈÏÈˆŠNÂˆÛÛœÝ˜[™Ù\ÈH×NÂˆ][™^HÂˆÚ[H
-[™^[œ]›[™Ý
-HÂˆÚ[H
-[™^[œ]›[™Ý	‰ˆ×ËË\Ý
-[œ]Ú[™^JJH[™^
-ÏHNÂˆYˆ
-[™^H[œ]›[™Ý
-Hœ™XZÎÂˆÛÛœÝÝ\H[™^Âˆ]][ÝHHˆŽÂˆ]\ØØ\YH˜[ÙNÂˆÚ[H
-[™^[œ]›[™Ý
-HÂˆÛÛœÝÚ\˜XÝ\ˆH[œ]Ú[™^NÂˆYˆ
-\ØØ\Y
-HÂˆ\ØØ\YH˜[ÙNÂˆH[ÙHYˆ
-Ú\˜XÝ\ˆOOH—ŠHÂˆ\ØØ\YHYNÂˆH[ÙHYˆ
-][ÝJHÂˆYˆ
-Ú\˜XÝ\ˆOOH][ÝJH][ÝHHˆŽÂˆH[ÙHYˆ
-Ú\˜XÝ\ˆOOH	È‰ÈÚ\˜XÝ\ˆOOH‰ÈŠHÂˆ][ÝHHÚ\˜XÝ\ŽÂˆH[ÙHYˆ
-×ËË\Ý
-Ú\˜XÝ\ŠJHÂˆœ™XZÎÂˆBˆ[™^
-ÏHNÂˆBˆ˜[™Ù\Ëœ\Ú
-ÈÝ\[™ˆ[™^JNÂˆB‚ˆÛÛœÝX]Ú[™ÈH˜[™Ù\Ë™š[\Š
-ÈÝ\[™JHOˆÂˆÛÛœÝÚÙ[ˆH[œ]œÛXÙJÝ\[™
-NÂˆÛÛœÝÙ\\˜]ÜˆHÚÙ[‹š[™^ÙŠHŠNÂˆ™]\›ˆÙ\\˜]Üˆˆ	‰ˆÚÙ[‹œÛXÙJÙ\\˜]ÜŠHOOHÙ^NÂˆJNÂˆYˆ
-[X]Ú[™Ë›[™Ý
-HÂˆYˆ
-Z[œ]
-H™]\›ˆ	ÚÙ^_OIÝ˜[Y_XÂˆ™]\›ˆ	Ú[œ]IË×ÉË\Ý
-[œ]
-HÈˆˆˆˆŸIÚÙ^_OIÝ˜[Y_XÂˆB‚ˆ]™\Ý[HˆŽÂˆ]Ý\œÛÜˆHÂˆ›Üˆ
-ÛÛœÝÈÝ\[™HÙˆX]Ú[™ÊHÂˆ™\Ý[
-ÏH[œ]œÛXÙJÝ\œÛÜ‹Ý\
-NÂˆ™\Ý[
-ÏH	ÚÙ^_OIÝ˜[Y_XÂˆÝ\œÛÜˆH[™ÂˆBˆ™]\›ˆ™\Ý[
-È[œ]œÛXÙJÝ\œÛÜŠNÂŸB‚™[˜Ý[ÛˆÛX[\ØÙ[™JØÙ[™JHÂˆÛÛœÝÚ[™Ù\ÈH×NÂ‚ˆ›Üˆ
-ÛÛœÝÛÝ\˜ÙHÙˆ\œ˜^SÙŠØÙ[™KœÛÝ\˜Ù\ÊJHÂˆYˆ
-ÛÝ\˜ÙOËšYOOH™ÚÝ×Ú[œ]ŠHÂˆÛÝ\˜ÙKœÙ][™ÜÈÏÏHßNÂˆYˆ
-ÛÝ\˜ÙKœÙ][™ÜË™XXÝ]˜]WÝÚ[—Û›ÝÜÚÝÚ[™ÈOOHYJHÂˆÛÝ\˜ÙKœÙ][™ÜË™XXÝ]˜]WÝÚ[—Û›ÝÜÚÝÚ[™ÈHYNÂˆÚ[™Ù\Ëœ\Ú
-ÚÝÈÛÝ\˜ÙH	ÉÜÛÝ\˜ÙK›˜[Y_IÈÚ[XXÝ]˜]HÚ[ˆ›ÝÚÝÚ[™Ø
-NÂˆBˆB‚ˆÛÛœÝÜ[œ]HÛÝ\˜ÙOËšYOOH™™›\Y×ÜÛÝ\˜ÙHˆÈÝš[™ÊÛÝ\˜ÙKœÙ][™ÜÏËš[œ]ÏÈˆŠHˆˆŽÂˆÛÛœÝ\ÓYØXÞTØÚÙ]ÈHÜ[œ]OOHœÜ‹ËÌNL‹ŒMŽŒLŒLŽMMÛ]™KÜØÚÙ]ÈŽÂˆÛÛœÝ\ÒÛYPØ[Y\˜HH×œÜ—×ÌNL—ŒMŽŒLŒLŽMVÍKNWÚÛYWØØ[VÌKMIË\Ý
-Ü[œ]
-NÂˆYˆ
-\ÓYØXÞTØÚÙ]È\ÒÛYPØ[Y\˜JHÂˆYˆ
-ÛÝ\˜ÙKœÙ][™ÜË˜ÛÜÙWÝÚ[—Ú[˜XÝ]™HOOHYJHÂˆÛÝ\˜ÙKœÙ][™ÜË˜ÛÜÙWÝÚ[—Ú[˜XÝ]™HHYNÂˆÚ[™Ù\Ëœ\Ú
-•ÔYYXHÛÝ\˜ÙH	ÉÜÛÝ\˜ÙK›˜[Y_IÈÚ[ÛÜÙHÚ[ˆ[˜XÝ]™X
-NÂˆBˆYˆ
-ÛÝ\˜ÙKœÙ][™ÜËœ™\Ý\ÛÛ—ØXÝ]˜]HOOHYJHÂˆÛÝ\˜ÙKœÙ][™ÜËœ™\Ý\ÛÛ—ØXÝ]˜]HHYNÂˆÚ[™Ù\Ëœ\Ú
-•ÔYYXHÛÝ\˜ÙH	ÉÜÛÝ\˜ÙK›˜[Y_IÈÚ[™\Ý\Û›HÚ[ˆXÝ]˜]Y
-NÂˆBˆYˆ
-\ÒÛYPØ[Y\˜JHÂˆÛÛœÝ™›\YÓÜ[ÛœÈH\Ù\™›\YÓÜ[ÛŠÛÝ\˜ÙKœÙ][™ÜË™™›\Y×ÛÜ[ÛœËœÜÝ˜[œÜÜ‹ÜŠNÂˆYˆ
-ÛÝ\˜ÙKœÙ][™ÜË™™›\Y×ÛÜ[ÛœÈOOH™›\YÓÜ[ÛœÊHÂˆÛÝ\˜ÙKœÙ][™ÜË™™›\Y×ÛÜ[ÛœÈH™›\YÓÜ[ÛœÎÂˆÚ[™Ù\Ëœ\Ú
-•ÔYYXHÛÝ\˜ÙH	ÉÜÛÝ\˜ÙK›˜[Y_IÈÚ[\ÙHÔ˜[œÜÜ
-NÂˆBˆBˆB‚ˆYˆ
-ÛÝ\˜ÙOË™š[\œÊHÂˆÛÛœÝš[\œÈH\œ˜^SÙŠÛÝ\˜ÙK™š[\œÊNÂˆÛÛœÝÙ\Hš[\œË™š[\Š
-š[\ŠHOˆJš[\ËšYOOH›šYXWØ]Y[ÙžÙš[\ˆˆ	‰ˆš[\‹™[˜X›YOOH˜[ÙJJNÂˆYˆ
-Ù\›[™ÝOOHš[\œË›[™Ý
-HÂˆÚ[™Ù\Ëœ\Ú
-™[[Ý™Y\ØX›Y•’QPH]Y[ÈY™™XÝÈš[\ˆœ›ÛH	ÉÜÛÝ\˜ÙK›˜[Y_IØ
-NÂˆYˆ
-Ù\›[™Ýˆ
-HÂˆÛÝ\˜ÙK™š[\œÈHÙ\ÂˆH[ÙHÂˆ[]HÛÝ\˜ÙK™š[\œÎÂˆBˆBˆBˆB‚ˆ™]\›ˆÚ[™Ù\ÎÂŸB‚™[˜Ý[ÛˆÛX[\[Ù[\Ê[Ù[\ÊHÂˆÛÛœÝÚ[™Ù\ÈH×NÂˆÛÛœÝžS˜[YHH™]ÈX\
-[Ù[\Ë›X\
+  let journalError;
+  try {
+    const handle = fs.openSync(journalTempPath, "wx");
+    try {
+      fs.writeFileSync(handle, payload, "utf8");
+      fs.fsyncSync(handle);
+    } finally {
+      fs.closeSync(handle);
+    }
+    JSON.parse(fs.readFileSync(journalTempPath, "utf8"));
+    fs.renameSync(journalTempPath, transactionPath);
+    fsyncFile(transactionPath);
+  } catch (error) {
+    journalError = error;
+  }
+  const cleanupErrors = [];
+  removePathBestEffort(journalTempPath, "remove transaction journal temporary file", cleanupErrors);
+  if (journalError) throw withCleanupDetail(journalError, cleanupErrors);
+  if (cleanupErrors.length)
+    throw new Error(`Transaction journal was written, but temporary cleanup failed: ${cleanupErrors.join("; ")}`);
+}
 
-[Ù[JHOˆÛ[Ù[K›[Ù[WÛ˜[YK[Ù[WJJNÂ‚ˆ›Üˆ
-ÛÛœÝ[Ù[S˜[YHÙˆ\ØX›Y[Ù[\ÊHÂˆÛÛœÝ^\Ý[™ÈHžS˜[YK™Ù]
-[Ù[S˜[YJNÂˆYˆ
-^\Ý[™ÊHÂˆYˆ
-^\Ý[™Ë™[˜X›YOOH˜[ÙJHÂˆ^\Ý[™Ë™[˜X›YH˜[ÙNÂˆÚ[™Ù\Ëœ\Ú
-\ØX›Y[\ÙYÐ”È[Ù[H	ÉÛ[Ù[S˜[Y_IØ
-NÂˆBˆÛÛ[YNÂˆB‚ˆ[Ù[\Ëœ\Ú
-Âˆ\Ü^WÛ˜[YNˆˆ‹ˆ[˜X›Yˆ˜[ÙKˆ[˜ÛÙ\œÎˆ×KˆYˆˆ‹ˆ[Ù[WÛ˜[YNˆ[Ù[S˜[YKˆÝ]]Îˆ×KˆÙ\šXÙ\Îˆ×KˆÛÝ\˜Ù\Îˆ×Kˆ™\œÚ[ÛŽˆˆ‹ˆJNÂˆÚ[™Ù\Ëœ\Ú
-YY\ØX›Y[žH›Üˆ[\ÙYÐ”È[Ù[H	ÉÛ[Ù[S˜[Y_IØ
-NÂˆB‚ˆ™]\›ˆÚ[™Ù\ÎÂŸB‚˜ÛÛœÝ™\ÜH]ØZ]Ú]\SØÚÊ
-Ý[SØÚÔ™XÛÝ™\žJHOˆÂˆYˆ
-žT[ˆ	‰ˆœË™^\ÝÔÞ[˜Ê˜[œØXÝ[Û”]
-JHÂˆ›ÝÈ™]È\œ›ÜŠ[ˆ[\œ\YÛX[\˜[œØXÝ[Ûˆ\È[™[™ËˆÛÜÙHÐ”È[™[ˆÚ]KX\HÈ™XÛÝ™\ˆ]ˆ	Ý˜[œØXÝ[Û”]X
-NÂˆBˆYˆ
-YžT[ˆ	‰ˆ\ÓØœÔ[›š[™Ê
-JHÂˆ›ÝÈ™]È\œ›ÜŠ“Ð”È\È[›š[™ËˆÛÜÙHÐ”È™Y›Ü™H\Z[™ÈØÙ[™HÛX[\Üˆ\ÙHKYžK\[ˆÈ[œÜXÝÚ[™Ù\ËˆŠNÂˆBˆÛÛœÝ™XÛÝ™\™Y[šY\ÈHžT[ˆÈ×Hˆ™XÛÝ™\’[\œ\Y˜[œØXÝ[ÛŠ
-NÂ‚ˆÛÛœÝØÙ[™TÛ˜\ÚÝH™XYœÛÛ”Û˜\ÚÝ
-ØÙ[™T]
-NÂˆÛÛœÝ[Ù[\ÔÛ˜\ÚÝH™XYœÛÛ”Û˜\ÚÝ
-[Ù[\Ô]
-NÂˆÛÛœÝØÙ[™HHØÙ[™TÛ˜\ÚÝ˜[YNÂˆÛÛœÝ[Ù[\ÈH[Ù[\ÔÛ˜\ÚÝ˜[YNÂˆÛÛœÝØÙ[™PÚ[™Ù\ÈHÛX[\ØÙ[™JØÙ[™JNÂˆÛÛœÝ[Ù[PÚ[™Ù\ÈHÛX[\[Ù[\Ê[Ù[\ÊNÂ‚ˆÛÛœÝ™\\™YÜš]\ÈH×NÂˆYˆ
-YžT[ŠHÂˆ]ÛÛ[Z]Ý\YH˜[ÙNÂˆžHÂˆYˆ
-ØÙ[™PÚ[™Ù\Ë›[™Ý
-Bˆ™\\™YÜš]\Ëœ\Ú
-™\\™RœÛÛ•Üš]JØÙ[™T]ØÙ[™KœØÙ[™H‹ØÙ[™TÛ˜\ÚÝœÚLMŠJNÂˆYˆ
-[Ù[PÚ[™Ù\Ë›[™Ý
-Bˆ™\\™YÜš]\Ëœ\Ú
-™\\™RœÛÛ•Üš]J[Ù[\Ô][Ù[\Ë›[Ù[\È‹[Ù[\ÔÛ˜\ÚÝœÚLMŠJNÂˆYˆ
-™\\™YÜš]\Ë›[™Ý	‰ˆ\ÓØœÔ[›š[™Ê
-JHÂˆ›ÝÈ™]È\œ›ÜŠ“Ð”ÈÝ\YÚ[HÛX[\Ø\È™Z[™È™\\™YÈ›ÈÛÛ™šYÝ\˜][ÛˆÚ[™Ù\ÈÙ\™HÛÛ[Z]YˆŠNÂˆBˆÛÛ[Z]Ý\YHYNÂˆÛÛ[Z]œÛÛ•Üš]\Ê™\\™YÜš]\ÊNÂˆHØ]Ú
-\œ›ÜŠHÂˆÛÛœÝÛX[\\œ›ÜœÈH×NÂˆ›Üˆ
-ÛÛœÝ[žHÙˆ™\\™YÜš]\ÊHÂˆ™[[Ý™T]™\ÝY™›Ü
-[žK[\]™[[Ý™H[˜ÛÛ[Z]Y[\Ü˜\žHš[H›Üˆ	Ù[žK›X™[XÛX[\\œ›ÜœÊNÂˆYˆ
-XÛÛ[Z]Ý\Y
-Bˆ™[[Ý™T]™\ÝY™›Ü
-[žK˜˜XÚÝ\]™[[Ý™H[\ÙY˜XÚÝ\›Üˆ	Ù[žK›X™[XÛX[\\œ›ÜœÊNÂˆBˆ›ÝÈÚ]ÛX[\]Z[
-\œ›Ü‹ÛX[\\œ›ÜœÊNÂˆBˆB‚ˆÛÛœÝ˜XÚÝ\ÈH™\\™YÜš]\Ë›X\
+function recoverInterruptedTransaction() {
+  if (!fs.existsSync(transactionPath)) return [];
 
-ÈX™[š[T]˜XÚÝ\]JHOˆ
-ÈX™[š[T]˜XÚÝ\]JJNÂˆ™]\›ˆÂˆØÙ[™T]ˆ[Ù[\Ô]ˆžT[‹ˆ™XÛÝ™\™Y[\œ\Y˜[œØXÝ[ÛŽˆ™XÛÝ™\™Y[šY\Ë›[™Ýˆˆ™XÛÝ™\™Y˜[œØXÝ[Û˜XÚÝ\Îˆ™XÛÝ™\™Y[šY\Ë›X\
+  const journal = readJson(transactionPath);
+  if (journal.version !== 2 || !Array.isArray(journal.entries) || journal.entries.length === 0)
+    throw new Error(`Interrupted cleanup journal is invalid: ${transactionPath}`);
+  const entries = journal.entries.map(validateTransactionEntry);
+  const targetKeys = entries.map((entry) => entry.filePath.toLowerCase());
+  if (new Set(targetKeys).size !== targetKeys.length)
+    throw new Error("Interrupted cleanup journal contains duplicate target files; refusing automatic recovery.");
 
-ÈX™[˜XÚÝ\]JHOˆ
-ÈX™[˜XÚÝ\]JJKˆ™XÛZ[YYÝ[SØÚÎˆÝ[SØÚÔ™XÛÝ™\žKœ™XÛZ[YYÝ[SØÚËˆ™[[Ý™YÝ[P\Y˜XÝÎˆÝ[SØÚÔ™XÛÝ™\žKœ™[[Ý™Y\Y˜XÝËˆ™]Z[™YÝ[P˜XÚÝ\ÎˆÝ[SØÚÔ™XÛÝ™\žKœ™]Z[™Y˜XÚÝ\ËˆÚ[™Ù\ÎˆË‹‹œØÙ[™PÚ[™Ù\Ë‹‹›[Ù[PÚ[™Ù\×Kˆ˜XÚÝ\ËˆNÂŸJNÂ‚˜ÛÛœÛÛK›ÙÊˆ”ÓÓ‹œÝš[™ÚYžJˆ™\Üˆ[ˆ‹ˆ
-KŠNÂ
+  const validationErrors = [];
+  for (const entry of entries) {
+    try {
+      if (!fs.existsSync(entry.backupPath))
+        throw new Error(`backup missing: ${entry.backupPath}`);
+      if (fileSha256(entry.backupPath) !== entry.beforeSha256)
+        throw new Error(`backup hash changed: ${entry.backupPath}`);
+      if (!fs.existsSync(entry.filePath))
+        throw new Error(`target missing: ${entry.filePath}`);
+      const currentSha256 = fileSha256(entry.filePath);
+      if (currentSha256 !== entry.beforeSha256 && currentSha256 !== entry.afterSha256)
+        throw new Error(`target changed outside the interrupted transaction: ${entry.filePath}`);
+    } catch (error) {
+      validationErrors.push(`${entry.label}: ${error.message}`);
+    }
+  }
+  if (validationErrors.length) {
+    throw new Error(`Interrupted OBS cleanup needs manual resolution; no files were restored. ${validationErrors.join("; ")}`);
+  }
+
+  const restoreErrors = [];
+  for (const entry of [...entries].reverse()) {
+    try {
+      const currentSha256 = fileSha256(entry.filePath);
+      if (currentSha256 === entry.afterSha256)
+        restoreBackupAtomically(entry, entry.afterSha256);
+      else if (currentSha256 !== entry.beforeSha256)
+        throw new Error(`target changed during recovery: ${entry.filePath}`);
+    } catch (error) {
+      restoreErrors.push(`${entry.label}: ${error.message}`);
+    }
+  }
+  if (restoreErrors.length) {
+    throw new Error(`Interrupted OBS cleanup recovery failed; the journal was retained. ${restoreErrors.join("; ")}`);
+  }
+
+  const cleanupErrors = [];
+  for (const entry of entries)
+    removePathBestEffort(entry.tempPath, `remove interrupted temporary file for ${entry.label}`, cleanupErrors);
+  removePathBestEffort(transactionPath, "remove recovered transaction journal", cleanupErrors);
+  if (cleanupErrors.length)
+    throw new Error(`Interrupted OBS cleanup was restored, but recovery cleanup failed: ${cleanupErrors.join("; ")}`);
+  return entries;
+}
+
+function validatePreparedEntry(entry) {
+  if (!fs.existsSync(entry.filePath) || fileSha256(entry.filePath) !== entry.beforeSha256)
+    throw new Error(`${entry.label} changed while cleanup was being prepared; refusing to overwrite it.`);
+  if (!fs.existsSync(entry.backupPath) || fileSha256(entry.backupPath) !== entry.beforeSha256)
+    throw new Error(`${entry.label} backup no longer matches the source snapshot.`);
+  if (!fs.existsSync(entry.tempPath) || fileSha256(entry.tempPath) !== entry.afterSha256)
+    throw new Error(`${entry.label} temporary update no longer matches the prepared payload.`);
+}
+
+function commitJsonWrites(entries) {
+  if (!entries.length) return;
+  const committed = [];
+  let commitError;
+  try {
+    for (const entry of entries)
+      validatePreparedEntry(entry);
+    writeTransactionJournal(entries);
+    for (const entry of entries) {
+      validatePreparedEntry(entry);
+      fs.renameSync(entry.tempPath, entry.filePath);
+      committed.push(entry);
+      fsyncFile(entry.filePath);
+    }
+    fs.rmSync(transactionPath);
+  } catch (error) {
+    commitError = error;
+  }
+
+  const cleanupErrors = [];
+  if (commitError) {
+    const restoreErrors = [];
+    for (const entry of committed.reverse()) {
+      try {
+        if (!fs.existsSync(entry.filePath))
+          throw new Error("target is missing after commit");
+        const currentSha256 = fileSha256(entry.filePath);
+        if (currentSha256 === entry.afterSha256)
+          restoreBackupAtomically(entry, entry.afterSha256);
+        else if (currentSha256 !== entry.beforeSha256)
+          throw new Error("target changed after commit; automatic rollback was skipped to preserve the newer file");
+      } catch (restoreError) {
+        restoreErrors.push(`${entry.label}: ${restoreError.message}`);
+      }
+    }
+    if (!restoreErrors.length)
+      removePathBestEffort(transactionPath, "remove rolled-back transaction journal", cleanupErrors);
+    const restoreDetail = restoreErrors.length
+      ? ` Restore also failed for ${restoreErrors.join("; ")}`
+      : " Original files were restored from backups.";
+    const backupDetail = ` Backups: ${entries.map((entry) => entry.backupPath).join("; ")}.`;
+    commitError = new Error(`Atomic OBS configuration update failed.${restoreDetail}${backupDetail} ${commitError.message}`);
+  }
+
+  for (const entry of entries)
+    removePathBestEffort(entry.tempPath, `remove temporary file for ${entry.label}`, cleanupErrors);
+  if (commitError) throw withCleanupDetail(commitError, cleanupErrors);
+  if (cleanupErrors.length)
+    throw new Error(`OBS configuration was committed, but temporary cleanup failed: ${cleanupErrors.join("; ")}`);
+}
+
+function arrayOf(value) {
+  if (!value) return [];
+  return Array.isArray(value) ? value : [value];
+}
+
+function upsertFfmpegOption(options, key, value) {
+  const input = String(options ?? "");
+  const ranges = [];
+  let index = 0;
+  while (index < input.length) {
+    while (index < input.length && /\s/.test(input[index])) index += 1;
+    if (index >= input.length) break;
+    const start = index;
+    let quote = "";
+    let escaped = false;
+    while (index < input.length) {
+      const character = input[index];
+      if (escaped) {
+        escaped = false;
+      } else if (character === "\\") {
+        escaped = true;
+      } else if (quote) {
+        if (character === quote) quote = "";
+      } else if (character === '"' || character === "'") {
+        quote = character;
+      } else if (/\s/.test(character)) {
+        break;
+      }
+      index += 1;
+    }
+    ranges.push({ start, end: index });
+  }
+
+  const matching = ranges.filter(({ start, end }) => {
+    const token = input.slice(start, end);
+    const separator = token.indexOf("=");
+    return separator > 0 && token.slice(0, separator) === key;
+  });
+  if (!matching.length) {
+    if (!input) return `${key}=${value}`;
+    return `${input}${/\s$/.test(input) ? "" : " "}${key}=${value}`;
+  }
+
+  let result = "";
+  let cursor = 0;
+  for (const { start, end } of matching) {
+    result += input.slice(cursor, start);
+    result += `${key}=${value}`;
+    cursor = end;
+  }
+  return result + input.slice(cursor);
+}
+
+function cleanupScene(scene) {
+  const changes = [];
+
+  for (const source of arrayOf(scene.sources)) {
+    if (source?.id === "dshow_input") {
+      source.settings ??= {};
+      if (source.settings.deactivate_when_not_showing !== true) {
+        source.settings.deactivate_when_not_showing = true;
+        changes.push(`DShow source '${source.name}' will deactivate when not showing`);
+      }
+    }
+
+    const rtspInput = source?.id === "ffmpeg_source" ? String(source.settings?.input ?? "") : "";
+    const isLegacyPocket3 = rtspInput === "rtsp://192.168.100.10:8554/live/pocket3";
+    const isHomeCamera = /^rtsp:\/\/192\.168\.100\.10:855[5-8]\/home\/cam[1-4]$/.test(rtspInput);
+    if (isLegacyPocket3 || isHomeCamera) {
+      if (source.settings.close_when_inactive !== true) {
+        source.settings.close_when_inactive = true;
+        changes.push(`RTSP media source '${source.name}' will close when inactive`);
+      }
+      if (source.settings.restart_on_activate !== true) {
+        source.settings.restart_on_activate = true;
+        changes.push(`RTSP media source '${source.name}' will restart only when activated`);
+      }
+      if (isHomeCamera) {
+        const ffmpegOptions = upsertFfmpegOption(source.settings.ffmpeg_options, "rtsp_transport", "tcp");
+        if (source.settings.ffmpeg_options !== ffmpegOptions) {
+          source.settings.ffmpeg_options = ffmpegOptions;
+          changes.push(`RTSP media source '${source.name}' will use TCP transport`);
+        }
+      }
+    }
+
+    if (source?.filters) {
+      const filters = arrayOf(source.filters);
+      const kept = filters.filter((filter) => !(filter?.id === "nvidia_audiofx_filter" && filter.enabled === false));
+      if (kept.length !== filters.length) {
+        changes.push(`Removed disabled NVIDIA Audio Effects filter from '${source.name}'`);
+        if (kept.length > 0) {
+          source.filters = kept;
+        } else {
+          delete source.filters;
+        }
+      }
+    }
+  }
+
+  return changes;
+}
+
+function cleanupModules(modules) {
+  const changes = [];
+  const byName = new Map(modules.map((module) => [module.module_name, module]));
+
+  for (const moduleName of disabledModules) {
+    const existing = byName.get(moduleName);
+    if (existing) {
+      if (existing.enabled !== false) {
+        existing.enabled = false;
+        changes.push(`Disabled unused OBS module '${moduleName}'`);
+      }
+      continue;
+    }
+
+    modules.push({
+      display_name: "",
+      enabled: false,
+      encoders: [],
+      id: "",
+      module_name: moduleName,
+      outputs: [],
+      services: [],
+      sources: [],
+      version: "",
+    });
+    changes.push(`Added disabled entry for unused OBS module '${moduleName}'`);
+  }
+
+  return changes;
+}
+
+const report = await withApplyLock((staleLockRecovery) => {
+  if (dryRun && fs.existsSync(transactionPath)) {
+    throw new Error(`An interrupted cleanup transaction is pending. Close OBS and run with --apply to recover it: ${transactionPath}`);
+  }
+  if (!dryRun && isObsRunning()) {
+    throw new Error("OBS is running. Close OBS before applying scene cleanup, or use --dry-run to inspect changes.");
+  }
+  const recoveredEntries = dryRun ? [] : recoverInterruptedTransaction();
+
+  const sceneSnapshot = readJsonSnapshot(scenePath);
+  const modulesSnapshot = readJsonSnapshot(modulesPath);
+  const scene = sceneSnapshot.value;
+  const modules = modulesSnapshot.value;
+  const sceneChanges = cleanupScene(scene);
+  const moduleChanges = cleanupModules(modules);
+
+  const preparedWrites = [];
+  if (!dryRun) {
+    let commitStarted = false;
+    try {
+      if (sceneChanges.length)
+        preparedWrites.push(prepareJsonWrite(scenePath, scene, "scene", sceneSnapshot.sha256));
+      if (moduleChanges.length)
+        preparedWrites.push(prepareJsonWrite(modulesPath, modules, "modules", modulesSnapshot.sha256));
+      if (preparedWrites.length && isObsRunning()) {
+        throw new Error("OBS started while cleanup was being prepared; no configuration changes were committed.");
+      }
+      commitStarted = true;
+      commitJsonWrites(preparedWrites);
+    } catch (error) {
+      const cleanupErrors = [];
+      for (const entry of preparedWrites) {
+        removePathBestEffort(entry.tempPath, `remove uncommitted temporary file for ${entry.label}`, cleanupErrors);
+        if (!commitStarted)
+          removePathBestEffort(entry.backupPath, `remove unused backup for ${entry.label}`, cleanupErrors);
+      }
+      throw withCleanupDetail(error, cleanupErrors);
+    }
+  }
+
+  const backups = preparedWrites.map(({ label, filePath, backupPath }) => ({ label, filePath, backupPath }));
+  return {
+    scenePath,
+    modulesPath,
+    dryRun,
+    recoveredInterruptedTransaction: recoveredEntries.length > 0,
+    recoveredTransactionBackups: recoveredEntries.map(({ label, backupPath }) => ({ label, backupPath })),
+    reclaimedStaleLock: staleLockRecovery.reclaimedStaleLock,
+    removedStaleArtifacts: staleLockRecovery.removedArtifacts,
+    retainedStaleBackups: staleLockRecovery.retainedBackups,
+    changes: [...sceneChanges, ...moduleChanges],
+    backups,
+  };
+});
+
+console.log(
+  JSON.stringify(
+    report,
+    null,
+    2,
+  ),
+);

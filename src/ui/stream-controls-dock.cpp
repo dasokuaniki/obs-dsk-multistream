@@ -402,7 +402,46 @@ bool StreamControlsDock::isYouTubeBroadcastRequestCurrent(const YouTubeBroadcast
 	       state->selectionGeneration == request.selectionGeneration;
 }
 
-void StreamControlsDock::discardStaleãßm¢G§²ÚîÆ­yÑuest request = pendingYouTubeBroadcastSelections_.first();
+void StreamControlsDock::discardStaleYouTubeBroadcastSelections()
+{
+	for (auto state = youtubeBroadcastLatestGenerations_.begin(); state != youtubeBroadcastLatestGenerations_.end();) {
+		YouTubeBroadcastSelectionRequest request;
+		request.targetId = state.key();
+		request.sessionSerial = state->sessionSerial;
+		if (!isYouTubeBroadcastSessionCurrent(request))
+			state = youtubeBroadcastLatestGenerations_.erase(state);
+		else
+			++state;
+	}
+
+	for (int i = pendingYouTubeBroadcastSelections_.size() - 1; i >= 0; --i) {
+		if (!isYouTubeBroadcastRequestCurrent(pendingYouTubeBroadcastSelections_.at(i)))
+			pendingYouTubeBroadcastSelections_.removeAt(i);
+	}
+
+	if (youtubeBroadcastDialog_ && !isYouTubeBroadcastRequestCurrent(activeYouTubeBroadcastSelection_))
+		youtubeBroadcastDialog_->reject();
+}
+
+void StreamControlsDock::refreshYouTubeBroadcastDialog(const YouTubeBroadcastSelectionRequest &request)
+{
+	if (!youtubeBroadcastDialog_ || request.labels.isEmpty())
+		return;
+	const QString selected = youtubeBroadcastDialog_->textValue();
+	activeYouTubeBroadcastSelection_ = request;
+	youtubeBroadcastDialog_->setComboBoxItems(request.labels);
+	youtubeBroadcastDialog_->setTextValue(request.labels.contains(selected) ? selected : request.labels.first());
+	youtubeBroadcastDialog_->raise();
+	youtubeBroadcastDialog_->activateWindow();
+}
+
+void StreamControlsDock::showNextYouTubeBroadcastSelection()
+{
+	if (youtubeBroadcastDialog_)
+		return;
+
+	while (!pendingYouTubeBroadcastSelections_.isEmpty()) {
+		const YouTubeBroadcastSelectionRequest request = pendingYouTubeBroadcastSelections_.first();
 		pendingYouTubeBroadcastSelections_.removeAt(0);
 		if (!isYouTubeBroadcastRequestCurrent(request))
 			continue;
