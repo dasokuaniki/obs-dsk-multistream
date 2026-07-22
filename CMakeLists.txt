@@ -33,6 +33,7 @@ endif()
 
 option(DSK_ENABLE_OBS_CANVAS_API "Enable OBS canvas API path for real vertical video output" ON)
 option(DSK_BUILD_TESTS "Build DSK non-OBS smoke tests" ON)
+option(DSK_INCLUDE_E2E_HOOKS "Compile OBS E2E automation hooks into the plugin" OFF)
 set(DSK_TEST_RUNTIME_DIR "" CACHE PATH "Signed OBS runtime directory used by Windows tests")
 set(DSK_OAUTH_APP_CONFIG "" CACHE FILEPATH "Publisher OAuth application JSON used at build time")
 if(WIN32 AND NOT DSK_TEST_RUNTIME_DIR AND IS_DIRECTORY "C:/Program Files/obs-studio/bin/64bit")
@@ -99,8 +100,6 @@ target_sources(
     src/plugin-main.cpp
     src/core/diagnostics.cpp
     src/core/diagnostics.hpp
-    src/core/e2e-auto-runner.cpp
-    src/core/e2e-auto-runner.hpp
     src/core/encoder-profile-manager.cpp
     src/core/encoder-profile-manager.hpp
     src/core/experimental-features.hpp
@@ -150,7 +149,21 @@ target_sources(
     src/ui/target-edit-dialog.hpp
     src/ui/vertical-layout-editor.cpp
     src/ui/vertical-layout-editor.hpp
+    src/core/stable-id-order.hpp
+    src/ui/vertical-source-icon.cpp
+    src/ui/vertical-source-icon.hpp
+    src/ui/vertical-source-icon-loader.hpp
 )
+
+if(DSK_INCLUDE_E2E_HOOKS)
+  target_sources(
+    obs-dsk-multistream
+    PRIVATE
+      src/core/e2e-auto-runner.cpp
+      src/core/e2e-auto-runner.hpp
+  )
+  target_compile_definitions(obs-dsk-multistream PRIVATE DSK_INCLUDE_E2E_HOOKS)
+endif()
 
 target_include_directories(obs-dsk-multistream PRIVATE src "${DSK_GENERATED_INCLUDE_DIR}")
 
@@ -260,6 +273,7 @@ if(DSK_BUILD_TESTS)
     COMMAND
       "${CMAKE_COMMAND}"
       "-DPLUGIN_MAIN=${CMAKE_CURRENT_SOURCE_DIR}/src/plugin-main.cpp"
+      "-DCOMMENT_VIEWER_INTEGRATION_CPP=${CMAKE_CURRENT_SOURCE_DIR}/src/integration/comment-viewer-integration.cpp"
       -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/no-tools-menu-test.cmake"
   )
   set_tests_properties(dsk-no-tools-menu-test PROPERTIES LABELS "unit;ui;no-obs")
@@ -274,6 +288,51 @@ if(DSK_BUILD_TESTS)
       -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/no-comment-viewer-setting-test.cmake"
   )
   set_tests_properties(dsk-no-comment-viewer-setting-test PROPERTIES LABELS "unit;ui;no-obs")
+
+  add_test(
+    NAME dsk-stream-controls-refresh-test
+    COMMAND
+      "${CMAKE_COMMAND}"
+      "-DSTREAM_CONTROLS_CPP=${CMAKE_CURRENT_SOURCE_DIR}/src/ui/stream-controls-dock.cpp"
+      -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/stream-controls-refresh-test.cmake"
+  )
+  set_tests_properties(dsk-stream-controls-refresh-test PROPERTIES LABELS "unit;ui;performance;no-obs")
+
+  add_test(
+    NAME dsk-streaming-dock-surface-test
+    COMMAND
+      "${CMAKE_COMMAND}"
+      "-DMAIN_DOCK_CPP=${CMAKE_CURRENT_SOURCE_DIR}/src/ui/main-dock.cpp"
+      "-DMAIN_DOCK_HPP=${CMAKE_CURRENT_SOURCE_DIR}/src/ui/main-dock.hpp"
+      "-DSTREAM_CONTROLS_CPP=${CMAKE_CURRENT_SOURCE_DIR}/src/ui/stream-controls-dock.cpp"
+      "-DSTREAM_CONTROLS_HPP=${CMAKE_CURRENT_SOURCE_DIR}/src/ui/stream-controls-dock.hpp"
+      -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/streaming-dock-surface-test.cmake"
+  )
+  set_tests_properties(dsk-streaming-dock-surface-test PROPERTIES LABELS "unit;ui;no-obs")
+
+  add_test(
+    NAME dsk-vertical-list-actions-test
+    COMMAND
+      "${CMAKE_COMMAND}"
+      "-DVERTICAL_EDITOR_CPP=${CMAKE_CURRENT_SOURCE_DIR}/src/ui/vertical-layout-editor.cpp"
+      -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/vertical-list-actions-test.cmake"
+  )
+  set_tests_properties(dsk-vertical-list-actions-test PROPERTIES LABELS "unit;ui;no-obs")
+
+  add_test(
+    NAME dsk-release-e2e-hooks-test
+    COMMAND
+      "${CMAKE_COMMAND}"
+      "-DCMAKE_LIST=${CMAKE_CURRENT_SOURCE_DIR}/CMakeLists.txt"
+      "-DPLUGIN_MAIN=${CMAKE_CURRENT_SOURCE_DIR}/src/plugin-main.cpp"
+      "-DVERTICAL_EDITOR_HPP=${CMAKE_CURRENT_SOURCE_DIR}/src/ui/vertical-layout-editor.hpp"
+      "-DVERTICAL_EDITOR_CPP=${CMAKE_CURRENT_SOURCE_DIR}/src/ui/vertical-layout-editor.cpp"
+      "-DINSTALLER_SCRIPT=${CMAKE_CURRENT_SOURCE_DIR}/scripts/build-windows-installer.ps1"
+      "-DPLUGIN_DLL=$<TARGET_FILE:obs-dsk-multistream>"
+      "-DHOOKS_ENABLED=${DSK_INCLUDE_E2E_HOOKS}"
+      -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/release-e2e-hooks-test.cmake"
+  )
+  set_tests_properties(dsk-release-e2e-hooks-test PROPERTIES LABELS "unit;packaging;no-obs")
 
   add_executable(
     dsk-ui-smoke-tests

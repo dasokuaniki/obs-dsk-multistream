@@ -1805,6 +1805,11 @@ bool OutputManager::moveVerticalScene(const QString &id, int offset)
 	return layouts_.moveVerticalScene(id, offset) && saveVerticalLayout();
 }
 
+bool OutputManager::reorderVerticalScenes(const QVector<QString> &orderedIds)
+{
+	return layouts_.reorderVerticalScenes(orderedIds) && saveVerticalLayout();
+}
+
 EncoderProfile OutputManager::effectiveProfileForTarget(const OutputTarget &target) const
 {
 	EncoderProfile profile = encoders_.profileFor(target.encoderGroup);

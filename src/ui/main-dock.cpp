@@ -11,11 +11,11 @@
 
 #include <QAbstractItemView>
 #include <QActionGroup>
+#include <QDockWidget>
 #include <QFrame>
 #include <QHeaderView>
 #include <QHBoxLayout>
 #include <QIcon>
-#include <QLabel>
 #include <QMenu>
 #include <QMessageBox>
 #include <QPainter>
@@ -236,18 +236,8 @@ MainDock::MainDock(OutputManager *manager, QWidget *parent)
 	  manager_(manager)
 {
 	auto *layout = new QVBoxLayout(this);
-	layout->setContentsMargins(4, 4, 4, 4);
-	layout->setSpacing(4);
-
-	auto *topbar = new QHBoxLayout();
-	topbar->setContentsMargins(0, 0, 0, 0);
-	topbar->setSpacing(4);
-
-	pageTitle_ = new QLabel(QStringLiteral("Controls"), this);
-	pageTitle_->setObjectName(QStringLiteral("dskStreamingPageTitle"));
-	auto pageTitleFont = pageTitle_->font();
-	pageTitleFont.setBold(true);
-	pageTitle_->setFont(pageTitleFont);
+	layout->setContentsMargins(2, 2, 2, 2);
+	layout->setSpacing(2);
 
 	menuButton_ = new QToolButton(this);
 	menuButton_->setObjectName(QStringLiteral("dskStreamingMenu"));
@@ -256,11 +246,7 @@ MainDock::MainDock(OutputManager *manager, QWidget *parent)
 	menuButton_->setAccessibleName(QStringLiteral("DSK Streaming menu"));
 	menuButton_->setPopupMode(QToolButton::InstantPopup);
 	menuButton_->setAutoRaise(true);
-	menuButton_->setFixedSize(28, 28);
-
-	topbar->addWidget(pageTitle_);
-	topbar->addStretch(1);
-	topbar->addWidget(menuButton_);
+	menuButton_->setFixedSize(24, 24);
 
 	table_ = new QTableWidget(this);
 	table_->setColumnCount(5);
@@ -347,13 +333,21 @@ MainDock::MainDock(OutputManager *manager, QWidget *parent)
 		addPageAction(QStringLiteral("Scene Routing (Experimental)"), sceneRouter_);
 	menuButton_->setMenu(pageMenu);
 
-	layout->addLayout(topbar);
 	layout->addWidget(pages_, 1);
+	auto *navigationBar = new QHBoxLayout();
+	navigationBar->setContentsMargins(0, 0, 0, 0);
+	navigationBar->setSpacing(0);
+	navigationBar->addWidget(menuButton_);
+	navigationBar->addStretch(1);
+	layout->addLayout(navigationBar);
 
 	connect(manager_, &OutputManager::targetsChanged, this, &MainDock::scheduleRefresh, Qt::QueuedConnection);
 	connect(manager_, &OutputManager::targetRuntimeChanged, this, &MainDock::scheduleRefresh, Qt::QueuedConnection);
 
-	QTimer::singleShot(0, this, [this]() { scheduleRefresh(); });
+	QTimer::singleShot(0, this, [this]() {
+		updateDockTitle(currentPageTitle_);
+		scheduleRefresh();
+	});
 	QTimer::singleShot(1000, this, [this]() {
 		editArmed_ = true;
 		updateActionStates();
@@ -369,6 +363,7 @@ void MainDock::handleObsNativeStreamingStateChanged(bool active)
 void MainDock::showEvent(QShowEvent *event)
 {
 	QWidget::showEvent(event);
+	updateDockTitle(currentPageTitle_);
 	if (pages_ && pages_->currentWidget() == targetsPage_ && targetRefreshGate_.isDirty())
 		scheduleRefresh();
 }
@@ -459,10 +454,22 @@ void MainDock::showPage(QWidget *page, const QString &title)
 	if (!pages_ || !page)
 		return;
 	pages_->setCurrentWidget(page);
-	if (pageTitle_)
-		pageTitle_->setText(title);
+	currentPageTitle_ = title;
+	updateDockTitle(title);
 	if (page == targetsPage_)
 		scheduleRefresh();
+}
+
+void MainDock::updateDockTitle(const QString &pageTitle)
+{
+	Q_UNUSED(pageTitle);
+	const QString dockTitle = QStringLiteral("DSK Streaming");
+	for (QWidget *ancestor = parentWidget(); ancestor; ancestor = ancestor->parentWidget()) {
+		if (auto *dock = qobject_cast<QDockWidget *>(ancestor)) {
+			dock->setWindowTitle(dockTitle);
+			return;
+		}
+	}
 }
 
 void MainDock::updateActionStates()

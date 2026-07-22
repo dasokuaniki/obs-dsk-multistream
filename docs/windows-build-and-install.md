@@ -60,7 +60,7 @@ powershell.exe -ExecutionPolicy Bypass -File scripts\configure-windows.ps1 -ObsP
 }
 ```
 
-The configure step validates the values and generates `build\windows-x64-sdk3\generated\oauth-publisher-config.hpp`. Keep both the JSON and generated build tree out of source control and release archives. If the argument is omitted in this workspace, `scripts\configure-windows.ps1` detects the existing DSK Comment Viewer publisher config. Use `-DisableBundledOAuth` to explicitly produce a build with no publisher config; that build remains compatible but requires `Use custom Google OAuth app` for YouTube login.
+The configure step validates the values and generates `build\windows-x64-sdk3\generated\oauth-publisher-config.hpp`. Keep both the JSON and generated build tree out of source control and release archives. The config path must be supplied explicitly with `-OAuthAppConfig` or `DSK_OAUTH_APP_CONFIG`; the build never searches neighboring workspaces for credentials. Use `-DisableBundledOAuth` to explicitly produce a build with no publisher config; that build remains compatible but requires `Use custom Google OAuth app` for YouTube login.
 
 Then build:
 
@@ -123,6 +123,8 @@ Install Inno Setup 7, then build the plugin and run:
 powershell.exe -ExecutionPolicy Bypass -File scripts\build-windows-installer.ps1 -BuildDir build\windows-x64-sdk3
 ```
 
+The packaging script rejects build trees or DLLs that contain E2E automation hooks. If this build directory was used for OBS-integrated E2E testing, run the normal configure command again without `-EnableE2eHooks` and rebuild before packaging.
+
 The script stages only the runtime DLL, locale files, platform presets, and a SHA-256 manifest. It validates the staged layout, rejects development artifacts, compiles the installer without warnings, and writes:
 
 ```text
@@ -170,6 +172,8 @@ The script starts an `ffmpeg -listen 1` RTMP receiver on localhost, publishes a 
 To run the OBS-integrated E2E checks, close any running OBS instance, install the current build, then run:
 
 ```powershell
+powershell.exe -ExecutionPolicy Bypass -File scripts\configure-windows.ps1 -BuildDir build\windows-x64-sdk3 -EnableE2eHooks
+cmake --build build\windows-x64-sdk3
 powershell.exe -ExecutionPolicy Bypass -File scripts\install-user-plugin.ps1 -BuildDir build\windows-x64-sdk3
 powershell.exe -ExecutionPolicy Bypass -File scripts\run-obs-rtmp-e2e.ps1 -EncoderGroup dsk-horizontal
 powershell.exe -ExecutionPolicy Bypass -File scripts\run-obs-rtmp-e2e.ps1 -EncoderGroup dsk-vertical

@@ -1,5 +1,7 @@
 #include "core/diagnostics.hpp"
+#ifdef DSK_INCLUDE_E2E_HOOKS
 #include "core/e2e-auto-runner.hpp"
+#endif
 #include "core/output-manager.hpp"
 #include "integration/comment-viewer-integration.hpp"
 #include "ui/main-dock.hpp"
@@ -30,7 +32,9 @@ OBS_MODULE_USE_DEFAULT_LOCALE("obs-dsk-multistream", "en-US")
 namespace {
 
 std::unique_ptr<dsk::OutputManager> manager;
+#ifdef DSK_INCLUDE_E2E_HOOKS
 std::unique_ptr<dsk::E2eAutoRunner> e2eRunner;
+#endif
 std::unique_ptr<dsk::CommentViewerIntegration> commentViewerIntegration;
 QPointer<dsk::MainDock> mainDock;
 QObject *timerContext = nullptr;
@@ -100,6 +104,7 @@ public:
 	}
 
 	bool hasEditor() const { return editor_ != nullptr; }
+#ifdef DSK_INCLUDE_E2E_HOOKS
 	bool exercisePreviewCanvasReplacementForTest()
 	{
 		return editor_ && editor_->exercisePreviewCanvasReplacementForTest();
@@ -112,6 +117,7 @@ public:
 	{
 		return editor_ && editor_->exerciseSetupVisibilityToggleForTest();
 	}
+#endif
 
 protected:
 	void showEvent(QShowEvent *event) override
@@ -302,6 +308,7 @@ void registerDskDocksDelayed()
 	});
 }
 
+#ifdef DSK_INCLUDE_E2E_HOOKS
 void scheduleVerticalUiStress()
 {
 	const QByteArray enabled = qgetenv("DSK_E2E_VERTICAL_UI_STRESS").trimmed().toLower();
@@ -465,6 +472,7 @@ void scheduleVerticalUiStress()
 		timer->start();
 	});
 }
+#endif
 
 void removeFrontendUi()
 {
@@ -474,7 +482,9 @@ void removeFrontendUi()
 	cancelVerticalEditorLoad();
 	if (commentViewerIntegration)
 		commentViewerIntegration->shutdown();
+#ifdef DSK_INCLUDE_E2E_HOOKS
 	e2eRunner.reset();
+#endif
 	if (verticalDock) {
 		verticalDock->prepareForUnload();
 		obs_frontend_remove_dock("dsk_vertical_layout");
@@ -530,9 +540,11 @@ void initializeFrontendUi()
 
 	dsk::logInfo("DSK docks registered without duplicate Tools menu shortcuts.");
 
+#ifdef DSK_INCLUDE_E2E_HOOKS
 	e2eRunner = std::make_unique<dsk::E2eAutoRunner>(manager.get());
 	e2eRunner->schedule();
 	scheduleVerticalUiStress();
+#endif
 
 	if (qEnvironmentVariableIsSet("DSK_AUTO_OPEN_SETTINGS")) {
 		QTimer::singleShot(3000, pluginTimerContext(), []() { showMainDock(nullptr); });

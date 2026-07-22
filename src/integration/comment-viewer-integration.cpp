@@ -12,6 +12,7 @@
 
 #include <QDesktopServices>
 #include <QDockWidget>
+#include <QAction>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QTimer>
@@ -28,7 +29,6 @@ namespace {
 
 constexpr auto DockTitle = "DSK Comments";
 constexpr auto DockId = "dskcommentsviewer";
-constexpr int MaxProbeAttempts = 10;
 
 void showDock(QWidget *contents)
 {
@@ -70,6 +70,10 @@ void CommentViewerIntegration::shutdown()
 	if (http_)
 		http_->abortAll();
 	removeDock();
+	if (openViewerMenuAction_) {
+		delete openViewerMenuAction_.data();
+		openViewerMenuAction_ = nullptr;
+	}
 }
 
 void CommentViewerIntegration::setEnabled(bool enabled)
@@ -96,10 +100,20 @@ bool CommentViewerIntegration::enabled() const
 	return enabled_;
 }
 
-void CommentViewerIntegration::openViewer(void *)
+void CommentViewerIntegration::openViewer(void *privateData)
 {
+	auto *integration = static_cast<CommentViewerIntegration *>(privateData);
+	if (!integration || integration->shuttingDown_)
+		return;
+
 	if (!openCommentViewerApp())
 		QDesktopServices::openUrl(commentViewerPageUrl());
+
+	if (shouldReconnectCommentViewerAfterOpen(integration->enabled_, integration->shuttingDown_,
+						  isCommentViewerInstalled())) {
+		logInfo("Open DSK Comment Viewer requested; restarting the OBS integration probe.");
+		integration->beginProbe();
+	}
 }
 
 quint64 CommentViewerIntegration::advanceProbeGeneration()
@@ -112,10 +126,18 @@ quint64 CommentViewerIntegration::advanceProbeGeneration()
 
 void CommentViewerIntegration::registerOpenViewerMenu()
 {
-	if (!isCommentViewerInstalled() || openViewerMenuRegistered_)
+	if (!isCommentViewerInstalled() || openViewerMenuAction_)
 		return;
-	obs_frontend_add_tools_menu_item("Open DSK Comment Viewer", openViewer, nullptr);
-	openViewerMenuRegistered_ = true;
+
+	auto *action = static_cast<QAction *>(
+		obs_frontend_add_tools_menu_qaction("Open DSK Comment Viewer"));
+	if (!action) {
+		logWarning("OBS refused to create the DSK Comment Viewer Tools action.");
+		return;
+	}
+
+	openViewerMenuAction_ = action;
+	connect(action, &QAction::triggered, this, [this]() { openViewer(this); });
 }
 
 void CommentViewerIntegration::beginProbe()
@@ -146,7 +168,7 @@ void CommentViewerIntegration::scheduleProbe(quint64 generation, bool launchAtte
 							      : std::nullopt;
 		const auto action = commentViewerProbeAction(enabled_, probeGeneration_, generation,
 							   integration.has_value(), launchAttempted,
-							   attempt, MaxProbeAttempts);
+							   attempt, CommentViewerMaxProbeAttempts);
 		switch (action) {
 		case CommentViewerProbeAction::Ignore:
 			return;

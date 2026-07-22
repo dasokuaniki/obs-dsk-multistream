@@ -6,6 +6,7 @@
 #include <memory>
 
 class QCefWidget;
+class QAction;
 class QUrl;
 class QWidget;
 struct QCef;
@@ -38,10 +39,10 @@ private:
 
 	std::unique_ptr<HttpClient> http_;
 	std::unique_ptr<QCef> browserPanel_;
+	QPointer<QAction> openViewerMenuAction_;
 	QPointer<QWidget> dockContents_;
 	QPointer<QCefWidget> browser_;
 	bool enabled_ = false;
-	bool openViewerMenuRegistered_ = false;
 	bool shuttingDown_ = false;
 	quint64 probeGeneration_ = 0;
 };

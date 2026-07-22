@@ -60,6 +60,7 @@ public:
 	bool removeVerticalScene(const QString &id);
 	bool renameVerticalScene(const QString &id, const QString &name);
 	bool moveVerticalScene(const QString &id, int offset);
+	bool reorderVerticalScenes(const QVector<QString> &orderedIds);
 	bool selectVerticalScene(const QString &id);
 
 private:

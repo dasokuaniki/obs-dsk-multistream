@@ -7,7 +7,8 @@ param(
     [string]$BuildDir = "build\windows-x64-sdk3",
     [string]$Configuration = "RelWithDebInfo",
     [switch]$DisableBundledOAuth,
-    [switch]$DisableObsCanvasApi
+    [switch]$DisableObsCanvasApi,
+    [switch]$EnableE2eHooks
 )
 
 $ErrorActionPreference = "Stop"
@@ -85,15 +86,6 @@ Require-File "CURLConfig.cmake" $curlConfig
 if ($DisableBundledOAuth -and -not [string]::IsNullOrWhiteSpace($OAuthAppConfig)) {
     throw "DisableBundledOAuth cannot be combined with OAuthAppConfig."
 }
-if (-not $DisableBundledOAuth -and [string]::IsNullOrWhiteSpace($OAuthAppConfig)) {
-    $repoRoot = Split-Path -Parent $PSScriptRoot
-    $commentViewerConfig = [System.IO.Path]::GetFullPath(
-        (Join-Path $repoRoot "..\..\2026-05-13\new-chat\oauth-app-config.json")
-    )
-    if (Test-Path -LiteralPath $commentViewerConfig -PathType Leaf) {
-        $OAuthAppConfig = $commentViewerConfig
-    }
-}
 if (-not $DisableBundledOAuth -and -not [string]::IsNullOrWhiteSpace($OAuthAppConfig)) {
     Require-File "Publisher OAuth application config" $OAuthAppConfig
     $OAuthAppConfig = (Resolve-Path -LiteralPath $OAuthAppConfig).Path
@@ -111,6 +103,7 @@ $prefixPath = @(
     (Resolve-Path -LiteralPath $resolvedQtPrefix).Path
 ) -join ";"
 $canvas = if ($DisableObsCanvasApi) { "OFF" } else { "ON" }
+$e2eHooks = if ($EnableE2eHooks) { "ON" } else { "OFF" }
 
 Normalize-ProcessPath
 
@@ -125,7 +118,8 @@ $cmakeArgs = @(
     "-DQt6_DIR=`"$qtDir`"",
     "-DCURL_DIR=`"$curlDir`"",
     "-DCMAKE_PREFIX_PATH=`"$prefixPath`"",
-    "-DDSK_ENABLE_OBS_CANVAS_API=$canvas"
+    "-DDSK_ENABLE_OBS_CANVAS_API=$canvas",
+    "-DDSK_INCLUDE_E2E_HOOKS=$e2eHooks"
 )
 if (-not [string]::IsNullOrWhiteSpace($TestRuntimeDir) -and
     (Test-Path -LiteralPath $TestRuntimeDir -PathType Container)) {

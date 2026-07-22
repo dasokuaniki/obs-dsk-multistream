@@ -31,8 +31,7 @@ private slots:
 	void scheduleRefresh();
 	void handleButtonClicked();
 	void handleObsNativeClicked();
-	void handleStartEnabled();
-	void handleStopAll();
+	void handleAllToggle();
 	void handleYouTubeBroadcastSelection(const QString &targetId, quint64 sessionSerial, quint64 selectionGeneration,
 					     const QJsonArray &broadcasts);
 
@@ -53,10 +52,26 @@ private:
 		quint64 selectionGeneration = 0;
 	};
 
-	void clearButtons();
-	QWidget *createTargetRow(OutputTarget target);
-	QWidget *createObsNativeRow();
+	struct RowWidgets {
+		QWidget *row = nullptr;
+		QWidget *badge = nullptr;
+		QLabel *name = nullptr;
+		QLabel *details = nullptr;
+		QPushButton *button = nullptr;
+	};
+
+	RowWidgets createTargetRow(const OutputTarget &target);
+	RowWidgets createObsNativeRow();
+	void updateTargetRow(const OutputTarget &target, const TargetRuntimeStatus &runtime, RowWidgets &widgets);
+	void updateObsNativeRow(RowWidgets &widgets, const QString &platformId, const QString &serviceName,
+				const QString &detail);
+	void removeStaleTargetRows(const QVector<OutputTarget> &targets);
+	void placeRow(QWidget *row, int index);
+	void removeRow(RowWidgets &widgets);
+	void setEmptyStateVisible(bool visible);
 	void requestStartTargets(const QVector<QString> &ids);
+	void handleStartEnabled();
+	void handleStopAll();
 	void beginObsNativeTransition(bool expectedActive);
 	bool isYouTubeBroadcastSessionCurrent(const YouTubeBroadcastSelectionRequest &request) const;
 	bool isYouTubeBroadcastRequestCurrent(const YouTubeBroadcastSelectionRequest &request) const;
@@ -64,18 +79,21 @@ private:
 	void showNextYouTubeBroadcastSelection();
 	void refreshYouTubeBroadcastDialog(const YouTubeBroadcastSelectionRequest &request);
 
-	OutputManager *manager_ = nullptr;
+	QPointer<OutputManager> manager_;
 	QVBoxLayout *buttons_ = nullptr;
-	QPushButton *startChecked_ = nullptr;
-	QPushButton *stopAll_ = nullptr;
+	QPushButton *allToggle_ = nullptr;
 	QPointer<QInputDialog> youtubeBroadcastDialog_;
 	YouTubeBroadcastSelectionRequest activeYouTubeBroadcastSelection_;
 	QVector<YouTubeBroadcastSelectionRequest> pendingYouTubeBroadcastSelections_;
 	QHash<QString, YouTubeBroadcastGenerationState> youtubeBroadcastLatestGenerations_;
+	QHash<QString, RowWidgets> targetRows_;
+	RowWidgets obsNativeRow_;
+	QLabel *emptyState_ = nullptr;
 	int obsNativeTransitionGeneration_ = 0;
 	bool obsNativeTransitioning_ = false;
 	bool obsNativeExpectedActive_ = false;
 	bool obsNativeProbeReady_ = false;
+	bool allToggleStops_ = false;
 	VisibleRefreshGate refreshGate_;
 	bool refreshScheduled_ = false;
 	bool refreshing_ = false;

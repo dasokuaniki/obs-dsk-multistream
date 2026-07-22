@@ -11,6 +11,39 @@
 
 namespace dsk {
 
+enum class VerticalLayoutChange {
+	None,
+	TransformOnly,
+	Rebuild,
+};
+
+inline bool verticalLayoutItemTransformMatches(const VerticalLayoutItem &current, const VerticalLayoutItem &next)
+{
+	return current.rect == next.rect && current.crop == next.crop && current.fitMode == next.fitMode;
+}
+
+inline VerticalLayoutChange verticalLayoutChange(const VerticalLayout &current, const VerticalLayout &next)
+{
+	if (current.width != next.width || current.height != next.height || current.items.size() != next.items.size())
+		return VerticalLayoutChange::Rebuild;
+
+	bool transformChanged = false;
+	for (int index = 0; index < current.items.size(); ++index) {
+		const auto &before = current.items[index];
+		const auto &after = next.items[index];
+		if (before.id.isEmpty() || after.id.isEmpty() || before.id != after.id ||
+		    before.sourceName != after.sourceName || before.visible != after.visible)
+			return VerticalLayoutChange::Rebuild;
+		for (int previous = 0; previous < index; ++previous) {
+			if (next.items[previous].id == after.id)
+				return VerticalLayoutChange::Rebuild;
+		}
+		if (!verticalLayoutItemTransformMatches(before, after))
+			transformChanged = true;
+	}
+	return transformChanged ? VerticalLayoutChange::TransformOnly : VerticalLayoutChange::None;
+}
+
 enum VerticalResizeEdge : int {
 	ResizeLeft = 1 << 0,
 	ResizeRight = 1 << 1,

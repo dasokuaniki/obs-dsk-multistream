@@ -4,6 +4,8 @@
 
 namespace dsk {
 
+inline constexpr int CommentViewerMaxProbeAttempts = 30;
+
 enum class CommentViewerProbeAction {
 	Ignore,
 	Connect,
@@ -15,6 +17,11 @@ enum class CommentViewerProbeAction {
 inline bool commentViewerIntegrationEnabledAtStartup(bool viewerInstalled)
 {
 	return viewerInstalled;
+}
+
+inline bool shouldReconnectCommentViewerAfterOpen(bool enabled, bool shuttingDown, bool viewerInstalled)
+{
+	return enabled && !shuttingDown && viewerInstalled;
 }
 
 inline CommentViewerProbeAction commentViewerProbeAction(bool enabled, quint64 currentGeneration,

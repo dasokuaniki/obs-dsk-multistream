@@ -20,6 +20,7 @@ namespace dsk {
 
 class VerticalPreviewWidget;
 
+#ifdef DSK_INCLUDE_E2E_HOOKS
 struct VerticalPreviewDiagnostics {
 	std::uint64_t callbackCount = 0;
 	std::uint64_t renderedSnapshotCount = 0;
@@ -30,6 +31,7 @@ struct VerticalPreviewDiagnostics {
 
 VerticalPreviewDiagnostics verticalPreviewDiagnostics();
 void resetVerticalPreviewDiagnostics();
+#endif
 
 class VerticalLayoutEditor : public QWidget {
 	Q_OBJECT
@@ -38,9 +40,11 @@ public:
 	explicit VerticalLayoutEditor(OutputManager *manager, QWidget *parent = nullptr);
 	void prepareForUnload();
 	void handleSceneCollectionChanged();
+#ifdef DSK_INCLUDE_E2E_HOOKS
 	bool exercisePreviewCanvasReplacementForTest();
 	bool exerciseSourceVisibilityToggleForTest();
 	bool exerciseSetupVisibilityToggleForTest();
+#endif
 
 private slots:
 	void refreshSourceList();

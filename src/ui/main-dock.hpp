@@ -5,7 +5,6 @@
 
 #include <QWidget>
 
-class QLabel;
 class QPushButton;
 class QStackedWidget;
 class QShowEvent;
@@ -41,6 +40,7 @@ protected:
 private:
 	QString targetIdForRow(int row) const;
 	void showPage(QWidget *page, const QString &title);
+	void updateDockTitle(const QString &pageTitle);
 
 	OutputManager *manager_ = nullptr;
 	QTableWidget *table_ = nullptr;
@@ -48,7 +48,6 @@ private:
 	QWidget *targetsPage_ = nullptr;
 	StreamControlsDock *streamControls_ = nullptr;
 	SceneRouterDock *sceneRouter_ = nullptr;
-	QLabel *pageTitle_ = nullptr;
 	QToolButton *menuButton_ = nullptr;
 	QPushButton *editButton_ = nullptr;
 	QPushButton *removeButton_ = nullptr;
@@ -56,6 +55,7 @@ private:
 	bool refreshPending_ = false;
 	bool refreshing_ = false;
 	bool editArmed_ = false;
+	QString currentPageTitle_ = QStringLiteral("Controls");
 };
 
 } // namespace dsk

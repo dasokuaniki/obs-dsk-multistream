@@ -97,6 +97,20 @@ if (-not $builtDll) {
 }
 $builtDll = (Resolve-Path -LiteralPath $builtDll).Path
 
+$cmakeCachePath = Join-Path $buildRoot "CMakeCache.txt"
+if (-not (Test-Path -LiteralPath $cmakeCachePath -PathType Leaf)) {
+    throw "CMakeCache.txt was not found under $buildRoot. Configure and rebuild with E2E hooks disabled before packaging."
+}
+$cmakeCacheText = Get-Content -LiteralPath $cmakeCachePath -Raw -Encoding UTF8
+if ($cmakeCacheText -notmatch '(?m)^DSK_INCLUDE_E2E_HOOKS:BOOL=OFF\s*$') {
+    throw "Distribution packaging requires DSK_INCLUDE_E2E_HOOKS=OFF. Reconfigure and rebuild without -EnableE2eHooks."
+}
+
+$dllAscii = [Text.Encoding]::ASCII.GetString([IO.File]::ReadAllBytes($builtDll))
+if ($dllAscii.Contains("DSK_E2E_AUTORUN") -or $dllAscii.Contains("DSK_E2E_VERTICAL_UI_STRESS")) {
+    throw "The built plugin DLL contains E2E automation hooks. Rebuild it with DSK_INCLUDE_E2E_HOOKS=OFF."
+}
+
 $dllSignature = Get-AuthenticodeSignature -LiteralPath $builtDll
 if ($requirePluginSignature -and $dllSignature.Status -ne [Management.Automation.SignatureStatus]::Valid) {
     throw "The built plugin DLL must have a valid Authenticode signature. Status=$($dllSignature.Status)"

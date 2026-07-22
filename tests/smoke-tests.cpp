@@ -14,6 +14,8 @@
 #include "core/youtube-api-warning.hpp"
 #include "core/youtube-broadcast-selector.hpp"
 #include "ui/stream-controls-state.hpp"
+#include "core/stable-id-order.hpp"
+#include "ui/vertical-source-icon.hpp"
 #include "ui/visible-refresh-gate.hpp"
 #include "ui/vertical-layout-metrics.hpp"
 
@@ -317,6 +319,68 @@ void testLayoutsAndProfiles()
 	check(layouts.removeVerticalScene(secondSceneId), "second vertical scene can be removed");
 	check(!layouts.removeVerticalScene(sanitizedScene.id), "last vertical scene cannot be removed");
 
+	LayoutManager reorderedLayouts;
+	VerticalLayoutScene sceneA{"scene-a", "A", {}};
+	VerticalLayoutScene sceneB{"scene-b", "B", {}};
+	VerticalLayoutScene sceneC{"scene-c", "C", {}};
+	reorderedLayouts.initializeVerticalScenes({sceneA, sceneB, sceneC}, sceneB.id, {});
+	check(reorderedLayouts.reorderVerticalScenes({sceneC.id, sceneA.id, sceneB.id}),
+	      "vertical scenes can be reordered by drag result IDs");
+	check(reorderedLayouts.verticalScenes()[0].id == sceneC.id &&
+		      reorderedLayouts.verticalScenes()[1].id == sceneA.id &&
+		      reorderedLayouts.verticalScenes()[2].id == sceneB.id,
+	      "vertical scene drag order is preserved exactly");
+	check(reorderedLayouts.activeVerticalSceneId() == sceneB.id,
+	      "vertical scene drag order preserves the active scene");
+	check(!reorderedLayouts.reorderVerticalScenes({sceneA.id, sceneA.id, sceneC.id}),
+	      "duplicate scene IDs cannot corrupt drag order");
+	check(reorderedLayouts.verticalScenes()[0].id == sceneC.id,
+	      "an invalid scene drag order leaves the previous order intact");
+
+	QVector<VerticalLayoutItem> sourceItems{
+		{"source-a", "A"},
+		{"source-b", "B"},
+		{"source-c", "C"},
+	};
+	QVector<VerticalLayoutItem> reorderedSourceItems;
+	check(reorderValuesByStableIds(sourceItems,
+				       {QStringLiteral("source-b"), QStringLiteral("source-c"), QStringLiteral("source-a")},
+				       &reorderedSourceItems),
+	      "vertical sources can be reordered from the list drag result");
+	check(reorderedSourceItems[0].id == "source-b" && reorderedSourceItems[2].id == "source-a",
+	      "vertical source drag order is preserved exactly");
+	check(!reorderValuesByStableIds(sourceItems,
+					{QStringLiteral("source-b"), QStringLiteral("missing"), QStringLiteral("source-a")},
+					&reorderedSourceItems),
+	      "unknown source IDs cannot corrupt drag order");
+
+	check(obsSourceIconPropertyName(QStringLiteral("scene"), 0) == "sceneIcon",
+	      "OBS scene sources use the OBS scene icon");
+	check(obsSourceIconPropertyName(QStringLiteral("group"), 0) == "groupIcon",
+	      "OBS group sources use the OBS group icon");
+	const QVector<QPair<int, QString>> sourceIconProperties = {
+		{1, QStringLiteral("imageIcon")},
+		{2, QStringLiteral("colorIcon")},
+		{3, QStringLiteral("slideshowIcon")},
+		{4, QStringLiteral("audioInputIcon")},
+		{5, QStringLiteral("audioOutputIcon")},
+		{6, QStringLiteral("desktopCapIcon")},
+		{7, QStringLiteral("windowCapIcon")},
+		{8, QStringLiteral("gameCapIcon")},
+		{9, QStringLiteral("cameraIcon")},
+		{10, QStringLiteral("textIcon")},
+		{11, QStringLiteral("mediaIcon")},
+		{12, QStringLiteral("browserIcon")},
+		{13, QStringLiteral("defaultIcon")},
+		{14, QStringLiteral("audioProcessOutputIcon")},
+	};
+	for (const auto &[iconType, propertyName] : sourceIconProperties) {
+		check(obsSourceIconPropertyName(QStringLiteral("test_source"), iconType) == propertyName,
+		      qPrintable(QStringLiteral("OBS source icon type %1 uses %2").arg(iconType).arg(propertyName)));
+	}
+	check(obsSourceIconPropertyName(QStringLiteral("unknown"), 0) == "defaultIcon",
+	      "unknown OBS sources use the OBS default icon");
+
 	VerticalLayoutItem fitItem;
 	fitItem.rect = QRectF(0, 0, 1080, 1920);
 	fitItem.fitMode = FitMode::Fit;
@@ -408,6 +472,46 @@ void testLayoutsAndProfiles()
 	check(profiles.profileFor(EncoderGroup::DskHorizontal).height == 1080, "horizontal profile height");
 	check(profiles.profileFor(EncoderGroup::DskVertical).width == 1080, "vertical profile width");
 	check(profiles.profileFor(EncoderGroup::DskVertical).height == 1920, "vertical profile height");
+}
+
+void testVerticalLayoutChangeClassification()
+{
+	using namespace dsk;
+
+	VerticalLayout original;
+	original.items = {
+		{QStringLiteral("camera"), QStringLiteral("Camera"), QRectF(0, 0, 1080, 1920), QRectF(), FitMode::Fill, true},
+		{QStringLiteral("game"), QStringLiteral("Game"), QRectF(90, 160, 900, 1600), QRectF(), FitMode::Fit, true},
+	};
+
+	check(verticalLayoutChange(original, original) == VerticalLayoutChange::None,
+	      "identical vertical layouts need no preview scene update");
+
+	VerticalLayout transformed = original;
+	transformed.items[1].rect.translate(10, 20);
+	check(verticalLayoutChange(original, transformed) == VerticalLayoutChange::TransformOnly,
+	      "a rect-only vertical layout change uses incremental scene transforms");
+	transformed.items[1].crop = QRectF(1, 2, 3, 4);
+	transformed.items[1].fitMode = FitMode::Stretch;
+	check(verticalLayoutChange(original, transformed) == VerticalLayoutChange::TransformOnly,
+	      "crop and fit changes use incremental scene transforms");
+
+	VerticalLayout structural = original;
+	structural.items[1].sourceName = QStringLiteral("Replacement");
+	check(verticalLayoutChange(original, structural) == VerticalLayoutChange::Rebuild,
+	      "source replacement rebuilds the preview scene");
+	structural = original;
+	structural.items[1].visible = false;
+	check(verticalLayoutChange(original, structural) == VerticalLayoutChange::Rebuild,
+	      "visibility changes rebuild the preview scene");
+	structural = original;
+	structural.items.move(1, 0);
+	check(verticalLayoutChange(original, structural) == VerticalLayoutChange::Rebuild,
+	      "layer order changes rebuild the preview scene");
+	structural = original;
+	structural.width = 720;
+	check(verticalLayoutChange(original, structural) == VerticalLayoutChange::Rebuild,
+	      "canvas size changes rebuild the preview scene");
 }
 
 void testSettingsCodec()
@@ -932,6 +1036,43 @@ void testStreamControlsState()
 	check(!dsk::obsNativeCanStartWithAll(true, true, false), "active OBS native stream does not enable Start All");
 	check(!dsk::obsNativeCanStartWithAll(false, false, false),
 	      "unavailable OBS native stream does not enable Start All");
+
+	check(!dsk::obsNativeServiceConfigured(false, false, false, false),
+	      "an empty OBS service object is not a configured native stream");
+	check(dsk::obsNativeServiceConfigured(true, false, false, false),
+	      "an OBS service name configures native streaming");
+	check(dsk::obsNativeServiceConfigured(false, false, true, false),
+	      "an OBS server configures native streaming");
+	check(dsk::obsNativeRowAvailable(true, true, false, false),
+	      "a probed OBS service displays the native stream row");
+	check(dsk::obsNativeRowAvailable(false, false, true, false),
+	      "an active OBS stream remains controllable when its service probe fails");
+	check(dsk::obsNativeRowAvailable(false, false, false, true),
+	      "an OBS transition remains visible while its service probe is unavailable");
+	check(!dsk::obsNativeRowAvailable(true, false, false, false),
+	      "an empty inactive OBS service does not display a native stream row");
+
+	const dsk::AllControlState ready =
+		dsk::allControlState(2, false, false, false, false, false, false, false);
+	check(!ready.stopMode && ready.enabled, "idle included targets show an enabled Start All control");
+
+	const dsk::AllControlState obsLive =
+		dsk::allControlState(0, false, false, true, false, true, false, false);
+	check(obsLive.stopMode && obsLive.enabled, "an active OBS stream changes the all control to Stop All");
+
+	const dsk::AllControlState targetLive =
+		dsk::allControlState(0, false, false, false, false, false, true, false);
+	check(targetLive.stopMode && targetLive.enabled, "a running DSK target changes the all control to Stop All");
+
+	const dsk::AllControlState targetStopping =
+		dsk::allControlState(0, true, false, false, false, false, false, true);
+	check(targetStopping.stopMode && !targetStopping.enabled,
+	      "a stopping-only target keeps Stop All visible but prevents a duplicate stop");
+
+	const dsk::AllControlState obsStarting =
+		dsk::allControlState(0, true, false, false, true, true, false, false);
+	check(obsStarting.stopMode && !obsStarting.enabled,
+	      "an OBS start transition changes the all control to Stop All without accepting duplicate clicks");
 }
 
 void testVisibleRefreshGate()
@@ -1218,8 +1359,10 @@ void testCommentViewerInstallDetection()
 void testCommentViewerIntegrationProbePolicy()
 {
 	using dsk::CommentViewerProbeAction;
+	using dsk::CommentViewerMaxProbeAttempts;
 	using dsk::commentViewerIntegrationEnabledAtStartup;
 	using dsk::commentViewerProbeAction;
+	using dsk::shouldReconnectCommentViewerAfterOpen;
 
 	check(commentViewerIntegrationEnabledAtStartup(true),
 	      "an installed Comment Viewer enables integration at startup");
@@ -1235,8 +1378,17 @@ void testCommentViewerIntegrationProbePolicy()
 	      "the first failed probe launches an installed but stopped Viewer");
 	check(commentViewerProbeAction(true, 7, 7, false, true, 0, 10) == CommentViewerProbeAction::Retry,
 	      "a failed post-launch probe retries while attempts remain");
-	check(commentViewerProbeAction(true, 7, 7, false, true, 9, 10) == CommentViewerProbeAction::GiveUp,
+	check(commentViewerProbeAction(true, 7, 7, false, true, CommentViewerMaxProbeAttempts - 1,
+				       CommentViewerMaxProbeAttempts) == CommentViewerProbeAction::GiveUp,
 	      "the final failed post-launch probe gives up without leaving a dead dock");
+	check(shouldReconnectCommentViewerAfterOpen(true, false, true),
+	      "opening an installed Comment Viewer restarts a probe after startup retries expire");
+	check(!shouldReconnectCommentViewerAfterOpen(false, false, true),
+	      "opening the Viewer does not bypass an explicitly disabled integration");
+	check(!shouldReconnectCommentViewerAfterOpen(true, true, true),
+	      "opening the Viewer cannot restart integration while OBS is shutting down");
+	check(!shouldReconnectCommentViewerAfterOpen(true, false, false),
+	      "opening a missing Viewer does not start a pointless integration probe");
 }
 
 void testExperimentalSceneRoutingPolicy()
@@ -1256,6 +1408,7 @@ int main(int argc, char **argv)
 
 	testOutputTargetHelpers();
 	testLayoutsAndProfiles();
+	testVerticalLayoutChangeClassification();
 	testSettingsCodec();
 	testPlatformRegistry();
 	testOAuthProviders();
