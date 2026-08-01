@@ -82,6 +82,35 @@ QString targetAuthModeDisplayName(TargetAuthMode mode)
 	return "Manual RTMP key";
 }
 
+QString youtubeBroadcastModeToString(YouTubeBroadcastMode mode)
+{
+	switch (mode) {
+	case YouTubeBroadcastMode::Normal:
+		return QStringLiteral("normal");
+	case YouTubeBroadcastMode::ArchiveRotation:
+		return QStringLiteral("archive-rotation");
+	}
+	return QStringLiteral("normal");
+}
+
+YouTubeBroadcastMode youtubeBroadcastModeFromString(const QString &value)
+{
+	if (value == QStringLiteral("archive-rotation"))
+		return YouTubeBroadcastMode::ArchiveRotation;
+	return YouTubeBroadcastMode::Normal;
+}
+
+QString youtubeBroadcastModeDisplayName(YouTubeBroadcastMode mode)
+{
+	switch (mode) {
+	case YouTubeBroadcastMode::Normal:
+		return QStringLiteral("Normal - keep one YouTube broadcast");
+	case YouTubeBroadcastMode::ArchiveRotation:
+		return QStringLiteral("Split archives every 11 h 30 min");
+	}
+	return QStringLiteral("Normal - keep one YouTube broadcast");
+}
+
 QString targetSceneModeToString(TargetSceneMode mode)
 {
 	switch (mode) {
@@ -172,6 +201,13 @@ bool validateOutputTargetConfig(const OutputTarget &target, QString *errorMessag
 		return false;
 	}
 
+	if (target.youtubeBroadcastMode == YouTubeBroadcastMode::ArchiveRotation &&
+	    (target.platformId != QStringLiteral("youtube") || target.authMode != TargetAuthMode::YouTubeOAuth)) {
+		if (errorMessage)
+			*errorMessage = "YouTube archive splitting requires Login with YouTube.";
+		return false;
+	}
+
 	const QString serverUrl = target.serverUrl.trimmed();
 	if (serverUrl.isEmpty()) {
 		if (errorMessage)
@@ -195,7 +231,7 @@ bool validateOutputTargetConfig(const OutputTarget &target, QString *errorMessag
 	    url.host().compare(QStringLiteral("push.tiktokcdn.com"), Qt::CaseInsensitive) == 0 &&
 	    url.path().compare(QStringLiteral("/live"), Qt::CaseInsensitive) == 0) {
 		if (errorMessage)
-			*errorMessage = "TikTok needs the server URL shown in TikTok LIVE setup.";
+			*errorMessage = "The legacy generic RTMP URL cannot be used. Paste the server URL issued for this stream.";
 		return false;
 	}
 

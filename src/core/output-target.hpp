@@ -31,6 +31,11 @@ enum class TargetSceneMode {
 	LinkedScene,
 };
 
+enum class YouTubeBroadcastMode {
+	Normal,
+	ArchiveRotation,
+};
+
 struct TargetSceneRoute {
 	QString obsSceneName;
 	QString obsSceneUuid;
@@ -43,6 +48,7 @@ struct OutputTarget {
 	QString name;
 	QString platformId;
 	TargetAuthMode authMode = TargetAuthMode::ManualRtmp;
+	YouTubeBroadcastMode youtubeBroadcastMode = YouTubeBroadcastMode::Normal;
 	QString authAccountName;
 	QString authCredentialRef;
 	QString oauthClientId;
@@ -80,6 +86,9 @@ QString targetStateToString(TargetState state);
 QString targetAuthModeToString(TargetAuthMode mode);
 TargetAuthMode targetAuthModeFromString(const QString &value);
 QString targetAuthModeDisplayName(TargetAuthMode mode);
+QString youtubeBroadcastModeToString(YouTubeBroadcastMode mode);
+YouTubeBroadcastMode youtubeBroadcastModeFromString(const QString &value);
+QString youtubeBroadcastModeDisplayName(YouTubeBroadcastMode mode);
 QString targetSceneModeToString(TargetSceneMode mode);
 TargetSceneMode targetSceneModeFromString(const QString &value);
 QString targetSceneModeDisplayName(TargetSceneMode mode);

@@ -2,6 +2,7 @@
 
 #include "core/http-client.hpp"
 #include "core/output-target.hpp"
+#include "core/youtube-stream-options.hpp"
 
 #include <QObject>
 #include <QString>
@@ -19,6 +20,8 @@ struct OAuthConnectionResult {
 	QString serverUrl;
 	QString streamKey;
 	QString refreshToken;
+	QVector<YouTubeStreamOption> youtubeStreams;
+	QString youtubeStreamLookupWarning;
 	QString errorMessage;
 };
 
@@ -51,7 +54,9 @@ private:
 	void handleTwitchStreamKeyReply(HttpResponse response, const QString &accountName);
 	void fetchKickChannel(const QString &accessToken, const QString &accountName);
 	void handleKickChannelReply(HttpResponse response, const QString &accountName);
-	void completeYouTubeLogin();
+	void fetchYouTubeStreams(const QString &accessToken, const QString &pageToken = {});
+	void handleYouTubeStreamsReply(HttpResponse response, const QString &accessToken);
+	void completeYouTubeLogin(const QString &streamLookupWarning = {});
 	void reset();
 	QUrl redirectUri() const;
 
@@ -61,6 +66,8 @@ private:
 	QString refreshToken_;
 	QString state_;
 	QString codeVerifier_;
+	QVector<YouTubeStreamOption> youtubeStreams_;
+	int youtubeStreamPageCount_ = 0;
 	QTcpServer *server_ = nullptr;
 	HttpClient *http_ = nullptr;
 	QTimer *timeout_ = nullptr;
@@ -69,3 +76,5 @@ private:
 };
 
 } // namespace dsk
+
+Q_DECLARE_METATYPE(dsk::OAuthConnectionResult)

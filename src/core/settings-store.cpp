@@ -258,6 +258,7 @@ PluginSettings SettingsStore::load()
 		if (hasWrongType(target,
 				 QJsonValue::String,
 				 {"id", "name", "platformId", "authMode", "authAccountName",
+				  "youtubeBroadcastMode",
 				  "authCredentialRef", "oauthClientId", "oauthClientSecret",
 				  "oauthClientSecretRef", "oauthRefreshToken", "oauthRefreshTokenRef",
 				  "serverUrl", "streamKey", "encoderGroup", "videoEncoderId",
@@ -405,6 +406,7 @@ bool SettingsStore::save(const QVector<OutputTarget> &sourceTargets,
 		object.insert("name", target.name);
 		object.insert("platformId", target.platformId);
 		object.insert("authMode", targetAuthModeToString(target.authMode));
+		object.insert("youtubeBroadcastMode", youtubeBroadcastModeToString(target.youtubeBroadcastMode));
 		if (!target.authAccountName.isEmpty())
 			object.insert("authAccountName", target.authAccountName);
 		if (!credentialRef.isEmpty())

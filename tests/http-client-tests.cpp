@@ -213,7 +213,7 @@ void testLiveRelay()
 	bool done = false;
 	dsk::HttpResponse response;
 	dsk::HttpRequest request;
-	request.url = QUrl(QStringLiteral("https://45-77-181-113.sslip.io/v1/ready?platform=kick&profile=multistream"));
+	request.url = QUrl(QStringLiteral("https://auth.dasoku.org/v1/ready?platform=kick&profile=multistream"));
 	client.send(request, [&done, &response](dsk::HttpResponse value) {
 		response = std::move(value);
 		done = true;

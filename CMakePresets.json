@@ -15,12 +15,34 @@
       "cacheVariables": {
         "CMAKE_INSTALL_PREFIX": "${sourceDir}/release"
       }
+    },
+    {
+      "name": "windows-ci-x64",
+      "displayName": "Windows x64 CI",
+      "description": "Clean GitHub-hosted build with pinned OBS dependencies",
+      "generator": "Visual Studio 17 2022",
+      "architecture": "x64,version=10.0.22621",
+      "binaryDir": "${sourceDir}/build/windows-ci-x64",
+      "warnings": {
+        "dev": true,
+        "deprecated": true
+      },
+      "cacheVariables": {
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/release",
+        "DSK_BOOTSTRAP_OBS_DEPS": true,
+        "DSK_BUILD_TESTS": true
+      }
     }
   ],
   "buildPresets": [
     {
       "name": "windows-x64",
       "configurePreset": "windows-x64",
+      "configuration": "RelWithDebInfo"
+    },
+    {
+      "name": "windows-ci-x64",
+      "configurePreset": "windows-ci-x64",
       "configuration": "RelWithDebInfo"
     }
   ]

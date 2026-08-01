@@ -19,6 +19,8 @@ void outputTargetFromJsonInto(const QJsonObject &object, OutputTarget &target)
 	target.name = object.value("name").toString("Untitled");
 	target.platformId = object.value("platformId").toString("custom");
 	target.authMode = targetAuthModeFromString(object.value("authMode").toString("manual-rtmp"));
+	target.youtubeBroadcastMode = youtubeBroadcastModeFromString(
+		object.value("youtubeBroadcastMode").toString("normal"));
 	target.authAccountName = object.value("authAccountName").toString();
 	target.authCredentialRef = object.value("authCredentialRef").toString();
 	target.oauthClientId = object.value("oauthClientId").toString();
@@ -68,6 +70,7 @@ QJsonObject outputTargetToJson(const OutputTarget &target)
 	object.insert("name", target.name);
 	object.insert("platformId", target.platformId);
 	object.insert("authMode", targetAuthModeToString(target.authMode));
+	object.insert("youtubeBroadcastMode", youtubeBroadcastModeToString(target.youtubeBroadcastMode));
 	object.insert("authAccountName", target.authAccountName);
 	object.insert("authCredentialRef", target.authCredentialRef);
 	object.insert("oauthClientId", target.oauthClientId);

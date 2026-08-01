@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<artifact-configuration xmlns="http://signpath.io/artifact-configuration/v1">
+  <parameters>
+    <parameter name="version" required="true" />
+  </parameters>
+  <zip-file>
+    <pe-file
+      path="obs-dsk-multistream.dll"
+      product-name="DSK Multistream"
+      product-version="${version}.0"
+      file-version="${version}.0"
+      company-name="DSK"
+      original-filename="obs-dsk-multistream.dll">
+      <authenticode-sign
+        description="DSK Multistream OBS Plugin"
+        description-url="https://github.com/dasokuaniki/obs-dsk-multistream" />
+    </pe-file>
+  </zip-file>
+</artifact-configuration>

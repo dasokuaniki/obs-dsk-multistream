@@ -7,7 +7,8 @@ param(
     [string]$BuildDir = "build\windows-x64-sdk3",
     [string]$Configuration = "RelWithDebInfo",
     [switch]$DisableBundledOAuth,
-    [switch]$DisableObsCanvasApi
+    [switch]$DisableObsCanvasApi,
+    [switch]$EnableE2eHooks
 )
 
 $ErrorActionPreference = "Stop"
@@ -70,11 +71,20 @@ Require-File "Ninja" $ninja
 $vcvars = Find-FirstFile -Roots @($vsRoot) -Filter "vcvars64.bat"
 Require-File "vcvars64.bat" $vcvars
 
-$libobsConfig = Find-FirstFile -Roots @($ObsPrefix, "C:\obs-studio", "C:\obs-sdk") -Filter "libobsConfig.cmake"
-$frontendConfig = Find-FirstFile -Roots @($ObsPrefix, "C:\obs-studio", "C:\obs-sdk") -Filter "obs-frontend-apiConfig.cmake"
-$qtConfig = Find-FirstFile -Roots @($QtPrefix, "C:\Qt") -Filter "Qt6Config.cmake"
-$simdeHeader = Find-FirstFile -Roots @($ObsDepsPrefix, "deps\obs-studio-32.1.2\.deps\obs-deps-2025-08-23-x64") -Filter "simde-common.h"
-$curlConfig = Find-FirstFile -Roots @($ObsDepsPrefix, "deps\obs-studio-32.1.2\.deps\obs-deps-2025-08-23-x64") -Filter "CURLConfig.cmake"
+$repoRoot = Split-Path -Parent $PSScriptRoot
+$repoObsSdkRoots = @(
+    (Join-Path $repoRoot "deps\obs-sdk"),
+    (Join-Path $repoRoot ".deps\obs-sdk")
+)
+$repoObsDepsRoot = Join-Path $repoRoot "deps\obs-studio-32.1.2\.deps\obs-deps-2025-08-23-x64"
+$repoQtRoot = Join-Path $repoRoot "deps\obs-studio-32.1.2\.deps\obs-deps-qt6-2025-08-23-x64"
+$obsSdkSearchRoots = @($ObsPrefix) + $repoObsSdkRoots + @("C:\obs-studio", "C:\obs-sdk")
+
+$libobsConfig = Find-FirstFile -Roots $obsSdkSearchRoots -Filter "libobsConfig.cmake"
+$frontendConfig = Find-FirstFile -Roots $obsSdkSearchRoots -Filter "obs-frontend-apiConfig.cmake"
+$qtConfig = Find-FirstFile -Roots @($QtPrefix, $repoQtRoot, "C:\Qt") -Filter "Qt6Config.cmake"
+$simdeHeader = Find-FirstFile -Roots @($ObsDepsPrefix, $repoObsDepsRoot) -Filter "simde-common.h"
+$curlConfig = Find-FirstFile -Roots @($ObsDepsPrefix, $repoObsDepsRoot) -Filter "CURLConfig.cmake"
 
 Require-File "libobsConfig.cmake" $libobsConfig
 Require-File "obs-frontend-apiConfig.cmake" $frontendConfig
@@ -84,15 +94,6 @@ Require-File "CURLConfig.cmake" $curlConfig
 
 if ($DisableBundledOAuth -and -not [string]::IsNullOrWhiteSpace($OAuthAppConfig)) {
     throw "DisableBundledOAuth cannot be combined with OAuthAppConfig."
-}
-if (-not $DisableBundledOAuth -and [string]::IsNullOrWhiteSpace($OAuthAppConfig)) {
-    $repoRoot = Split-Path -Parent $PSScriptRoot
-    $commentViewerConfig = [System.IO.Path]::GetFullPath(
-        (Join-Path $repoRoot "..\..\2026-05-13\new-chat\oauth-app-config.json")
-    )
-    if (Test-Path -LiteralPath $commentViewerConfig -PathType Leaf) {
-        $OAuthAppConfig = $commentViewerConfig
-    }
 }
 if (-not $DisableBundledOAuth -and -not [string]::IsNullOrWhiteSpace($OAuthAppConfig)) {
     Require-File "Publisher OAuth application config" $OAuthAppConfig
@@ -111,6 +112,7 @@ $prefixPath = @(
     (Resolve-Path -LiteralPath $resolvedQtPrefix).Path
 ) -join ";"
 $canvas = if ($DisableObsCanvasApi) { "OFF" } else { "ON" }
+$e2eHooks = if ($EnableE2eHooks) { "ON" } else { "OFF" }
 
 Normalize-ProcessPath
 
@@ -125,7 +127,8 @@ $cmakeArgs = @(
     "-DQt6_DIR=`"$qtDir`"",
     "-DCURL_DIR=`"$curlDir`"",
     "-DCMAKE_PREFIX_PATH=`"$prefixPath`"",
-    "-DDSK_ENABLE_OBS_CANVAS_API=$canvas"
+    "-DDSK_ENABLE_OBS_CANVAS_API=$canvas",
+    "-DDSK_INCLUDE_E2E_HOOKS=$e2eHooks"
 )
 if (-not [string]::IsNullOrWhiteSpace($TestRuntimeDir) -and
     (Test-Path -LiteralPath $TestRuntimeDir -PathType Container)) {

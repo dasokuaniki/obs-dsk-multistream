@@ -12,6 +12,7 @@ class QLabel;
 class QLineEdit;
 class QPushButton;
 class QSpinBox;
+class QToolButton;
 
 namespace dsk {
 
@@ -39,9 +40,12 @@ private slots:
 	void connectOAuthAccount();
 	void disconnectOAuthAccount();
 	void handleOAuthFinished(const dsk::OAuthConnectionResult &result);
+	void applySelectedYouTubeStream(int index);
 
 private:
 	bool hasConnectedOAuthAccount(TargetAuthMode authMode) const;
+	void resetYouTubeStreamOptions();
+	void setYouTubeStreamOptions(QVector<YouTubeStreamOption> streams, bool preserveExistingKey);
 
 	const PlatformPresetRegistry &platforms_;
 	QString targetId_;
@@ -56,6 +60,7 @@ private:
 	QString nameValue_;
 	QString platformIdValue_ = QStringLiteral("custom");
 	QString authModeValue_ = targetAuthModeToString(TargetAuthMode::ManualRtmp);
+	QString youtubeBroadcastModeValue_ = youtubeBroadcastModeToString(YouTubeBroadcastMode::Normal);
 	QString oauthClientIdValue_;
 	QString loadedOAuthClientId_;
 	QString oauthClientSecretValue_;
@@ -86,7 +91,13 @@ private:
 	QLineEdit *name_ = nullptr;
 	QComboBox *platform_ = nullptr;
 	QComboBox *authMode_ = nullptr;
+	QComboBox *youtubeBroadcastMode_ = nullptr;
+	QWidget *youtubeBroadcastModeLabel_ = nullptr;
+	QComboBox *youtubeStream_ = nullptr;
+	QWidget *youtubeStreamLabel_ = nullptr;
 	QLabel *authStatus_ = nullptr;
+	QCheckBox *youtubeDataConsent_ = nullptr;
+	QLabel *youtubeLegalLinks_ = nullptr;
 	QCheckBox *useCustomOAuthApp_ = nullptr;
 	QLineEdit *oauthClientId_ = nullptr;
 	QWidget *oauthClientIdLabel_ = nullptr;
@@ -101,6 +112,8 @@ private:
 	QCheckBox *showStreamKey_ = nullptr;
 	QComboBox *encoderGroup_ = nullptr;
 	QComboBox *videoEncoder_ = nullptr;
+	QToolButton *advancedSettingsToggle_ = nullptr;
+	QWidget *advancedSettingsPanel_ = nullptr;
 	QComboBox *sceneMode_ = nullptr;
 	QLineEdit *sceneName_ = nullptr;
 	QCheckBox *useSharedEncoder_ = nullptr;
@@ -114,6 +127,7 @@ private:
 	QSpinBox *keyframeSeconds_ = nullptr;
 	QCheckBox *enabled_ = nullptr;
 	QCheckBox *startWithAll_ = nullptr;
+	QVector<YouTubeStreamOption> youtubeStreams_;
 	OAuthConnector *oauthConnector_ = nullptr;
 };
 

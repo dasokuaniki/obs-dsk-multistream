@@ -1,9 +1,12 @@
 #include "core/output-manager.hpp"
 
+#include "core/comment-viewer-contract.hpp"
 #include "core/diagnostics.hpp"
+#include "core/output-signal-policy.hpp"
 #include "core/oauth-provider.hpp"
 #include "core/secret-store.hpp"
 #include "core/youtube-api-warning.hpp"
+#include "core/youtube-archive-rotation.hpp"
 #include "core/youtube-broadcast-selector.hpp"
 
 #include <obs-frontend-api.h>
@@ -23,10 +26,12 @@
 #include <QSettings>
 #include <QStringList>
 #include <QTimer>
+#include <QUuid>
 #include <QUrlQuery>
 
 #include <cstring>
 #include <initializer_list>
+#include <limits>
 #include <utility>
 
 
@@ -35,6 +40,14 @@ namespace dsk {
 namespace {
 
 constexpr int PlatformApiTimeoutMs = 20 * 1000;
+constexpr int YouTubeApiPageSize = 50;
+constexpr int YouTubeMaxBroadcastPagesPerStatus = 10;
+constexpr int YouTubeMaxTransientRetries = 5;
+constexpr qint64 YouTubeSignalWaitTimeoutMs = 2 * 60 * 1000;
+constexpr qint64 YouTubeAutoStartWaitTimeoutMs = 5 * 60 * 1000;
+constexpr int YouTubeArchiveRotationRetryMs = 5 * 60 * 1000;
+constexpr int YouTubeArchiveTransitionPollMs = 2000;
+constexpr int YouTubeArchiveTransitionMaxPolls = 30;
 constexpr uint32_t DskVideoCanvasFlags = ACTIVATE | SCENE_REF | EPHEMERAL;
 
 } // namespace
@@ -46,6 +59,25 @@ struct OutputManager::Session {
 	obs_service_t *service = nullptr;
 	qint64 startedAtMs = 0;
 	QString sharedEncoderKey;
+	QString youtubeAccessToken;
+	qint64 youtubeAccessTokenExpiresAtMs = 0;
+	qint64 youtubeSignalActiveAtMs = 0;
+	qint64 youtubeAutoStartWaitingSinceMs = 0;
+	quint64 youtubeOperationGeneration = 0;
+	quint64 youtubePollGeneration = 0;
+	int youtubeTransientRetryCount = 0;
+	bool youtubeOperationInFlight = false;
+	bool youtubeAuthRefreshRetried = false;
+	bool youtubePreflight = false;
+	bool youtubeAwaitingSelection = false;
+	QJsonObject youtubeRotationCurrentBroadcast;
+	QString youtubeRotationCurrentBroadcastId;
+	QString youtubeRotationStreamId;
+	QString youtubeRotationNextBroadcastId;
+	int youtubeRotationNextPart = 2;
+	int youtubeRotationPolls = 0;
+	quint64 youtubeRotationTimerGeneration = 0;
+	bool youtubeRotationCurrentCompleted = false;
 	bool pendingRelease = false;
 	int releasePolls = 0;
 };
@@ -63,6 +95,7 @@ static void copyTargetFields(OutputTarget &to, const OutputTarget &from, bool co
 	to.name = from.name;
 	to.platformId = from.platformId;
 	to.authMode = from.authMode;
+	to.youtubeBroadcastMode = from.youtubeBroadcastMode;
 	to.authAccountName = from.authAccountName;
 	to.authCredentialRef = from.authCredentialRef;
 	to.oauthClientId = from.oauthClientId;
@@ -332,9 +365,79 @@ static bool isQuotaExceededText(const QString &value)
 	return lower.contains(QStringLiteral("quota")) || lower.contains(QStringLiteral("dailylimitexceeded"));
 }
 
+static QStringList youtubeApiErrorReasons(const HttpResponse &response)
+{
+	QStringList reasons;
+	const QJsonDocument document = QJsonDocument::fromJson(response.body);
+	if (!document.isObject())
+		return reasons;
+
+	const QJsonObject error = document.object().value(QStringLiteral("error")).toObject();
+	const auto appendReason = [&reasons](const QJsonValue &value) {
+		const QString reason = value.toString().trimmed();
+		if (!reason.isEmpty() && !reasons.contains(reason))
+			reasons.push_back(reason);
+	};
+	appendReason(error.value(QStringLiteral("reason")));
+	for (const QJsonValue &value : error.value(QStringLiteral("errors")).toArray())
+		appendReason(value.toObject().value(QStringLiteral("reason")));
+	return reasons;
+}
+
+static bool youtubeApiErrorHasAnyReason(const HttpResponse &response,
+					std::initializer_list<const char *> expectedReasons)
+{
+	const QStringList reasons = youtubeApiErrorReasons(response);
+	for (const char *expected : expectedReasons) {
+		if (reasons.contains(QString::fromLatin1(expected)))
+			return true;
+	}
+	return false;
+}
+
+static bool isRetryableYouTubeResponse(const HttpResponse &response, const QString &error)
+{
+	if (!response.transportError.isEmpty())
+		return true;
+	if (isQuotaExceededText(error) ||
+	    youtubeApiErrorHasAnyReason(response, {"quotaExceeded", "dailyLimitExceeded", "dailyLimitExceededUnreg"}))
+		return false;
+	if (response.statusCode == 403 &&
+	    youtubeApiErrorHasAnyReason(response,
+					{"userRequestsExceedRateLimit", "rateLimitExceeded", "userRateLimitExceeded",
+					 "userRateLimitExceededUnreg"}))
+		return true;
+	return response.statusCode == 408 || response.statusCode == 429 || response.statusCode >= 500;
+}
+
 static bool canContinuePlatformStart(const OutputTarget &target, const TargetRuntimeStatus &runtime)
 {
 	return target.state == TargetState::Starting || target.state == TargetState::Live || runtimeTransportIsRunning(runtime);
+}
+
+static QString youtubeSelectionStateName(YouTubeBroadcastSelectionState state)
+{
+	switch (state) {
+	case YouTubeBroadcastSelectionState::NoActiveBroadcast:
+		return QStringLiteral("no-active-broadcast");
+	case YouTubeBroadcastSelectionState::Selected:
+		return QStringLiteral("selected");
+	case YouTubeBroadcastSelectionState::MultipleActiveBroadcasts:
+		return QStringLiteral("multiple-active-broadcasts");
+	case YouTubeBroadcastSelectionState::NoStreamKeyMatch:
+		return QStringLiteral("no-stream-key-match");
+	case YouTubeBroadcastSelectionState::MultipleStreamKeyMatches:
+		return QStringLiteral("multiple-stream-key-matches");
+	case YouTubeBroadcastSelectionState::PreferredBroadcastUnavailable:
+		return QStringLiteral("preferred-broadcast-unavailable");
+	}
+	return QStringLiteral("unknown");
+}
+
+static QString broadcastIdForLog(const QString &broadcastId)
+{
+	const QString cleanId = broadcastId.trimmed();
+	return cleanId.isEmpty() ? QStringLiteral("none") : QStringLiteral("...%1").arg(cleanId.right(6));
 }
 
 static QString platformHttpError(const HttpResponse &response)
@@ -344,18 +447,20 @@ static QString platformHttpError(const HttpResponse &response)
 	if (response.statusCode >= 200 && response.statusCode < 300)
 		return {};
 
-	QString detail = stripHtml(QString::fromUtf8(response.body).left(500).trimmed());
-	const QJsonDocument document = QJsonDocument::fromJson(response.body);
-	if (document.isObject()) {
-		const QJsonObject error = document.object().value("error").toObject();
-		const QString message = error.value("message").toString();
-		if (!message.isEmpty())
-			detail = stripHtml(message);
-	}
+	// Provider error bodies are untrusted and may echo OAuth credentials. Reuse
+	// the bounded redaction path used by the login flow before the detail can be
+	// shown in the UI or written to the OBS log.
+	QString detail = stripHtml(oauthSafeErrorDetail(response.body));
+	const QStringList reasons = youtubeApiErrorReasons(response);
 
-	if (isQuotaExceededText(detail)) {
+	if (isQuotaExceededText(detail) ||
+	    youtubeApiErrorHasAnyReason(response, {"quotaExceeded", "dailyLimitExceeded", "dailyLimitExceededUnreg"})) {
 		return QStringLiteral(
 			"YouTube API quota exceeded. RTMP is connected, but DSK cannot switch the YouTube broadcast from preparing to live until quota resets. Enable Auto-start in YouTube Studio or retry with a Google Cloud project that still has quota.");
+	}
+	if (!reasons.isEmpty()) {
+		const QString reasonDetail = reasons.join(QStringLiteral(", "));
+		detail = detail.isEmpty() ? reasonDetail : QStringLiteral("%1 [%2]").arg(detail, reasonDetail);
 	}
 
 	const QString status = response.statusCode > 0 ? QStringLiteral("HTTP %1").arg(response.statusCode)
@@ -474,6 +579,11 @@ OutputManager::OutputManager(QObject *parent)
 	: QObject(parent),
 	  http_(new HttpClient(this))
 {
+	const qint64 archiveRotationIntervalMs = youtubeArchiveRotationIntervalMs();
+	if (archiveRotationIntervalMs != YouTubeArchiveRotationIntervalMs) {
+		logWarning(QStringLiteral("YouTube archive rotation development override enabled: %1 minute(s).")
+				   .arg(archiveRotationIntervalMs / (60 * 1000)));
+	}
 	loadSettingsFromCurrentProfile();
 }
 
@@ -1127,7 +1237,9 @@ bool OutputManager::startTarget(const QString &id)
 		return false;
 	}
 
-	const bool ok = startIndependentTarget(*target);
+	const bool ok = isYouTubeTarget(*target) && target->authMode == TargetAuthMode::YouTubeOAuth
+				? beginYouTubeStartPreflight(*target)
+				: startIndependentTarget(*target);
 
 	if (!runtimeTargetIds_.contains(id))
 		emit targetsChanged();
@@ -1610,6 +1722,48 @@ void OutputManager::setRuntimePlatform(const QString &targetId, quint64 sessionS
 	emit targetRuntimeChanged(targetId);
 }
 
+void OutputManager::notifyCommentViewerYouTubeStarted(const QString &targetId, quint64 sessionSerial,
+						      const QString &broadcastId)
+{
+	const OutputTarget *target = findTarget(targetId);
+	if (!target || !isYouTubeTarget(*target) || !sessionMatches(targetId, sessionSerial) || !http_)
+		return;
+
+	const QString eventId =
+		QStringLiteral("youtube:%1").arg(QUuid::createUuid().toString(QUuid::WithoutBraces));
+	const QByteArray body = commentViewerYouTubeLiveStartPayload(eventId, broadcastId);
+	if (body.isEmpty())
+		return;
+
+	HttpRequest request;
+	request.url = commentViewerYouTubeLiveStartUrl();
+	request.method = QByteArrayLiteral("POST");
+	request.headers.push_back({QByteArrayLiteral("Content-Type"), QByteArrayLiteral("application/json")});
+	request.body = body;
+	request.timeoutMs = 3000;
+	request.maxResponseBytes = 64 * 1024;
+	http_->send(std::move(request), [this](HttpResponse response) {
+		if (response.isSuccess())
+			return;
+		if (response.statusCode != 404 && response.statusCode != 405) {
+			logInfo(QStringLiteral("Comment Viewer was not available for the YouTube start notification."));
+			return;
+		}
+
+		// Older Viewer builds only expose the manual recheck endpoint. Keep
+		// that path as a compatibility fallback while v2 rolls out.
+		HttpRequest fallback;
+		fallback.url = commentViewerYouTubeRecheckUrl();
+		fallback.method = QByteArrayLiteral("POST");
+		fallback.timeoutMs = 3000;
+		fallback.maxResponseBytes = 64 * 1024;
+		http_->send(std::move(fallback), [](HttpResponse fallbackResponse) {
+			if (!fallbackResponse.isSuccess())
+				logInfo(QStringLiteral("Comment Viewer was not available for the YouTube start fallback."));
+		});
+	});
+}
+
 bool OutputManager::save()
 {
 	const QString currentSettingsPath = normalizedSettingsPath(store_.settingsPath());
@@ -1712,6 +1866,11 @@ bool OutputManager::renameVerticalScene(const QString &id, const QString &name)
 bool OutputManager::moveVerticalScene(const QString &id, int offset)
 {
 	return layouts_.moveVerticalScene(id, offset) && saveVerticalLayout();
+}
+
+bool OutputManager::reorderVerticalScenes(const QVector<QString> &orderedIds)
+{
+	return layouts_.reorderVerticalScenes(orderedIds) && saveVerticalLayout();
 }
 
 EncoderProfile OutputManager::effectiveProfileForTarget(const OutputTarget &target) const
@@ -1878,9 +2037,41 @@ bool OutputManager::hydrateTargetSecrets(OutputTarget &target)
 	return true;
 }
 
-bool OutputManager::startIndependentTarget(OutputTarget &target)
+bool OutputManager::beginYouTubeStartPreflight(OutputTarget &target)
 {
-	const quint64 sessionSerial = nextSessionSerial_++;
+	if (sessionForTarget(target.id))
+		return false;
+
+	auto *session = new Session;
+	session->serial = nextSessionSerial_++;
+	session->targetId = target.id;
+	session->youtubePreflight = true;
+	sessions_.push_back(session);
+
+	TargetRuntimeStatus &runtime = ensureRuntimeStatus(target.id);
+	runtime.sessionSerial = session->serial;
+	runtime.startedAtMs = 0;
+	runtime.platform = PlatformLiveState::Unknown;
+	setRuntimeTransport(target.id,
+			    session->serial,
+			    TransportState::Starting,
+			    QStringLiteral("Checking YouTube broadcast before RTMP"));
+	setRuntimePlatform(target.id,
+			   session->serial,
+			   PlatformLiveState::Unknown,
+			   QStringLiteral("Confirming the selected YouTube broadcast"));
+	logInfo(QStringLiteral("%1: YouTube start preflight began before RTMP output (session %2).")
+			.arg(target.name)
+			.arg(session->serial));
+	emit statusMessage(QStringLiteral("%1: Confirming the YouTube broadcast before sending video.")
+				   .arg(target.name));
+	maybeStartYouTubeBroadcast(target.id, session->serial);
+	return true;
+}
+
+bool OutputManager::startIndependentTarget(OutputTarget &target, Session *existingSession)
+{
+	const quint64 sessionSerial = existingSession ? existingSession->serial : nextSessionSerial_++;
 	const EncoderProfile profile = effectiveProfileForTarget(target);
 	QString videoError;
 	video_t *video = videoForTarget(target, profile, &videoError);
@@ -1954,14 +2145,15 @@ bool OutputManager::startIndependentTarget(OutputTarget &target)
 		return setTargetError(target, "OBS rejected the independent output start request.");
 	}
 
-	auto *session = new Session;
+	auto *session = existingSession ? existingSession : new Session;
 	session->serial = sessionSerial;
 	session->targetId = target.id;
 	session->output = output;
 	session->service = service;
 	session->startedAtMs = QDateTime::currentMSecsSinceEpoch();
 	session->sharedEncoderKey = sharedKey;
-	sessions_.push_back(session);
+	if (!existingSession)
+		sessions_.push_back(session);
 
 	target.state = TargetState::Starting;
 	target.lastError.clear();
@@ -1978,7 +2170,6 @@ bool OutputManager::startIndependentTarget(OutputTarget &target)
 			.arg(maskedKey(target.streamKey)));
 	if (!runtimeTargetIds_.contains(target.id))
 		emit statusMessage(QString("Starting %1").arg(target.name));
-	maybeStartYouTubeBroadcast(target.id, session->serial);
 	return true;
 }
 
@@ -1990,6 +2181,13 @@ void OutputManager::maybeStartYouTubeBroadcast(const QString &targetId, quint64 
 		return;
 	if (target->platformId.compare(QStringLiteral("youtube"), Qt::CaseInsensitive) != 0)
 		return;
+	if (runtimeStatusForTarget(targetId).platform == PlatformLiveState::Live)
+		return;
+
+	logInfo(QStringLiteral("%1: YouTube API start check (session %2, attempt %3).")
+			.arg(target->name)
+			.arg(sessionSerial)
+			.arg(attempt));
 	if (target->authMode != TargetAuthMode::YouTubeOAuth) {
 		setRuntimePlatform(targetId, sessionSerial, PlatformLiveState::NeedsManualStart,
 				   QStringLiteral("Start in YouTube Studio after RTMP signal is active"));
@@ -1997,10 +2195,30 @@ void OutputManager::maybeStartYouTubeBroadcast(const QString &targetId, quint64 
 		return;
 	}
 
-	const qint64 startedAtMs = runtimeStatusForTarget(targetId).startedAtMs;
-	const bool timedOut = startedAtMs > 0 && QDateTime::currentMSecsSinceEpoch() - startedAtMs > 120000;
-	if (attempt > 20 || timedOut) {
+	Session *session = sessionForTarget(targetId);
+	if (!session || session->serial != sessionSerial)
+		return;
+	if (session->youtubeOperationInFlight) {
+		logInfo(QStringLiteral("%1: YouTube API operation is already in flight for session %2.")
+				.arg(target->name)
+				.arg(sessionSerial));
+		return;
+	}
+
+	const qint64 nowMs = QDateTime::currentMSecsSinceEpoch();
+	const bool autoStartWaiting = session->youtubeAutoStartWaitingSinceMs > 0;
+	const bool signalTimedOut = session->youtubeSignalActiveAtMs > 0 &&
+				    nowMs - session->youtubeSignalActiveAtMs > YouTubeSignalWaitTimeoutMs;
+	if (!autoStartWaiting && (attempt > 20 || signalTimedOut)) {
 		setTargetApiWarning(targetId, QStringLiteral("YouTube API start failed: YouTube stream did not become active."), sessionSerial);
+		return;
+	}
+	if (autoStartWaiting &&
+	    nowMs - session->youtubeAutoStartWaitingSinceMs > YouTubeAutoStartWaitTimeoutMs) {
+		setRuntimePlatform(targetId, sessionSerial, PlatformLiveState::NeedsManualStart,
+				   QStringLiteral("YouTube Auto-start is still pending - check YouTube Studio"));
+		emit statusMessage(QStringLiteral("%1: YouTube Auto-start is still pending. Check the broadcast in YouTube Studio.")
+				   .arg(target->name));
 		return;
 	}
 
@@ -2016,20 +2234,172 @@ void OutputManager::maybeStartYouTubeBroadcast(const QString &targetId, quint64 
 		return;
 	}
 
-	setRuntimePlatform(targetId, sessionSerial, PlatformLiveState::RtmpSignalOnly,
-			   QStringLiteral("Checking YouTube Live start"));
-	refreshYouTubeAccessToken(targetId, sessionSerial, attempt);
+	++session->youtubePollGeneration;
+	session->youtubeOperationInFlight = true;
+	const quint64 operationGeneration = ++session->youtubeOperationGeneration;
+	setRuntimePlatform(
+		targetId,
+		sessionSerial,
+		session->youtubePreflight ? PlatformLiveState::Unknown : PlatformLiveState::RtmpSignalOnly,
+		session->youtubePreflight ? QStringLiteral("Confirming the selected YouTube broadcast")
+					  : QStringLiteral("Checking YouTube Live start"));
+	if (!session->youtubeAccessToken.isEmpty() &&
+	    session->youtubeAccessTokenExpiresAtMs > nowMs + 30000) {
+		logInfo(QStringLiteral("%1: Reusing the current YouTube access token for this output session.")
+				.arg(target->name));
+		listYouTubeBroadcasts(targetId, sessionSerial, session->youtubeAccessToken, attempt, operationGeneration);
+		return;
+	}
+	refreshYouTubeAccessToken(targetId, sessionSerial, attempt, operationGeneration);
 }
 
-void OutputManager::refreshYouTubeAccessToken(const QString &targetId, quint64 sessionSerial, int attempt)
+bool OutputManager::youtubeOperationMatches(const QString &targetId, quint64 sessionSerial,
+					    quint64 operationGeneration) const
+{
+	const Session *session = sessionForTarget(targetId);
+	return session && session->serial == sessionSerial && session->youtubeOperationInFlight &&
+	       session->youtubeOperationGeneration == operationGeneration;
+}
+
+void OutputManager::completeYouTubeOperation(const QString &targetId, quint64 sessionSerial,
+					     quint64 operationGeneration)
+{
+	Session *session = sessionForTarget(targetId);
+	if (!session || session->serial != sessionSerial ||
+	    session->youtubeOperationGeneration != operationGeneration)
+		return;
+	session->youtubeOperationInFlight = false;
+}
+
+void OutputManager::scheduleYouTubePoll(const QString &targetId, quint64 sessionSerial,
+					quint64 operationGeneration, int attempt, int delayMs)
+{
+	Session *session = sessionForTarget(targetId);
+	if (!session || session->serial != sessionSerial || session->youtubeOperationInFlight ||
+	    session->youtubeOperationGeneration != operationGeneration)
+		return;
+	const quint64 pollGeneration = ++session->youtubePollGeneration;
+	QTimer::singleShot(qMax(0, delayMs), this,
+			   [this, targetId, sessionSerial, operationGeneration, pollGeneration, attempt]() {
+		Session *current = sessionForTarget(targetId);
+		if (!current || current->serial != sessionSerial || current->youtubeOperationInFlight ||
+		    current->youtubeOperationGeneration != operationGeneration ||
+		    current->youtubePollGeneration != pollGeneration)
+			return;
+		maybeStartYouTubeBroadcast(targetId, sessionSerial, attempt);
+	});
+}
+
+bool OutputManager::stopYouTubeAutoStartIfTimedOut(const QString &targetId, quint64 sessionSerial,
+						   quint64 operationGeneration)
+{
+	Session *session = sessionForTarget(targetId);
+	OutputTarget *target = findTarget(targetId);
+	if (!session || !target || !youtubeOperationMatches(targetId, sessionSerial, operationGeneration) ||
+	    session->youtubeAutoStartWaitingSinceMs <= 0 ||
+	    QDateTime::currentMSecsSinceEpoch() - session->youtubeAutoStartWaitingSinceMs <=
+		    YouTubeAutoStartWaitTimeoutMs)
+		return false;
+
+	completeYouTubeOperation(targetId, sessionSerial, operationGeneration);
+	setRuntimePlatform(targetId, sessionSerial, PlatformLiveState::NeedsManualStart,
+			   QStringLiteral("YouTube Auto-start is still pending - check YouTube Studio"));
+	emit statusMessage(QStringLiteral("%1: YouTube Auto-start is still pending. Check the broadcast in YouTube Studio.")
+			   .arg(target->name));
+	return true;
+}
+
+bool OutputManager::scheduleYouTubeRequestRetry(const QString &targetId, quint64 sessionSerial,
+						quint64 operationGeneration, int attempt,
+						const HttpResponse &response, const QString &stage)
+{
+	Session *session = sessionForTarget(targetId);
+	OutputTarget *target = findTarget(targetId);
+	if (!session || !target || !youtubeOperationMatches(targetId, sessionSerial, operationGeneration))
+		return false;
+
+	const QString error = platformHttpError(response);
+	bool retry = isRetryableYouTubeResponse(response, error);
+	if (response.statusCode == 401 && !session->youtubeAuthRefreshRetried) {
+		session->youtubeAuthRefreshRetried = true;
+		session->youtubeAccessToken.clear();
+		session->youtubeAccessTokenExpiresAtMs = 0;
+		retry = true;
+	}
+	if (!retry || session->youtubeTransientRetryCount >= YouTubeMaxTransientRetries)
+		return false;
+
+	const int retryNumber = ++session->youtubeTransientRetryCount;
+	const int delayMs = qMin(10000, 1000 << qMin(retryNumber - 1, 3));
+	completeYouTubeOperation(targetId, sessionSerial, operationGeneration);
+	setRuntimePlatform(targetId, sessionSerial, PlatformLiveState::RtmpSignalOnly,
+			   QStringLiteral("YouTube %1 temporarily unavailable - retrying").arg(stage));
+	logWarning(QStringLiteral("%1: YouTube %2 request will retry in %3 ms (HTTP %4, retry %5/%6).")
+			   .arg(target->name, stage)
+			   .arg(delayMs)
+			   .arg(response.statusCode)
+			   .arg(retryNumber)
+			   .arg(YouTubeMaxTransientRetries));
+	scheduleYouTubePoll(targetId, sessionSerial, operationGeneration, attempt, delayMs);
+	return true;
+}
+
+void OutputManager::applyYouTubeBroadcastSelection(const QString &targetId, quint64 sessionSerial,
+					   quint64 selectionGeneration, const QString &broadcastId)
+{
+	OutputTarget *target = findTarget(targetId);
+	const QString cleanBroadcastId = broadcastId.trimmed();
+	if (!target || cleanBroadcastId.isEmpty() || !sessionMatches(targetId, sessionSerial) ||
+	    !canContinuePlatformStart(*target, runtimeStatusForTarget(targetId)))
+		return;
+	Session *session = sessionForTarget(targetId);
+	if (!session || session->serial != sessionSerial || session->youtubeOperationInFlight ||
+	    session->youtubeOperationGeneration != selectionGeneration)
+		return;
+
+	TargetRuntimeStatus &runtime = ensureRuntimeStatus(targetId);
+	runtime.broadcastId = cleanBroadcastId;
+	session->youtubeAwaitingSelection = false;
+	++session->youtubeOperationGeneration;
+	session->youtubeAutoStartWaitingSinceMs = 0;
+	if (!session->youtubePreflight)
+		session->youtubeSignalActiveAtMs = QDateTime::currentMSecsSinceEpoch();
+	clearTargetApiWarning(targetId);
+	setRuntimePlatform(
+		targetId,
+		sessionSerial,
+		session->youtubePreflight ? PlatformLiveState::Unknown : PlatformLiveState::RtmpSignalOnly,
+		session->youtubePreflight ? QStringLiteral("Confirming the selected YouTube broadcast")
+					  : QStringLiteral("Checking selected YouTube broadcast"));
+	emit statusMessage(QStringLiteral("%1: Checking the selected YouTube broadcast.").arg(target->name));
+	maybeStartYouTubeBroadcast(targetId, sessionSerial);
+}
+
+void OutputManager::cancelYouTubeBroadcastSelection(const QString &targetId, quint64 sessionSerial,
+						    quint64 selectionGeneration)
+{
+	Session *session = sessionForTarget(targetId);
+	if (!session || session->serial != sessionSerial || !session->youtubePreflight ||
+	    !session->youtubeAwaitingSelection ||
+	    session->youtubeOperationGeneration != selectionGeneration)
+		return;
+
+	logInfo(QStringLiteral("YouTube start preflight cancelled before RTMP output (session %1).")
+			.arg(sessionSerial));
+	stopTarget(targetId);
+}
+
+void OutputManager::refreshYouTubeAccessToken(const QString &targetId, quint64 sessionSerial, int attempt,
+					      quint64 operationGeneration)
 {
 	OutputTarget *target = findTarget(targetId);
 	if (!target || !canContinuePlatformStart(*target, runtimeStatusForTarget(targetId)) ||
-	    !sessionMatches(targetId, sessionSerial))
+	    !youtubeOperationMatches(targetId, sessionSerial, operationGeneration))
 		return;
 	const OAuthClientCredentials credentials = oauthEffectiveClientCredentials(
 		target->authMode, target->oauthClientId, target->oauthClientSecret);
 	if (!credentials.isComplete()) {
+		completeYouTubeOperation(targetId, sessionSerial, operationGeneration);
 		setTargetApiWarning(targetId, QStringLiteral("YouTube token refresh failed: Google OAuth application credentials are missing."), sessionSerial);
 		return;
 	}
@@ -2046,74 +2416,196 @@ void OutputManager::refreshYouTubeAccessToken(const QString &targetId, quint64 s
 	request.timeoutMs = PlatformApiTimeoutMs;
 	request.headers.push_back({QByteArrayLiteral("Content-Type"), QByteArrayLiteral("application/x-www-form-urlencoded")});
 	request.body = formBody(body);
-	http_->send(std::move(request), [this, targetId, sessionSerial, attempt](HttpResponse response) {
+	logInfo(QStringLiteral("%1: Requesting a YouTube OAuth access token (session %2).")
+			.arg(target->name)
+			.arg(sessionSerial));
+	http_->send(std::move(request), [this, targetId, sessionSerial, attempt, operationGeneration](HttpResponse response) {
 		const QString error = platformHttpError(response);
 		OutputTarget *target = findTarget(targetId);
-		if (!target || !sessionMatches(targetId, sessionSerial) ||
+		if (!target || !youtubeOperationMatches(targetId, sessionSerial, operationGeneration) ||
 		    !canContinuePlatformStart(*target, runtimeStatusForTarget(targetId)))
 			return;
 		if (!error.isEmpty()) {
+			if (scheduleYouTubeRequestRetry(targetId, sessionSerial, operationGeneration, attempt,
+						       response, QStringLiteral("token refresh")))
+				return;
+			logWarning(QStringLiteral("%1: YouTube OAuth access-token request failed (HTTP %2).")
+					   .arg(target->name)
+					   .arg(response.statusCode));
+			completeYouTubeOperation(targetId, sessionSerial, operationGeneration);
 			setTargetApiWarning(targetId, QString("YouTube token refresh failed: %1").arg(error), sessionSerial);
 			return;
 		}
 
 		const QJsonDocument document = QJsonDocument::fromJson(response.body);
-		const QString accessToken = document.object().value(QStringLiteral("access_token")).toString();
+		const QJsonObject tokenResponse = document.object();
+		const QString accessToken = tokenResponse.value(QStringLiteral("access_token")).toString();
 		if (accessToken.isEmpty()) {
+			completeYouTubeOperation(targetId, sessionSerial, operationGeneration);
 			setTargetApiWarning(targetId, QStringLiteral("YouTube token refresh failed: access token missing."), sessionSerial);
 			return;
 		}
-		listYouTubeBroadcasts(targetId, sessionSerial, accessToken, attempt);
+		Session *session = sessionForTarget(targetId);
+		if (!session || session->serial != sessionSerial)
+			return;
+		session->youtubeTransientRetryCount = 0;
+		const int expiresInSeconds = qMax(60, tokenResponse.value(QStringLiteral("expires_in")).toInt(3600));
+		session->youtubeAccessToken = accessToken;
+		session->youtubeAccessTokenExpiresAtMs =
+			QDateTime::currentMSecsSinceEpoch() + static_cast<qint64>(expiresInSeconds) * 1000;
+		logInfo(QStringLiteral("%1: YouTube OAuth access token refreshed (HTTP %2, expires in %3 sec).")
+				.arg(target->name)
+				.arg(response.statusCode)
+				.arg(expiresInSeconds));
+		listYouTubeBroadcasts(targetId, sessionSerial, accessToken, attempt, operationGeneration);
 	});
 }
 
-void OutputManager::listYouTubeBroadcasts(const QString &targetId, quint64 sessionSerial, const QString &accessToken, int attempt)
+void OutputManager::listYouTubeBroadcasts(const QString &targetId, quint64 sessionSerial,
+					  const QString &accessToken, int attempt,
+					  quint64 operationGeneration)
 {
 	OutputTarget *target = findTarget(targetId);
 	if (!target || !canContinuePlatformStart(*target, runtimeStatusForTarget(targetId)) ||
-	    !sessionMatches(targetId, sessionSerial))
+	    !youtubeOperationMatches(targetId, sessionSerial, operationGeneration))
 		return;
-	setRuntimePlatform(targetId, sessionSerial, PlatformLiveState::RtmpSignalOnly,
-			   QStringLiteral("Finding YouTube broadcast"));
+	if (stopYouTubeAutoStartIfTimedOut(targetId, sessionSerial, operationGeneration))
+		return;
+	Session *session = sessionForTarget(targetId);
+	setRuntimePlatform(
+		targetId,
+		sessionSerial,
+		session && session->youtubePreflight ? PlatformLiveState::Unknown
+						    : PlatformLiveState::RtmpSignalOnly,
+		session && session->youtubePreflight ? QStringLiteral("Finding YouTube broadcast before RTMP")
+						    : QStringLiteral("Finding YouTube broadcast"));
+	listYouTubeBroadcastPage(targetId,
+				 sessionSerial,
+				 accessToken,
+				 attempt,
+				 operationGeneration,
+				 QStringLiteral("upcoming"),
+				 QString(),
+				 0,
+				 QJsonArray());
+}
+
+void OutputManager::listYouTubeBroadcastPage(const QString &targetId, quint64 sessionSerial,
+					     const QString &accessToken, int attempt,
+					     quint64 operationGeneration, const QString &broadcastStatus,
+					     const QString &pageToken,
+					     int pageNumber, const QJsonArray &broadcasts)
+{
+	OutputTarget *target = findTarget(targetId);
+	if (!target || !canContinuePlatformStart(*target, runtimeStatusForTarget(targetId)) ||
+	    !youtubeOperationMatches(targetId, sessionSerial, operationGeneration))
+		return;
+	if (stopYouTubeAutoStartIfTimedOut(targetId, sessionSerial, operationGeneration))
+		return;
 
 	QUrl url(QStringLiteral("https://www.googleapis.com/youtube/v3/liveBroadcasts"));
 	QUrlQuery query;
 	query.addQueryItem(QStringLiteral("part"), QStringLiteral("id,snippet,contentDetails,status"));
-	query.addQueryItem(QStringLiteral("broadcastStatus"), QStringLiteral("all"));
+	query.addQueryItem(QStringLiteral("broadcastStatus"), broadcastStatus);
 	query.addQueryItem(QStringLiteral("broadcastType"), QStringLiteral("all"));
-	query.addQueryItem(QStringLiteral("maxResults"), QStringLiteral("50"));
+	query.addQueryItem(QStringLiteral("maxResults"), QString::number(YouTubeApiPageSize));
+	if (!pageToken.isEmpty())
+		query.addQueryItem(QStringLiteral("pageToken"), pageToken);
 	url.setQuery(query);
 
 	HttpRequest request;
 	request.url = url;
 	request.timeoutMs = PlatformApiTimeoutMs;
 	request.headers.push_back({QByteArrayLiteral("Authorization"), QByteArrayLiteral("Bearer ") + accessToken.toUtf8()});
-	http_->send(std::move(request), [this, targetId, sessionSerial, accessToken, attempt](HttpResponse response) {
+	logInfo(QStringLiteral("%1: Listing %2 YouTube broadcasts (page %3, session %4, attempt %5).")
+			.arg(target->name)
+			.arg(broadcastStatus)
+			.arg(pageNumber + 1)
+			.arg(sessionSerial)
+			.arg(attempt));
+	http_->send(std::move(request),
+		    [this, targetId, sessionSerial, accessToken, attempt, operationGeneration, broadcastStatus, pageNumber,
+		     broadcasts](HttpResponse response) {
 		const QString error = platformHttpError(response);
 		OutputTarget *target = findTarget(targetId);
-		if (!target || !sessionMatches(targetId, sessionSerial) ||
+		if (!target || !youtubeOperationMatches(targetId, sessionSerial, operationGeneration) ||
 		    !canContinuePlatformStart(*target, runtimeStatusForTarget(targetId)))
 			return;
 		if (!error.isEmpty()) {
+			if (scheduleYouTubeRequestRetry(targetId, sessionSerial, operationGeneration, attempt,
+						       response, QStringLiteral("broadcast lookup")))
+				return;
+			completeYouTubeOperation(targetId, sessionSerial, operationGeneration);
 			setTargetApiWarning(targetId, QString("YouTube broadcast lookup failed: %1").arg(error), sessionSerial);
 			return;
 		}
+		const QJsonObject responseObject = QJsonDocument::fromJson(response.body).object();
+		const QJsonArray items = responseObject.value(QStringLiteral("items")).toArray();
+		QJsonArray accumulated = broadcasts;
+		for (const QJsonValue &item : items)
+			accumulated.push_back(item);
+		logInfo(QStringLiteral("%1: %2 YouTube broadcast page returned %3 item(s), %4 accumulated (HTTP %5).")
+				.arg(target->name)
+				.arg(broadcastStatus)
+				.arg(items.size())
+				.arg(accumulated.size())
+				.arg(response.statusCode));
 
-		const QJsonDocument document = QJsonDocument::fromJson(response.body);
-		const QJsonArray items = document.object().value(QStringLiteral("items")).toArray();
-		if (items.isEmpty()) {
+		const QString nextPageToken = responseObject.value(QStringLiteral("nextPageToken")).toString();
+		if (!nextPageToken.isEmpty() && pageNumber + 1 < YouTubeMaxBroadcastPagesPerStatus) {
+			listYouTubeBroadcastPage(targetId,
+						 sessionSerial,
+						 accessToken,
+						 attempt,
+						 operationGeneration,
+						 broadcastStatus,
+						 nextPageToken,
+						 pageNumber + 1,
+						 accumulated);
+			return;
+		}
+		if (!nextPageToken.isEmpty()) {
+			completeYouTubeOperation(targetId, sessionSerial, operationGeneration);
+			setTargetApiWarning(
+				targetId,
+				QStringLiteral("YouTube broadcast lookup blocked: the %1 broadcast list exceeded %2 pages. Narrow or remove old scheduled broadcasts, then retry.")
+					.arg(broadcastStatus)
+					.arg(YouTubeMaxBroadcastPagesPerStatus),
+				sessionSerial);
+			return;
+		}
+
+		if (broadcastStatus == QStringLiteral("upcoming")) {
+			listYouTubeBroadcastPage(targetId,
+						 sessionSerial,
+						 accessToken,
+						 attempt,
+						 operationGeneration,
+						 QStringLiteral("active"),
+						 QString(),
+						 0,
+						 accumulated);
+			return;
+		}
+
+		if (accumulated.isEmpty()) {
+			completeYouTubeOperation(targetId, sessionSerial, operationGeneration);
 			setTargetApiWarning(targetId, QStringLiteral("YouTube broadcast lookup found no broadcasts."), sessionSerial);
 			return;
 		}
-		listYouTubeStreams(targetId, sessionSerial, accessToken, attempt, items);
+		listYouTubeStreams(targetId, sessionSerial, accessToken, attempt, operationGeneration, accumulated);
 	});
 }
 
-void OutputManager::listYouTubeStreams(const QString &targetId, quint64 sessionSerial, const QString &accessToken, int attempt, const QJsonArray &broadcasts)
+void OutputManager::listYouTubeStreams(const QString &targetId, quint64 sessionSerial,
+				       const QString &accessToken, int attempt,
+				       quint64 operationGeneration, const QJsonArray &broadcasts)
 {
 	OutputTarget *target = findTarget(targetId);
 	if (!target || !canContinuePlatformStart(*target, runtimeStatusForTarget(targetId)) ||
-	    !sessionMatches(targetId, sessionSerial))
+	    !youtubeOperationMatches(targetId, sessionSerial, operationGeneration))
+		return;
+	if (stopYouTubeAutoStartIfTimedOut(targetId, sessionSerial, operationGeneration))
 		return;
 
 	QStringList streamIds;
@@ -2125,76 +2617,272 @@ void OutputManager::listYouTubeStreams(const QString &targetId, quint64 sessionS
 	}
 
 	if (streamIds.isEmpty()) {
+		completeYouTubeOperation(targetId, sessionSerial, operationGeneration);
 		setTargetApiWarning(targetId, QStringLiteral("YouTube broadcast lookup found no bound stream."), sessionSerial);
+		return;
+	}
+	listYouTubeStreamBatch(targetId,
+			       sessionSerial,
+			       accessToken,
+			       attempt,
+			       operationGeneration,
+			       broadcasts,
+			       streamIds,
+			       0,
+			       QJsonArray());
+}
+
+void OutputManager::listYouTubeStreamBatch(const QString &targetId, quint64 sessionSerial,
+					   const QString &accessToken, int attempt,
+					   quint64 operationGeneration, const QJsonArray &broadcasts,
+					   const QStringList &streamIds,
+					   int offset, const QJsonArray &streams)
+{
+	OutputTarget *target = findTarget(targetId);
+	if (!target || !canContinuePlatformStart(*target, runtimeStatusForTarget(targetId)) ||
+	    !youtubeOperationMatches(targetId, sessionSerial, operationGeneration))
+		return;
+	if (stopYouTubeAutoStartIfTimedOut(targetId, sessionSerial, operationGeneration))
+		return;
+
+	const QStringList batchIds = streamIds.mid(offset, YouTubeApiPageSize);
+	if (batchIds.isEmpty()) {
+		processYouTubeBroadcastSelection(targetId, sessionSerial, accessToken, attempt,
+						 operationGeneration, broadcasts, streams);
 		return;
 	}
 
 	QUrl url(QStringLiteral("https://www.googleapis.com/youtube/v3/liveStreams"));
 	QUrlQuery query;
 	query.addQueryItem(QStringLiteral("part"), QStringLiteral("id,cdn,status"));
-	query.addQueryItem(QStringLiteral("id"), streamIds.join(','));
-	query.addQueryItem(QStringLiteral("maxResults"), QStringLiteral("50"));
+	query.addQueryItem(QStringLiteral("id"), batchIds.join(','));
+	query.addQueryItem(QStringLiteral("maxResults"), QString::number(YouTubeApiPageSize));
 	url.setQuery(query);
 
 	HttpRequest request;
 	request.url = url;
 	request.timeoutMs = PlatformApiTimeoutMs;
 	request.headers.push_back({QByteArrayLiteral("Authorization"), QByteArrayLiteral("Bearer ") + accessToken.toUtf8()});
-	http_->send(std::move(request), [this, targetId, sessionSerial, accessToken, attempt, broadcasts](HttpResponse response) {
+	logInfo(QStringLiteral("%1: Checking YouTube stream batch %2-%3 of %4 (session %5).")
+			.arg(target->name)
+			.arg(offset + 1)
+			.arg(offset + batchIds.size())
+			.arg(streamIds.size())
+			.arg(sessionSerial));
+	http_->send(std::move(request),
+		    [this, targetId, sessionSerial, accessToken, attempt, operationGeneration, broadcasts, streamIds, offset, streams,
+		     batchSize = batchIds.size()](HttpResponse response) {
 		const QString error = platformHttpError(response);
 		OutputTarget *target = findTarget(targetId);
 		if (!target || !canContinuePlatformStart(*target, runtimeStatusForTarget(targetId)) ||
-		    !sessionMatches(targetId, sessionSerial))
+		    !youtubeOperationMatches(targetId, sessionSerial, operationGeneration))
 			return;
 		if (!error.isEmpty()) {
+			if (scheduleYouTubeRequestRetry(targetId, sessionSerial, operationGeneration, attempt,
+						       response, QStringLiteral("stream status")))
+				return;
+			completeYouTubeOperation(targetId, sessionSerial, operationGeneration);
 			setTargetApiWarning(targetId, QString("YouTube stream status lookup failed: %1").arg(error), sessionSerial);
 			return;
 		}
-
-		QHash<QString, QJsonObject> streamsById;
-		const QJsonArray streams = QJsonDocument::fromJson(response.body).object().value(QStringLiteral("items")).toArray();
-		for (const QJsonValue &value : streams) {
-			const QJsonObject stream = value.toObject();
-			streamsById.insert(stream.value(QStringLiteral("id")).toString(), stream);
+		QJsonArray accumulatedStreams = streams;
+		const QJsonArray batchStreams =
+			QJsonDocument::fromJson(response.body).object().value(QStringLiteral("items")).toArray();
+		for (const QJsonValue &value : batchStreams)
+			accumulatedStreams.push_back(value);
+		const int nextOffset = offset + batchSize;
+		if (nextOffset < streamIds.size()) {
+			listYouTubeStreamBatch(targetId,
+					       sessionSerial,
+					       accessToken,
+					       attempt,
+					       operationGeneration,
+					       broadcasts,
+					       streamIds,
+					       nextOffset,
+					       accumulatedStreams);
+			return;
 		}
+		processYouTubeBroadcastSelection(targetId,
+						 sessionSerial,
+						 accessToken,
+						 attempt,
+						 operationGeneration,
+						 broadcasts,
+						 accumulatedStreams);
+	});
+}
 
-		const YouTubeBroadcastSelection selection =
-			selectYouTubeBroadcast(broadcasts, streamsById, target->streamKey);
-		if (selection.state == YouTubeBroadcastSelectionState::MultipleActiveBroadcasts) {
-			setTargetApiWarning(targetId, QStringLiteral("YouTube broadcast start blocked: multiple active broadcasts were found. Configure this target's stream key or stop the extra broadcast."), sessionSerial);
+void OutputManager::processYouTubeBroadcastSelection(const QString &targetId, quint64 sessionSerial,
+						     const QString &accessToken, int attempt,
+						     quint64 operationGeneration, const QJsonArray &broadcasts,
+						     const QJsonArray &streams)
+{
+	OutputTarget *target = findTarget(targetId);
+	if (!target || !canContinuePlatformStart(*target, runtimeStatusForTarget(targetId)) ||
+	    !youtubeOperationMatches(targetId, sessionSerial, operationGeneration))
+		return;
+	if (stopYouTubeAutoStartIfTimedOut(targetId, sessionSerial, operationGeneration))
+		return;
+	Session *session = sessionForTarget(targetId);
+	if (!session || session->serial != sessionSerial)
+		return;
+	const auto resetTransientRetries = [this, &targetId]() {
+		if (Session *session = sessionForTarget(targetId))
+			session->youtubeTransientRetryCount = 0;
+	};
+
+	QHash<QString, QJsonObject> streamsById;
+	for (const QJsonValue &value : streams) {
+		const QJsonObject stream = value.toObject();
+		streamsById.insert(stream.value(QStringLiteral("id")).toString(), stream);
+	}
+
+	const YouTubeBroadcastSelection selection =
+		selectYouTubeBroadcast(broadcasts, streamsById, target->streamKey,
+				       runtimeStatusForTarget(targetId).broadcastId,
+				       session->youtubePreflight ? YouTubeBroadcastSelectionMode::Preflight
+								 : YouTubeBroadcastSelectionMode::ActiveSignal);
+	logInfo(QStringLiteral("%1: YouTube selection result=%2, candidates=%3, preferred=%4.")
+				.arg(target->name,
+				     youtubeSelectionStateName(selection.state),
+				     QString::number(selection.candidates.size()),
+				     runtimeStatusForTarget(targetId).broadcastId.isEmpty() ? QStringLiteral("no")
+										     : QStringLiteral("yes")));
+	if (selection.state == YouTubeBroadcastSelectionState::MultipleActiveBroadcasts) {
+			resetTransientRetries();
+			completeYouTubeOperation(targetId, sessionSerial, operationGeneration);
+			session->youtubeAwaitingSelection = true;
+			setTargetApiWarning(targetId, QStringLiteral("YouTube broadcast start blocked: multiple active broadcasts were found. Choose the broadcast in DSK Streaming."), sessionSerial);
+			QJsonArray choices;
+			for (const QJsonObject &candidate : selection.candidates)
+				choices.push_back(candidate);
+			emit youtubeBroadcastSelectionRequired(targetId, sessionSerial, operationGeneration, choices);
 			return;
 		}
 		if (selection.state == YouTubeBroadcastSelectionState::MultipleStreamKeyMatches) {
-			setTargetApiWarning(targetId, QStringLiteral("YouTube broadcast start blocked: multiple active broadcasts matched this target's stream key. Stop the extra broadcast or bind a different stream."), sessionSerial);
+			resetTransientRetries();
+			completeYouTubeOperation(targetId, sessionSerial, operationGeneration);
+			session->youtubeAwaitingSelection = true;
+			setTargetApiWarning(targetId, QStringLiteral("YouTube broadcast start blocked: multiple active broadcasts matched this target's stream key. Choose the broadcast in DSK Streaming."), sessionSerial);
+			QJsonArray choices;
+			for (const QJsonObject &candidate : selection.candidates)
+				choices.push_back(candidate);
+			emit youtubeBroadcastSelectionRequired(targetId, sessionSerial, operationGeneration, choices);
+			return;
+		}
+		if (selection.state == YouTubeBroadcastSelectionState::NoActiveBroadcast &&
+		    session->youtubePreflight) {
+			resetTransientRetries();
+			completeYouTubeOperation(targetId, sessionSerial, operationGeneration);
+			setTargetApiWarning(
+				targetId,
+				QStringLiteral("YouTube broadcast lookup found no broadcasts ready for preflight."),
+				sessionSerial);
 			return;
 		}
 		if (selection.state == YouTubeBroadcastSelectionState::NoStreamKeyMatch) {
+			resetTransientRetries();
+			completeYouTubeOperation(targetId, sessionSerial, operationGeneration);
 			setTargetApiWarning(targetId, QStringLiteral("YouTube broadcast start blocked: no active broadcast matched this target's stream key."), sessionSerial);
+			return;
+		}
+		if (selection.state == YouTubeBroadcastSelectionState::PreferredBroadcastUnavailable) {
+			resetTransientRetries();
+			completeYouTubeOperation(targetId, sessionSerial, operationGeneration);
+			session->youtubeAwaitingSelection = !selection.candidates.isEmpty();
+			setTargetApiWarning(targetId, QStringLiteral("YouTube broadcast start blocked: selected broadcast unavailable. Choose another broadcast in DSK Streaming."), sessionSerial);
+			QJsonArray choices;
+			for (const QJsonObject &candidate : selection.candidates)
+				choices.push_back(candidate);
+			if (!choices.isEmpty())
+				emit youtubeBroadcastSelectionRequired(targetId, sessionSerial, operationGeneration, choices);
 			return;
 		}
 		const QJsonObject selectedBroadcast = selection.broadcast;
 
 		if (!selectedBroadcast.isEmpty()) {
 			const QString lifecycle = selectedBroadcast.value(QStringLiteral("status")).toObject().value(QStringLiteral("lifeCycleStatus")).toString();
+			const QString broadcastId = selectedBroadcast.value(QStringLiteral("id")).toString().trimmed();
+			if (broadcastId.isEmpty()) {
+				resetTransientRetries();
+				completeYouTubeOperation(targetId, sessionSerial, operationGeneration);
+				setTargetApiWarning(targetId, QStringLiteral("YouTube broadcast start blocked: selected broadcast unavailable because its ID was missing."), sessionSerial);
+				return;
+			}
+			ensureRuntimeStatus(targetId).broadcastId = broadcastId;
+			if (session->youtubePreflight) {
+				if (youtubeHasConflictingAutoStart(selection.candidates, broadcastId)) {
+					resetTransientRetries();
+					completeYouTubeOperation(targetId, sessionSerial, operationGeneration);
+					setTargetApiWarning(
+						targetId,
+						QStringLiteral("YouTube broadcast start blocked: another broadcast using this stream key has Auto-start enabled. Disable Auto-start on the other broadcast, then retry."),
+						sessionSerial);
+					return;
+				}
+
+				resetTransientRetries();
+				completeYouTubeOperation(targetId, sessionSerial, operationGeneration);
+				session->youtubePreflight = false;
+				session->youtubeAwaitingSelection = false;
+				clearTargetApiWarning(targetId);
+				setRuntimePlatform(targetId,
+						   sessionSerial,
+						   PlatformLiveState::Unknown,
+						   QStringLiteral("Selected YouTube broadcast confirmed - connecting RTMP"));
+				logInfo(QStringLiteral("%1: YouTube preflight selected broadcast %2; starting RTMP output.")
+						.arg(target->name, broadcastIdForLog(broadcastId)));
+				if (!startIndependentTarget(*target, session))
+					releaseSession(targetId, false, sessionSerial);
+				return;
+			}
 			if (lifecycle == QStringLiteral("live")) {
+				resetTransientRetries();
+				if (Session *session = sessionForTarget(targetId))
+					session->youtubeAutoStartWaitingSinceMs = 0;
+				completeYouTubeOperation(targetId, sessionSerial, operationGeneration);
 				clearTargetApiWarning(targetId);
 				setRuntimePlatform(targetId, sessionSerial, PlatformLiveState::Live, QStringLiteral("YouTube broadcast is live"));
 				emit statusMessage(QString("%1: YouTube broadcast is already live.").arg(target->name));
+				notifyCommentViewerYouTubeStarted(targetId, sessionSerial, broadcastId);
+				armYouTubeArchiveRotation(targetId, sessionSerial, selectedBroadcast);
 				return;
 			}
 
-			const QString broadcastId = selectedBroadcast.value(QStringLiteral("id")).toString();
 			if (lifecycle == QStringLiteral("testStarting") || lifecycle == QStringLiteral("liveStarting")) {
+				resetTransientRetries();
 				setRuntimePlatform(targetId, sessionSerial, PlatformLiveState::LiveStarting,
 						   QStringLiteral("YouTube is switching to live"));
 				emit statusMessage(QString("%1: YouTube broadcast is %2. Waiting...").arg(target->name, lifecycle));
-				QTimer::singleShot(3000, this, [this, targetId, sessionSerial, attempt]() {
-					maybeStartYouTubeBroadcast(targetId, sessionSerial, attempt + 1);
-				});
+				completeYouTubeOperation(targetId, sessionSerial, operationGeneration);
+				scheduleYouTubePoll(targetId, sessionSerial, operationGeneration, attempt + 1, 3000);
 				return;
 			}
 
 			const QJsonObject contentDetails = selectedBroadcast.value(QStringLiteral("contentDetails")).toObject();
+			if (contentDetails.value(QStringLiteral("enableAutoStart")).toBool(false)) {
+				resetTransientRetries();
+				Session *session = sessionForTarget(targetId);
+				if (session && session->youtubeAutoStartWaitingSinceMs == 0)
+					session->youtubeAutoStartWaitingSinceMs = QDateTime::currentMSecsSinceEpoch();
+				setRuntimePlatform(targetId, sessionSerial, PlatformLiveState::LiveStarting,
+						   QStringLiteral("YouTube Auto-start is enabled - waiting for live"));
+				logInfo(QStringLiteral("%1: YouTube Auto-start is enabled for broadcast %2; waiting for YouTube to switch it live.")
+						.arg(target->name, broadcastIdForLog(broadcastId)));
+				emit statusMessage(QString("%1: YouTube Auto-start is enabled. Waiting for live...").arg(target->name));
+				completeYouTubeOperation(targetId, sessionSerial, operationGeneration);
+				scheduleYouTubePoll(targetId, sessionSerial, operationGeneration, attempt + 1, 3000);
+				return;
+			}
+			int transitionAttempt = attempt;
+			if (Session *session = sessionForTarget(targetId)) {
+				if (session->youtubeAutoStartWaitingSinceMs > 0) {
+					transitionAttempt = 0;
+					session->youtubeSignalActiveAtMs = QDateTime::currentMSecsSinceEpoch();
+				}
+				session->youtubeAutoStartWaitingSinceMs = 0;
+			}
 			const QJsonObject monitorStream = contentDetails.value(QStringLiteral("monitorStream")).toObject();
 			const bool monitorStreamEnabled =
 				!monitorStream.contains(QStringLiteral("enableMonitorStream")) ||
@@ -2206,25 +2894,26 @@ void OutputManager::listYouTubeStreams(const QString &targetId, quint64 sessionS
 					   nextStatus == QStringLiteral("testing") ? PlatformLiveState::Testing : PlatformLiveState::LiveStarting,
 					   nextStatus == QStringLiteral("testing") ? QStringLiteral("YouTube monitor is testing")
 									      : QStringLiteral("YouTube is switching to live"));
-			transitionYouTubeBroadcast(targetId, accessToken, broadcastId, nextStatus, sessionSerial, attempt);
+			transitionYouTubeBroadcast(targetId, accessToken, broadcastId, nextStatus, sessionSerial,
+						   transitionAttempt, operationGeneration);
 			return;
 		}
 
 		setRuntimePlatform(targetId, sessionSerial, PlatformLiveState::WaitingForSignal,
 				   QStringLiteral("RTMP connected - waiting for YouTube signal"));
+		resetTransientRetries();
 		emit statusMessage(QString("%1: Waiting for YouTube stream signal...").arg(target->name));
-		QTimer::singleShot(5000, this, [this, targetId, sessionSerial, attempt]() {
-			maybeStartYouTubeBroadcast(targetId, sessionSerial, attempt + 1);
-		});
-	});
+		completeYouTubeOperation(targetId, sessionSerial, operationGeneration);
+		scheduleYouTubePoll(targetId, sessionSerial, operationGeneration, attempt + 1, 5000);
 }
 
 void OutputManager::transitionYouTubeBroadcast(const QString &targetId, const QString &accessToken, const QString &broadcastId,
-					       const QString &broadcastStatus, quint64 sessionSerial, int attempt)
+					       const QString &broadcastStatus, quint64 sessionSerial, int attempt,
+					       quint64 operationGeneration)
 {
 	OutputTarget *target = findTarget(targetId);
 	if (!target || !canContinuePlatformStart(*target, runtimeStatusForTarget(targetId)) ||
-	    !sessionMatches(targetId, sessionSerial) || broadcastId.isEmpty() ||
+	    !youtubeOperationMatches(targetId, sessionSerial, operationGeneration) || broadcastId.isEmpty() ||
 	    broadcastStatus.isEmpty())
 		return;
 
@@ -2240,33 +2929,529 @@ void OutputManager::transitionYouTubeBroadcast(const QString &targetId, const QS
 	request.method = QByteArrayLiteral("POST");
 	request.timeoutMs = PlatformApiTimeoutMs;
 	request.headers.push_back({QByteArrayLiteral("Authorization"), QByteArrayLiteral("Bearer ") + accessToken.toUtf8()});
-	http_->send(std::move(request), [this, targetId, sessionSerial, broadcastStatus, attempt](HttpResponse response) {
+	logInfo(QStringLiteral("%1: Requesting YouTube transition to %2 for broadcast %3 (session %4).")
+			.arg(target->name, broadcastStatus, broadcastIdForLog(broadcastId))
+			.arg(sessionSerial));
+	http_->send(std::move(request), [this, targetId, sessionSerial, broadcastStatus, broadcastId, attempt,
+					 operationGeneration](HttpResponse response) {
 		const QString error = platformHttpError(response);
 		OutputTarget *target = findTarget(targetId);
-		if (!target || !sessionMatches(targetId, sessionSerial) ||
+		if (!target || !youtubeOperationMatches(targetId, sessionSerial, operationGeneration) ||
 		    !canContinuePlatformStart(*target, runtimeStatusForTarget(targetId)))
 			return;
 		if (!error.isEmpty()) {
+			if (youtubeApiErrorHasAnyReason(response, {"errorStreamInactive"})) {
+				completeYouTubeOperation(targetId, sessionSerial, operationGeneration);
+				setRuntimePlatform(targetId, sessionSerial, PlatformLiveState::WaitingForSignal,
+						   QStringLiteral("YouTube stream signal changed - checking again"));
+				logWarning(QStringLiteral("%1: YouTube transition found the bound stream inactive; rechecking signal status.")
+						   .arg(target->name));
+				scheduleYouTubePoll(targetId, sessionSerial, operationGeneration, attempt + 1, 3000);
+				return;
+			}
+			if (youtubeApiErrorHasAnyReason(response, {"redundantTransition"})) {
+				completeYouTubeOperation(targetId, sessionSerial, operationGeneration);
+				setRuntimePlatform(targetId, sessionSerial, PlatformLiveState::LiveStarting,
+						   QStringLiteral("YouTube transition is already processing - confirming status"));
+				logInfo(QStringLiteral("%1: YouTube reports the %2 transition is already active; confirming status.")
+						.arg(target->name, broadcastStatus));
+				scheduleYouTubePoll(targetId, sessionSerial, operationGeneration, attempt + 1, 2000);
+				return;
+			}
+			if (scheduleYouTubeRequestRetry(targetId, sessionSerial, operationGeneration, attempt,
+						       response, QStringLiteral("broadcast transition")))
+				return;
+			logWarning(QStringLiteral("%1: YouTube transition to %2 failed for broadcast %3 (HTTP %4).")
+					   .arg(target->name, broadcastStatus, broadcastIdForLog(broadcastId))
+					   .arg(response.statusCode));
+			completeYouTubeOperation(targetId, sessionSerial, operationGeneration);
 			setTargetApiWarning(targetId, QString("YouTube broadcast %1 failed: %2").arg(broadcastStatus, error), sessionSerial);
 			return;
 		}
+		logInfo(QStringLiteral("%1: YouTube transition to %2 accepted for broadcast %3 (HTTP %4).")
+				.arg(target->name, broadcastStatus, broadcastIdForLog(broadcastId))
+				.arg(response.statusCode));
+		if (Session *session = sessionForTarget(targetId))
+			session->youtubeTransientRetryCount = 0;
 
 		if (broadcastStatus == QStringLiteral("testing")) {
 			setRuntimePlatform(targetId, sessionSerial, PlatformLiveState::Testing, QStringLiteral("YouTube monitor is testing"));
 			emit statusMessage(QString("%1: YouTube monitor is testing. Switching to live...").arg(target->name));
-			QTimer::singleShot(3000, this, [this, targetId, sessionSerial, attempt]() {
-				maybeStartYouTubeBroadcast(targetId, sessionSerial, attempt + 1);
-			});
+			completeYouTubeOperation(targetId, sessionSerial, operationGeneration);
+			scheduleYouTubePoll(targetId, sessionSerial, operationGeneration, attempt + 1, 3000);
 			return;
 		}
 
 		setRuntimePlatform(targetId, sessionSerial, PlatformLiveState::LiveStarting,
 				   QStringLiteral("YouTube accepted the live transition - confirming status"));
 		emit statusMessage(QString("%1: YouTube accepted the live transition. Confirming...").arg(target->name));
-		QTimer::singleShot(3000, this, [this, targetId, sessionSerial, attempt]() {
-			maybeStartYouTubeBroadcast(targetId, sessionSerial, attempt + 1);
-		});
+		completeYouTubeOperation(targetId, sessionSerial, operationGeneration);
+		scheduleYouTubePoll(targetId, sessionSerial, operationGeneration, attempt + 1, 3000);
 	});
+}
+
+void OutputManager::armYouTubeArchiveRotation(const QString &targetId, quint64 sessionSerial,
+					      const QJsonObject &currentBroadcast)
+{
+	OutputTarget *target = findTarget(targetId);
+	Session *session = sessionForTarget(targetId);
+	if (!target || !session || session->serial != sessionSerial ||
+	    target->youtubeBroadcastMode != YouTubeBroadcastMode::ArchiveRotation ||
+	    target->authMode != TargetAuthMode::YouTubeOAuth)
+		return;
+
+	const QString currentBroadcastId = currentBroadcast.value(QStringLiteral("id")).toString().trimmed();
+	const QString streamId = currentBroadcast.value(QStringLiteral("contentDetails"))
+					 .toObject()
+					 .value(QStringLiteral("boundStreamId"))
+					 .toString()
+					 .trimmed();
+	if (currentBroadcastId.isEmpty() || streamId.isEmpty()) {
+		logWarning(QStringLiteral("%1: YouTube archive rotation was not armed because the live broadcast or bound stream ID was missing.")
+				   .arg(target->name));
+		return;
+	}
+
+	const qint64 nowMs = QDateTime::currentMSecsSinceEpoch();
+	const qint64 fallbackStartMs = youtubeArchiveRotationFallbackStartMs(
+		session->youtubeRotationCurrentCompleted, session->startedAtMs, nowMs);
+	const qint64 actualStartMs = youtubeBroadcastActualStartMs(
+		currentBroadcast, fallbackStartMs);
+	const qint64 delayMs = youtubeArchiveRotationDelayMs(actualStartMs, nowMs);
+	session->youtubeRotationCurrentBroadcast = currentBroadcast;
+	session->youtubeRotationCurrentBroadcastId = currentBroadcastId;
+	session->youtubeRotationStreamId = streamId;
+	session->youtubeRotationNextBroadcastId.clear();
+	session->youtubeRotationNextPart = youtubeNextArchivePart(
+		currentBroadcast.value(QStringLiteral("snippet")).toObject().value(QStringLiteral("title")).toString());
+	session->youtubeRotationCurrentCompleted = false;
+	session->youtubeRotationPolls = 0;
+	const quint64 timerGeneration = ++session->youtubeRotationTimerGeneration;
+	const int safeDelayMs = static_cast<int>(qMin<qint64>(delayMs, std::numeric_limits<int>::max()));
+	logInfo(QStringLiteral("%1: YouTube archive rotation armed for broadcast %2 in %3 minute(s).")
+			.arg(target->name, broadcastIdForLog(currentBroadcastId))
+			.arg((delayMs + 59999) / 60000));
+	QTimer::singleShot(safeDelayMs, this, [this, targetId, sessionSerial, timerGeneration]() {
+		beginYouTubeArchiveRotation(targetId, sessionSerial, timerGeneration);
+	});
+}
+
+void OutputManager::beginYouTubeArchiveRotation(const QString &targetId, quint64 sessionSerial,
+						quint64 timerGeneration)
+{
+	OutputTarget *target = findTarget(targetId);
+	Session *session = sessionForTarget(targetId);
+	if (!target || !session || session->serial != sessionSerial ||
+	    session->youtubeRotationTimerGeneration != timerGeneration || session->youtubeOperationInFlight ||
+	    target->youtubeBroadcastMode != YouTubeBroadcastMode::ArchiveRotation ||
+	    target->authMode != TargetAuthMode::YouTubeOAuth ||
+	    !canContinuePlatformStart(*target, runtimeStatusForTarget(targetId)))
+		return;
+	if (session->youtubeRotationCurrentBroadcastId.isEmpty() || session->youtubeRotationStreamId.isEmpty())
+		return;
+
+	++session->youtubePollGeneration;
+	session->youtubeOperationInFlight = true;
+	const quint64 operationGeneration = ++session->youtubeOperationGeneration;
+	session->youtubeRotationCurrentCompleted = false;
+	session->youtubeRotationPolls = 0;
+	setRuntimePlatform(targetId, sessionSerial, PlatformLiveState::Live,
+			   QStringLiteral("YouTube Live - preparing the next archive"));
+	emit statusMessage(QStringLiteral("%1: Preparing the next YouTube archive while the current broadcast stays live.")
+				   .arg(target->name));
+
+	const qint64 nowMs = QDateTime::currentMSecsSinceEpoch();
+	if (!session->youtubeAccessToken.isEmpty() && session->youtubeAccessTokenExpiresAtMs > nowMs + 30000) {
+		createYouTubeRotationBroadcast(targetId, sessionSerial, operationGeneration,
+					       session->youtubeAccessToken);
+		return;
+	}
+	refreshYouTubeRotationAccessToken(targetId, sessionSerial, operationGeneration);
+}
+
+void OutputManager::refreshYouTubeRotationAccessToken(const QString &targetId, quint64 sessionSerial,
+						      quint64 operationGeneration)
+{
+	OutputTarget *target = findTarget(targetId);
+	if (!target || !youtubeOperationMatches(targetId, sessionSerial, operationGeneration))
+		return;
+	const OAuthClientCredentials credentials = oauthEffectiveClientCredentials(
+		target->authMode, target->oauthClientId, target->oauthClientSecret);
+	if (!credentials.isComplete() || target->oauthRefreshToken.trimmed().isEmpty()) {
+		failYouTubeArchiveRotation(targetId, sessionSerial, operationGeneration,
+					   QStringLiteral("YouTube login credentials are unavailable."));
+		return;
+	}
+
+	QUrlQuery body;
+	body.addQueryItem(QStringLiteral("grant_type"), QStringLiteral("refresh_token"));
+	body.addQueryItem(QStringLiteral("client_id"), credentials.clientId);
+	body.addQueryItem(QStringLiteral("client_secret"), credentials.clientSecret);
+	body.addQueryItem(QStringLiteral("refresh_token"), target->oauthRefreshToken);
+	HttpRequest request;
+	request.url = QUrl(QStringLiteral("https://oauth2.googleapis.com/token"));
+	request.method = QByteArrayLiteral("POST");
+	request.timeoutMs = PlatformApiTimeoutMs;
+	request.headers.push_back({QByteArrayLiteral("Content-Type"), QByteArrayLiteral("application/x-www-form-urlencoded")});
+	request.body = formBody(body);
+	http_->send(std::move(request), [this, targetId, sessionSerial, operationGeneration](HttpResponse response) {
+		if (!youtubeOperationMatches(targetId, sessionSerial, operationGeneration))
+			return;
+		const QString error = platformHttpError(response);
+		if (!error.isEmpty()) {
+			failYouTubeArchiveRotation(targetId, sessionSerial, operationGeneration,
+						   QStringLiteral("access-token refresh failed: %1").arg(error));
+			return;
+		}
+		const QJsonObject tokenResponse = QJsonDocument::fromJson(response.body).object();
+		const QString accessToken = tokenResponse.value(QStringLiteral("access_token")).toString();
+		Session *session = sessionForTarget(targetId);
+		if (!session || session->serial != sessionSerial || accessToken.isEmpty()) {
+			failYouTubeArchiveRotation(targetId, sessionSerial, operationGeneration,
+						   QStringLiteral("access-token refresh returned no token."));
+			return;
+		}
+		const int expiresInSeconds = qMax(60, tokenResponse.value(QStringLiteral("expires_in")).toInt(3600));
+		session->youtubeAccessToken = accessToken;
+		session->youtubeAccessTokenExpiresAtMs =
+			QDateTime::currentMSecsSinceEpoch() + static_cast<qint64>(expiresInSeconds) * 1000;
+		createYouTubeRotationBroadcast(targetId, sessionSerial, operationGeneration, accessToken);
+	});
+}
+
+void OutputManager::createYouTubeRotationBroadcast(const QString &targetId, quint64 sessionSerial,
+						    quint64 operationGeneration,
+						    const QString &accessToken)
+{
+	OutputTarget *target = findTarget(targetId);
+	Session *session = sessionForTarget(targetId);
+	if (!target || !session || !youtubeOperationMatches(targetId, sessionSerial, operationGeneration))
+		return;
+
+	QUrl url(QStringLiteral("https://www.googleapis.com/youtube/v3/liveBroadcasts"));
+	QUrlQuery query;
+	query.addQueryItem(QStringLiteral("part"), QStringLiteral("snippet,status,contentDetails"));
+	url.setQuery(query);
+	const QString scheduledStart = QDateTime::currentDateTimeUtc().addSecs(5).toString(Qt::ISODate);
+	const QJsonObject body = youtubeArchiveBroadcastInsertBody(
+		session->youtubeRotationCurrentBroadcast, session->youtubeRotationNextPart, scheduledStart);
+	HttpRequest request;
+	request.url = url;
+	request.method = QByteArrayLiteral("POST");
+	request.timeoutMs = PlatformApiTimeoutMs;
+	request.headers.push_back({QByteArrayLiteral("Authorization"), QByteArrayLiteral("Bearer ") + accessToken.toUtf8()});
+	request.headers.push_back({QByteArrayLiteral("Content-Type"), QByteArrayLiteral("application/json")});
+	request.body = QJsonDocument(body).toJson(QJsonDocument::Compact);
+	logInfo(QStringLiteral("%1: Creating YouTube archive part %2 while the current broadcast remains live.")
+			.arg(target->name)
+			.arg(session->youtubeRotationNextPart));
+	http_->send(std::move(request), [this, targetId, sessionSerial, operationGeneration, accessToken](HttpResponse response) {
+		if (!youtubeOperationMatches(targetId, sessionSerial, operationGeneration))
+			return;
+		const QString error = platformHttpError(response);
+		if (!error.isEmpty()) {
+			failYouTubeArchiveRotation(targetId, sessionSerial, operationGeneration,
+						   QStringLiteral("next broadcast creation failed: %1").arg(error));
+			return;
+		}
+		const QString nextBroadcastId = QJsonDocument::fromJson(response.body)
+						 .object()
+						 .value(QStringLiteral("id"))
+						 .toString()
+						 .trimmed();
+		if (nextBroadcastId.isEmpty()) {
+			failYouTubeArchiveRotation(targetId, sessionSerial, operationGeneration,
+						   QStringLiteral("next broadcast creation returned no ID."));
+			return;
+		}
+		if (Session *session = sessionForTarget(targetId))
+			session->youtubeRotationNextBroadcastId = nextBroadcastId;
+		bindYouTubeRotationBroadcast(targetId, sessionSerial, operationGeneration, accessToken,
+					     nextBroadcastId);
+	});
+}
+
+void OutputManager::bindYouTubeRotationBroadcast(const QString &targetId, quint64 sessionSerial,
+						  quint64 operationGeneration,
+						  const QString &accessToken,
+						  const QString &nextBroadcastId)
+{
+	Session *session = sessionForTarget(targetId);
+	if (!session || !youtubeOperationMatches(targetId, sessionSerial, operationGeneration))
+		return;
+	QUrl url(QStringLiteral("https://www.googleapis.com/youtube/v3/liveBroadcasts/bind"));
+	QUrlQuery query;
+	query.addQueryItem(QStringLiteral("part"), QStringLiteral("id,snippet,contentDetails,status"));
+	query.addQueryItem(QStringLiteral("id"), nextBroadcastId);
+	query.addQueryItem(QStringLiteral("streamId"), session->youtubeRotationStreamId);
+	url.setQuery(query);
+	HttpRequest request;
+	request.url = url;
+	request.method = QByteArrayLiteral("POST");
+	request.timeoutMs = PlatformApiTimeoutMs;
+	request.headers.push_back({QByteArrayLiteral("Authorization"), QByteArrayLiteral("Bearer ") + accessToken.toUtf8()});
+	http_->send(std::move(request), [this, targetId, sessionSerial, operationGeneration, accessToken](HttpResponse response) {
+		if (!youtubeOperationMatches(targetId, sessionSerial, operationGeneration))
+			return;
+		const QString error = platformHttpError(response);
+		if (!error.isEmpty()) {
+			failYouTubeArchiveRotation(targetId, sessionSerial, operationGeneration,
+						   QStringLiteral("next broadcast binding failed: %1").arg(error));
+			return;
+		}
+		completeCurrentYouTubeRotationBroadcast(targetId, sessionSerial, operationGeneration, accessToken);
+	});
+}
+
+void OutputManager::completeCurrentYouTubeRotationBroadcast(const QString &targetId, quint64 sessionSerial,
+							     quint64 operationGeneration,
+							     const QString &accessToken)
+{
+	Session *session = sessionForTarget(targetId);
+	if (!session || !youtubeOperationMatches(targetId, sessionSerial, operationGeneration))
+		return;
+	QUrl url(QStringLiteral("https://www.googleapis.com/youtube/v3/liveBroadcasts/transition"));
+	QUrlQuery query;
+	query.addQueryItem(QStringLiteral("part"), QStringLiteral("id,status"));
+	query.addQueryItem(QStringLiteral("id"), session->youtubeRotationCurrentBroadcastId);
+	query.addQueryItem(QStringLiteral("broadcastStatus"), QStringLiteral("complete"));
+	url.setQuery(query);
+	HttpRequest request;
+	request.url = url;
+	request.method = QByteArrayLiteral("POST");
+	request.timeoutMs = PlatformApiTimeoutMs;
+	request.headers.push_back({QByteArrayLiteral("Authorization"), QByteArrayLiteral("Bearer ") + accessToken.toUtf8()});
+	http_->send(std::move(request), [this, targetId, sessionSerial, operationGeneration, accessToken](HttpResponse response) {
+		if (!youtubeOperationMatches(targetId, sessionSerial, operationGeneration))
+			return;
+		const QString error = platformHttpError(response);
+		if (!error.isEmpty() && !youtubeApiErrorHasAnyReason(response, {"redundantTransition"})) {
+			if (isRetryableYouTubeResponse(response, error)) {
+				failYouTubeArchiveRotation(targetId, sessionSerial, operationGeneration,
+							   QStringLiteral("current broadcast completion is being confirmed."), true);
+				return;
+			}
+			failYouTubeArchiveRotation(targetId, sessionSerial, operationGeneration,
+						   QStringLiteral("current broadcast completion failed: %1").arg(error));
+			return;
+		}
+		Session *session = sessionForTarget(targetId);
+		if (!session)
+			return;
+		session->youtubeRotationPolls = 0;
+		pollYouTubeRotationBroadcast(targetId, sessionSerial, operationGeneration, accessToken,
+					     session->youtubeRotationCurrentBroadcastId, true);
+	});
+}
+
+void OutputManager::pollYouTubeRotationBroadcast(const QString &targetId, quint64 sessionSerial,
+						 quint64 operationGeneration,
+						 const QString &accessToken,
+						 const QString &broadcastId,
+						 bool waitingForCurrentComplete)
+{
+	if (!youtubeOperationMatches(targetId, sessionSerial, operationGeneration) || broadcastId.isEmpty())
+		return;
+	QUrl url(QStringLiteral("https://www.googleapis.com/youtube/v3/liveBroadcasts"));
+	QUrlQuery query;
+	query.addQueryItem(QStringLiteral("part"), QStringLiteral("id,snippet,contentDetails,status"));
+	query.addQueryItem(QStringLiteral("id"), broadcastId);
+	url.setQuery(query);
+	HttpRequest request;
+	request.url = url;
+	request.timeoutMs = PlatformApiTimeoutMs;
+	request.headers.push_back({QByteArrayLiteral("Authorization"), QByteArrayLiteral("Bearer ") + accessToken.toUtf8()});
+	http_->send(std::move(request), [this, targetId, sessionSerial, operationGeneration, accessToken, broadcastId,
+					 waitingForCurrentComplete](HttpResponse response) {
+		Session *session = sessionForTarget(targetId);
+		if (!session || !youtubeOperationMatches(targetId, sessionSerial, operationGeneration))
+			return;
+		const QString error = platformHttpError(response);
+		const QJsonArray items = QJsonDocument::fromJson(response.body).object().value(QStringLiteral("items")).toArray();
+		const QJsonObject broadcast = items.isEmpty() ? QJsonObject() : items.first().toObject();
+		const QString lifecycle = broadcast.value(QStringLiteral("status"))
+						  .toObject()
+						  .value(QStringLiteral("lifeCycleStatus"))
+						  .toString();
+		if (!error.isEmpty() || broadcast.isEmpty()) {
+			if (++session->youtubeRotationPolls >= YouTubeArchiveTransitionMaxPolls) {
+				failYouTubeArchiveRotation(targetId, sessionSerial, operationGeneration,
+							   QStringLiteral("YouTube did not confirm the archive transition."),
+							   waitingForCurrentComplete);
+				return;
+			}
+			QTimer::singleShot(YouTubeArchiveTransitionPollMs, this,
+				[this, targetId, sessionSerial, operationGeneration, accessToken, broadcastId,
+				 waitingForCurrentComplete]() {
+					pollYouTubeRotationBroadcast(targetId, sessionSerial, operationGeneration,
+								     accessToken, broadcastId,
+								     waitingForCurrentComplete);
+				});
+			return;
+		}
+
+		if (waitingForCurrentComplete) {
+			if (lifecycle == QStringLiteral("complete")) {
+				session->youtubeRotationCurrentCompleted = true;
+				session->youtubeRotationPolls = 0;
+				startNextYouTubeRotationBroadcast(targetId, sessionSerial, operationGeneration, accessToken);
+				return;
+			}
+			if (++session->youtubeRotationPolls >= YouTubeArchiveTransitionMaxPolls) {
+				failYouTubeArchiveRotation(targetId, sessionSerial, operationGeneration,
+							   QStringLiteral("the current broadcast did not finish in time."),
+							   lifecycle != QStringLiteral("live"));
+				return;
+			}
+		} else if (lifecycle == QStringLiteral("live")) {
+			ensureRuntimeStatus(targetId).broadcastId = broadcastId;
+			completeYouTubeOperation(targetId, sessionSerial, operationGeneration);
+			if (OutputTarget *target = findTarget(targetId)) {
+				if (target->lastError.startsWith(QStringLiteral("YouTube archive rotation")))
+					target->lastError.clear();
+				setRuntimePlatform(targetId, sessionSerial, PlatformLiveState::Live,
+						   QStringLiteral("YouTube broadcast is live - archive split complete"));
+				emit statusMessage(QStringLiteral("%1: YouTube archive switched successfully; RTMP stayed connected.")
+							   .arg(target->name));
+			}
+			notifyCommentViewerYouTubeStarted(targetId, sessionSerial, broadcastId);
+			armYouTubeArchiveRotation(targetId, sessionSerial, broadcast);
+			return;
+		} else if (++session->youtubeRotationPolls >= YouTubeArchiveTransitionMaxPolls) {
+			failYouTubeArchiveRotation(targetId, sessionSerial, operationGeneration,
+						   QStringLiteral("the next broadcast did not become live."), true);
+			return;
+		}
+
+		QTimer::singleShot(YouTubeArchiveTransitionPollMs, this,
+			[this, targetId, sessionSerial, operationGeneration, accessToken, broadcastId,
+			 waitingForCurrentComplete]() {
+				pollYouTubeRotationBroadcast(targetId, sessionSerial, operationGeneration, accessToken,
+							     broadcastId, waitingForCurrentComplete);
+			});
+	});
+}
+
+void OutputManager::startNextYouTubeRotationBroadcast(const QString &targetId, quint64 sessionSerial,
+						       quint64 operationGeneration,
+						       const QString &accessToken)
+{
+	Session *session = sessionForTarget(targetId);
+	if (!session || !youtubeOperationMatches(targetId, sessionSerial, operationGeneration) ||
+	    session->youtubeRotationNextBroadcastId.isEmpty())
+		return;
+	setRuntimePlatform(targetId, sessionSerial, PlatformLiveState::LiveStarting,
+			   QStringLiteral("Current archive saved - starting the next YouTube broadcast"));
+	QUrl url(QStringLiteral("https://www.googleapis.com/youtube/v3/liveBroadcasts/transition"));
+	QUrlQuery query;
+	query.addQueryItem(QStringLiteral("part"), QStringLiteral("id,snippet,contentDetails,status"));
+	query.addQueryItem(QStringLiteral("id"), session->youtubeRotationNextBroadcastId);
+	query.addQueryItem(QStringLiteral("broadcastStatus"), QStringLiteral("live"));
+	url.setQuery(query);
+	HttpRequest request;
+	request.url = url;
+	request.method = QByteArrayLiteral("POST");
+	request.timeoutMs = PlatformApiTimeoutMs;
+	request.headers.push_back({QByteArrayLiteral("Authorization"), QByteArrayLiteral("Bearer ") + accessToken.toUtf8()});
+	http_->send(std::move(request), [this, targetId, sessionSerial, operationGeneration, accessToken](HttpResponse response) {
+		Session *session = sessionForTarget(targetId);
+		if (!session || !youtubeOperationMatches(targetId, sessionSerial, operationGeneration))
+			return;
+		const QString error = platformHttpError(response);
+		if (!error.isEmpty() && !youtubeApiErrorHasAnyReason(response, {"redundantTransition"})) {
+			if ((isRetryableYouTubeResponse(response, error) ||
+			     youtubeApiErrorHasAnyReason(response, {"errorStreamInactive", "invalidTransition"})) &&
+			    ++session->youtubeRotationPolls < YouTubeArchiveTransitionMaxPolls) {
+				QTimer::singleShot(YouTubeArchiveTransitionPollMs, this,
+					[this, targetId, sessionSerial, operationGeneration, accessToken]() {
+						startNextYouTubeRotationBroadcast(targetId, sessionSerial, operationGeneration,
+									      accessToken);
+					});
+				return;
+			}
+			failYouTubeArchiveRotation(targetId, sessionSerial, operationGeneration,
+						   QStringLiteral("next broadcast start failed: %1").arg(error), true);
+			return;
+		}
+		session->youtubeRotationPolls = 0;
+		pollYouTubeRotationBroadcast(targetId, sessionSerial, operationGeneration, accessToken,
+					     session->youtubeRotationNextBroadcastId, false);
+	});
+}
+
+void OutputManager::failYouTubeArchiveRotation(const QString &targetId, quint64 sessionSerial,
+						quint64 operationGeneration,
+						const QString &message,
+						bool currentBroadcastMayBeComplete,
+						bool discardPreparedBroadcast)
+{
+	OutputTarget *target = findTarget(targetId);
+	Session *session = sessionForTarget(targetId);
+	if (!target || !session || !youtubeOperationMatches(targetId, sessionSerial, operationGeneration))
+		return;
+	if (!currentBroadcastMayBeComplete && discardPreparedBroadcast &&
+	    !session->youtubeRotationNextBroadcastId.isEmpty()) {
+		const QString preparedBroadcastId = session->youtubeRotationNextBroadcastId;
+		session->youtubeRotationNextBroadcastId.clear();
+		QUrl url(QStringLiteral("https://www.googleapis.com/youtube/v3/liveBroadcasts"));
+		QUrlQuery query;
+		query.addQueryItem(QStringLiteral("id"), preparedBroadcastId);
+		url.setQuery(query);
+		HttpRequest request;
+		request.url = url;
+		request.method = QByteArrayLiteral("DELETE");
+		request.timeoutMs = PlatformApiTimeoutMs;
+		request.headers.push_back({QByteArrayLiteral("Authorization"),
+					   QByteArrayLiteral("Bearer ") + session->youtubeAccessToken.toUtf8()});
+		http_->send(std::move(request),
+			    [this, targetId, sessionSerial, operationGeneration, message](HttpResponse response) {
+			if (!response.isSuccess())
+				logWarning(QStringLiteral("DSK could not remove an unused YouTube archive frame after a safe rotation failure."));
+			failYouTubeArchiveRotation(targetId, sessionSerial, operationGeneration, message, false, false);
+		});
+		return;
+	}
+	const QString technical = QStringLiteral("YouTube archive rotation failed: %1").arg(message);
+	target->lastError = technical;
+	logWarning(QStringLiteral("%1: %2").arg(target->name, technical));
+	const YouTubeArchiveFailureAction failureAction = youtubeArchiveFailureAction(
+		currentBroadcastMayBeComplete, session->youtubeRotationCurrentCompleted,
+		session->youtubeRotationPolls, YouTubeArchiveTransitionMaxPolls);
+	if (failureAction != YouTubeArchiveFailureAction::RetryLaterCurrentLive) {
+		if (failureAction == YouTubeArchiveFailureAction::NeedsAttention) {
+			completeYouTubeOperation(targetId, sessionSerial, operationGeneration);
+			setRuntimePlatform(targetId, sessionSerial, PlatformLiveState::Failed,
+					   QStringLiteral("YouTube archive change needs attention"), technical);
+			emit statusMessage(QStringLiteral("%1: The current archive may be closed, but the next frame could not be confirmed. Check YouTube Studio.")
+					   .arg(target->name));
+			return;
+		}
+		setRuntimePlatform(targetId, sessionSerial, PlatformLiveState::LiveStarting,
+				   QStringLiteral("Confirming the archive change before retrying"), technical);
+		QTimer::singleShot(YouTubeArchiveTransitionPollMs, this,
+			[this, targetId, sessionSerial, operationGeneration]() {
+				Session *current = sessionForTarget(targetId);
+				if (!current || !youtubeOperationMatches(targetId, sessionSerial, operationGeneration))
+					return;
+				pollYouTubeRotationBroadcast(targetId, sessionSerial, operationGeneration,
+							     current->youtubeAccessToken,
+							     current->youtubeRotationCurrentBroadcastId, true);
+			});
+		return;
+	}
+
+	completeYouTubeOperation(targetId, sessionSerial, operationGeneration);
+	setRuntimePlatform(targetId, sessionSerial, PlatformLiveState::Live,
+			   QStringLiteral("YouTube Live - archive split will retry in 5 minutes"), technical);
+	emit statusMessage(QStringLiteral("%1: Archive splitting failed safely; the current YouTube broadcast remains live. Retrying in 5 minutes.")
+				   .arg(target->name));
+	const quint64 timerGeneration = ++session->youtubeRotationTimerGeneration;
+	QTimer::singleShot(YouTubeArchiveRotationRetryMs, this,
+			   [this, targetId, sessionSerial, timerGeneration]() {
+				   beginYouTubeArchiveRotation(targetId, sessionSerial, timerGeneration);
+			   });
+	if (!runtimeTargetIds_.contains(targetId))
+		emit targetsChanged();
 }
 
 void OutputManager::setTargetApiWarning(const QString &targetId, const QString &message, quint64 sessionSerial)
@@ -2274,18 +3459,33 @@ void OutputManager::setTargetApiWarning(const QString &targetId, const QString &
 	OutputTarget *target = findTarget(targetId);
 	if (!target || !sessionMatches(targetId, sessionSerial))
 		return;
+	Session *session = sessionForTarget(targetId);
+	const bool terminatePreflight =
+		session && session->serial == sessionSerial && session->youtubePreflight &&
+		!session->youtubeAwaitingSelection;
+	const QString userMessage =
+		session && session->youtubePreflight ? userFacingYouTubePreflightWarningText(message)
+						    : userFacingYouTubeApiWarningText(message);
 	const bool changed = target->lastError != message;
 	target->lastError = message;
 	const TargetRuntimeStatus runtime = runtimeStatusForTarget(targetId);
 	setRuntimePlatform(targetId,
 			   sessionSerial,
 			   platformStateForYouTubeApiWarningText(message),
-			   runtimeTransportIsRunning(runtime) || target->state == TargetState::Live ? userFacingYouTubeApiWarningText(message)
+			   runtimeTransportIsRunning(runtime) || target->state == TargetState::Live ? userMessage
 												    : QString(),
 			   message);
 	logWarning(QString("%1: %2").arg(target->name, message));
 	if (!runtimeTargetIds_.contains(targetId))
-		emit statusMessage(QString("%1: %2").arg(target->name, userFacingYouTubeApiWarningText(message)));
+		emit statusMessage(QString("%1: %2").arg(target->name, userMessage));
+	if (terminatePreflight) {
+		target->state = TargetState::Error;
+		setRuntimeTransport(targetId,
+				    sessionSerial,
+				    TransportState::Failed,
+				    QStringLiteral("YouTube start blocked before RTMP"));
+		releaseSession(targetId, false, sessionSerial);
+	}
 	if (changed && !runtimeTargetIds_.contains(targetId))
 		emit targetsChanged();
 }
@@ -2343,6 +3543,8 @@ void OutputManager::handleOutputSignal(obs_output_t *output, quint64 expectedSer
 	OutputTarget *target = findTarget(matched->targetId);
 	if (!target)
 		return;
+	if (matched->pendingRelease && shouldIgnoreOutputSignalDuringPendingRelease(signalName))
+		return;
 
 	const quint64 serial = matched->serial;
 	if (signalName == QStringLiteral("starting")) {
@@ -2350,12 +3552,15 @@ void OutputManager::handleOutputSignal(obs_output_t *output, quint64 expectedSer
 		setRuntimeTransport(target->id, serial, TransportState::Starting, QStringLiteral("Connecting"));
 	} else if (signalName == QStringLiteral("start")) {
 		target->state = TargetState::Live;
+		matched->youtubeSignalActiveAtMs = QDateTime::currentMSecsSinceEpoch();
 		setRuntimeTransport(target->id, serial, TransportState::Connected, QStringLiteral("RTMP sending"));
 		const PlatformLiveState platform = runtimeStatusForTarget(target->id).platform;
 		if (isYouTubeTarget(*target) &&
 		    (platform == PlatformLiveState::Unknown || platform == PlatformLiveState::RtmpSignalOnly))
 			setRuntimePlatform(target->id, serial, PlatformLiveState::RtmpSignalOnly,
 					   QStringLiteral("RTMP connected - checking YouTube Live"));
+		if (isYouTubeTarget(*target))
+			maybeStartYouTubeBroadcast(target->id, serial);
 	} else if (signalName == QStringLiteral("activate")) {
 		target->state = TargetState::Live;
 		setRuntimeTransport(target->id, serial, TransportState::Active, QStringLiteral("RTMP sending"));
@@ -2366,6 +3571,14 @@ void OutputManager::handleOutputSignal(obs_output_t *output, quint64 expectedSer
 					   QStringLiteral("RTMP connected - checking YouTube Live"));
 	} else if (signalName == QStringLiteral("reconnect")) {
 		target->state = TargetState::Live;
+		const bool keepArchiveRotationOperation = isYouTubeTarget(*target) &&
+			target->youtubeBroadcastMode == YouTubeBroadcastMode::ArchiveRotation &&
+			matched->youtubeOperationInFlight;
+		if (isYouTubeTarget(*target) && !keepArchiveRotationOperation) {
+			++matched->youtubeOperationGeneration;
+			++matched->youtubePollGeneration;
+			matched->youtubeOperationInFlight = false;
+		}
 		setRuntimeTransport(target->id,
 				    serial,
 				    TransportState::Reconnecting,
@@ -2374,7 +3587,10 @@ void OutputManager::handleOutputSignal(obs_output_t *output, quint64 expectedSer
 				    reconnectDelaySeconds);
 	} else if (signalName == QStringLiteral("reconnect_success")) {
 		target->state = TargetState::Live;
+		matched->youtubeSignalActiveAtMs = QDateTime::currentMSecsSinceEpoch();
 		setRuntimeTransport(target->id, serial, TransportState::Connected, QStringLiteral("RTMP reconnected"));
+		if (isYouTubeTarget(*target))
+			maybeStartYouTubeBroadcast(target->id, serial);
 	} else if (signalName == QStringLiteral("stopping")) {
 		target->state = TargetState::Stopping;
 		setRuntimeTransport(target->id, serial, TransportState::Stopping, QStringLiteral("Stopping"));
@@ -2483,19 +3699,17 @@ void OutputManager::releaseSession(Session *session, bool requestStop)
 			sessions_.removeAt(i);
 			return;
 		}
-		if (requestStop && session->pendingRelease)
-			return;
-		if (requestStop && active) {
+		if (requestStop) {
+			if (session->pendingRelease)
+				return;
+
+			// A start request can still be connecting while obs_output_active()
+			// reports false. Request cancellation immediately instead of waiting
+			// for it to become active and relying on the delayed force-stop path.
+			session->pendingRelease = true;
+			session->releasePolls = 0;
 			logInfo(QString("Stopping runtime output for %1").arg(targetId));
 			obs_output_stop(session->output);
-			session->pendingRelease = true;
-			session->releasePolls = 0;
-			QTimer::singleShot(1000, this, [this, targetId, sessionSerial]() { releaseSession(targetId, false, sessionSerial); });
-			return;
-		}
-		if (requestStop && !session->pendingRelease) {
-			session->pendingRelease = true;
-			session->releasePolls = 0;
 			QTimer::singleShot(1000, this, [this, targetId, sessionSerial]() { releaseSession(targetId, false, sessionSerial); });
 			return;
 		}

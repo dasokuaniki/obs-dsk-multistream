@@ -11,6 +11,39 @@
 
 namespace dsk {
 
+enum class VerticalLayoutChange {
+	None,
+	TransformOnly,
+	Rebuild,
+};
+
+inline bool verticalLayoutItemTransformMatches(const VerticalLayoutItem &current, const VerticalLayoutItem &next)
+{
+	return current.rect == next.rect && current.crop == next.crop && current.fitMode == next.fitMode;
+}
+
+inline VerticalLayoutChange verticalLayoutChange(const VerticalLayout &current, const VerticalLayout &next)
+{
+	if (current.width != next.width || current.height != next.height || current.items.size() != next.items.size())
+		return VerticalLayoutChange::Rebuild;
+
+	bool transformChanged = false;
+	for (int index = 0; index < current.items.size(); ++index) {
+		const auto &before = current.items[index];
+		const auto &after = next.items[index];
+		if (before.id.isEmpty() || after.id.isEmpty() || before.id != after.id ||
+		    before.sourceName != after.sourceName || before.visible != after.visible)
+			return VerticalLayoutChange::Rebuild;
+		for (int previous = 0; previous < index; ++previous) {
+			if (next.items[previous].id == after.id)
+				return VerticalLayoutChange::Rebuild;
+		}
+		if (!verticalLayoutItemTransformMatches(before, after))
+			transformChanged = true;
+	}
+	return transformChanged ? VerticalLayoutChange::TransformOnly : VerticalLayoutChange::None;
+}
+
 enum VerticalResizeEdge : int {
 	ResizeLeft = 1 << 0,
 	ResizeRight = 1 << 1,
@@ -130,10 +163,12 @@ inline int verticalPreviewHitItem(const VerticalLayout &layout,
 		return rect.contains(layoutPoint);
 	};
 
-	// Keep the selected source interactive through overlapping sources, matching
-	// the source-list-first editing flow used by the vertical dock.
-	if (contains(selectedIndex))
-		return selectedIndex;
+	// Once a visible source is selected, clicking outside its displayed bounds
+	// means "clear selection". Do not immediately select a full-canvas source
+	// behind it, otherwise the white edit outline can never be dismissed from
+	// layouts that have a background layer.
+	if (selectedIndex >= 0 && selectedIndex < layout.items.size() && layout.items[selectedIndex].visible)
+		return contains(selectedIndex) ? selectedIndex : -1;
 
 	// DSK stores front-most sources first.
 	for (int index = 0; index < layout.items.size(); ++index) {
@@ -141,6 +176,20 @@ inline int verticalPreviewHitItem(const VerticalLayout &layout,
 			return index;
 	}
 	return -1;
+}
+
+inline int verticalPreviewHitItemAtWidgetPoint(const VerticalLayout &layout,
+					       const QVector<QRectF> &displayRects,
+					       const QRectF &canvasRect,
+					       const QPointF &widgetPoint,
+					       int selectedIndex = -1)
+{
+	if (layout.width <= 0 || layout.height <= 0 || !canvasRect.isValid() || !canvasRect.contains(widgetPoint))
+		return -1;
+
+	const QPointF layoutPoint((widgetPoint.x() - canvasRect.x()) * double(layout.width) / canvasRect.width(),
+				  (widgetPoint.y() - canvasRect.y()) * double(layout.height) / canvasRect.height());
+	return verticalPreviewHitItem(layout, displayRects, layoutPoint, selectedIndex);
 }
 
 inline QRectF aspectConstrainedResize(const QRectF &candidate, const QRectF &reference, int edges, double minimumSize = 32.0)

@@ -43,6 +43,7 @@ dsk::PluginSettings sampleSettings(const QString &targetName)
 	target.id = QStringLiteral("settings-test-target");
 	target.name = targetName;
 	target.platformId = QStringLiteral("youtube");
+	target.youtubeBroadcastMode = dsk::YouTubeBroadcastMode::ArchiveRotation;
 	target.serverUrl = QStringLiteral("rtmps://example.test/live2");
 	target.encoderGroup = dsk::EncoderGroup::DskVertical;
 	target.sceneMode = dsk::TargetSceneMode::FixedScene;
@@ -87,6 +88,9 @@ void testRoundTripAndBackup()
 	      "valid settings preserve target name");
 	check(loaded.targets.size() == 1 && loaded.targets[0].encoderGroup == dsk::EncoderGroup::DskVertical,
 	      "valid settings preserve output mode");
+	check(loaded.targets.size() == 1 &&
+		      loaded.targets[0].youtubeBroadcastMode == dsk::YouTubeBroadcastMode::ArchiveRotation,
+	      "valid settings preserve YouTube archive rotation mode");
 	check(loaded.targets.size() == 1 && loaded.targets[0].sceneUuid == QStringLiteral("vertical-test-uuid"),
 	      "valid settings preserve fixed scene UUID");
 	check(loaded.targets.size() == 1 && loaded.targets[0].sceneRoutes.size() == 1 &&

@@ -1,5 +1,7 @@
 #include "ui/scene-router-dock.hpp"
 
+#include "ui/layout-widget-utils.hpp"
+
 #include <QComboBox>
 #include <QFrame>
 #include <QGridLayout>
@@ -7,6 +9,8 @@
 #include <QPushButton>
 #include <QSignalBlocker>
 #include <QScrollArea>
+#include <QShowEvent>
+#include <QTimer>
 #include <QVBoxLayout>
 
 namespace dsk {
@@ -73,17 +77,40 @@ SceneRouterDock::SceneRouterDock(OutputManager *manager, QWidget *parent)
 		"QPushButton { padding: 4px 10px; color: #e8e8e8; background-color: #34383f; "
 		"border: 1px solid #4b515a; border-radius: 3px; font-weight: 700; }"
 		"QPushButton:hover { background-color: #3e444d; }"));
-	connect(refreshButton, &QPushButton::clicked, this, &SceneRouterDock::refresh);
+	connect(refreshButton, &QPushButton::clicked, this, &SceneRouterDock::scheduleRefresh);
 	layout->addWidget(refreshButton, 0, Qt::AlignLeft);
 
 	setStyleSheet(QStringLiteral("SceneRouterDock { background-color: #1f1f1f; }"));
 
 	if (manager_) {
-		connect(manager_, &OutputManager::targetsChanged, this, &SceneRouterDock::refresh, Qt::QueuedConnection);
-		connect(manager_, &OutputManager::verticalLayoutChanged, this, &SceneRouterDock::refresh, Qt::QueuedConnection);
+		connect(manager_, &OutputManager::targetsChanged, this, &SceneRouterDock::scheduleRefresh,
+			Qt::QueuedConnection);
+		connect(manager_, &OutputManager::verticalLayoutChanged, this, &SceneRouterDock::scheduleRefresh,
+			Qt::QueuedConnection);
 	}
 
-	refresh();
+	scheduleRefresh();
+}
+
+void SceneRouterDock::showEvent(QShowEvent *event)
+{
+	QWidget::showEvent(event);
+	if (refreshGate_.takeIfVisible(true))
+		refresh();
+}
+
+void SceneRouterDock::scheduleRefresh()
+{
+	refreshGate_.markDirty();
+	if (!isVisible() || refreshScheduled_)
+		return;
+
+	refreshScheduled_ = true;
+	QTimer::singleShot(0, this, [this]() {
+		refreshScheduled_ = false;
+		if (refreshGate_.takeIfVisible(isVisible()))
+			refresh();
+	});
 }
 
 void SceneRouterDock::populateSceneCombo(QComboBox *combo,
@@ -241,15 +268,7 @@ QWidget *SceneRouterDock::createTargetRow(const OutputTarget &target,
 
 void SceneRouterDock::clearRows()
 {
-	if (!rows_)
-		return;
-
-	while (rows_->count() > 1) {
-		QLayoutItem *item = rows_->takeAt(0);
-		if (QWidget *widget = item ? item->widget() : nullptr)
-			widget->deleteLater();
-		delete item;
-	}
+	clearLayoutWidgetsForRefresh(rows_, 1);
 }
 
 void SceneRouterDock::refresh()

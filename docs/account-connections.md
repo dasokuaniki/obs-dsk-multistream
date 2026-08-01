@@ -4,12 +4,12 @@ DSK keeps account login separate from output start/stop. Editing a target does n
 
 ## Twitch
 
-`Login with Twitch` uses the DSK publisher OAuth relay. The desktop plugin opens the system browser, uses a loopback callback with PKCE, requests only `channel:read:stream_key`, and retrieves the authorized channel's stream key.
+`Login with Twitch` uses the DSK publisher OAuth relay at `https://auth.dasoku.org` with the dedicated `multistream` application profile. The desktop plugin opens the system browser, uses a loopback callback with PKCE, requests only `channel:read:stream_key`, and retrieves the authorized channel's stream key.
 
 - `Connect Twitch` creates a connection for a target that has no saved account.
 - `Reconnect Twitch` repeats login and replaces the saved account/key only after the new login succeeds and the target is saved.
 - `Disconnect` clears the account/key in the editor. `Save` commits the removal; `Cancel` keeps the previous saved connection.
-- Disconnecting in DSK does not revoke the DSK application's authorization on Twitch. Revocation remains an account-side action on Twitch.
+- Disconnecting in DSK does not revoke the DSK application's authorization on Twitch. Review or revoke connected applications in the Twitch account's Connections settings, then use DSK Disconnect or complete removal to delete the local key.
 - The relay is needed only during login. RTMP streaming uses the stream key stored in Windows Credential Manager.
 
 Legacy Twitch Client ID, Client Secret, and refresh-token fields are removed when publisher-managed Twitch targets are loaded or saved. They are not needed by distributed clients.
@@ -24,15 +24,28 @@ Distribution builds use the DSK publisher's bundled Google desktop OAuth applica
 - `Use custom Google OAuth app` preserves the legacy path for advanced users and existing targets. Custom Client IDs and Client Secrets continue to be stored through the target's DSK credential references.
 - The target still needs its YouTube stream key. After RTMP input is active, DSK uses the authorized YouTube API connection to find the stream-key-matched broadcast and request its live transition.
 
-Disconnecting YouTube removes the saved account and refresh token after `Save`. The RTMP stream key remains available for reconnecting. Cancelling the editor keeps the previous saved connection.
+Before DSK starts YouTube OAuth, the editor displays the DSK privacy policy,
+YouTube Terms of Service, Google Privacy Policy, and Google permissions page and
+requires an unchecked, explicit data-access confirmation. Disconnecting YouTube
+removes the saved account and refresh token after `Save`. The RTMP stream key
+remains available for reconnecting. Cancelling the editor keeps the previous
+saved connection. Access can also be revoked from
+<https://security.google.com/settings/security/permissions>; revoking at Google
+does not replace removal of the local credential.
 
 ## Kick
 
 `Login with Kick` uses the DSK publisher OAuth relay and a dedicated `multistream` application profile. The desktop plugin opens the system browser, uses a loopback callback with PKCE, and requests `user:read`, `channel:read`, and `streamkey:read`.
 
+Comment Viewer and Multistream use different Twitch and Kick provider applications. Multistream must never fall back to the Comment Viewer client registration, and a connection created before this separation may require one reconnect.
+
 After authorization, DSK reads the authenticated channel from Kick's official `GET /public/v1/channels` endpoint and stores the returned RTMP(S) URL and stream key locally. The OAuth access and refresh tokens are not retained by the OBS target. The Comment Viewer keeps its separate Kick profile and does not receive the stream-key permission.
 
 Existing manual Kick targets remain supported. Reconnecting replaces the saved URL and key only after the new login completes successfully and the target is saved.
+
+Kick Partner Program members must enable Kick's Multistreaming toggle when
+simulcasting and should review the current Partner Program payout conditions.
+See [simulcast guidelines](simulcast-guidelines.md).
 
 ## Secret Storage
 
@@ -45,3 +58,8 @@ powershell.exe -ExecutionPolicy Bypass -File scripts\diagnose-first-run.ps1 -Out
 ```
 
 The report includes file hashes, signatures, duplicate plugin locations, the signed OBS libcurl runtime, settings parse results, credential-reference counts, recent DSK Code Integrity events, and publisher-relay readiness. It does not include stream keys, OAuth tokens, Client Secrets, or credential values.
+
+Normal uninstall preserves these settings and credentials. The uninstaller's
+explicit complete-removal option, or the installed
+`tools\remove-user-data.ps1` helper, removes only the current Windows user's DSK
+Multistream settings and `DSK Multistream/` credentials.

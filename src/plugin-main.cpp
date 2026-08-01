@@ -1,21 +1,18 @@
 #include "core/diagnostics.hpp"
+#ifdef DSK_INCLUDE_E2E_HOOKS
 #include "core/e2e-auto-runner.hpp"
-#include "core/comment-viewer-launcher.hpp"
+#endif
 #include "core/output-manager.hpp"
+#include "integration/comment-viewer-integration.hpp"
 #include "ui/main-dock.hpp"
 #include "ui/vertical-layout-editor.hpp"
 
 #include <obs-frontend-api.h>
 #include <obs-module.h>
-#include <util/config-file.h>
 
-#include <QDesktopServices>
 #include <QDockWidget>
 #include <QElapsedTimer>
 #include <QEvent>
-#include <QJsonArray>
-#include <QJsonDocument>
-#include <QJsonObject>
 #include <QLabel>
 #include <QObject>
 #include <QPointer>
@@ -23,7 +20,6 @@
 #include <QShowEvent>
 #include <QStringList>
 #include <QTimer>
-#include <QUrl>
 #include <QVBoxLayout>
 #include <QWidget>
 
@@ -36,7 +32,10 @@ OBS_MODULE_USE_DEFAULT_LOCALE("obs-dsk-multistream", "en-US")
 namespace {
 
 std::unique_ptr<dsk::OutputManager> manager;
+#ifdef DSK_INCLUDE_E2E_HOOKS
 std::unique_ptr<dsk::E2eAutoRunner> e2eRunner;
+#endif
+std::unique_ptr<dsk::CommentViewerIntegration> commentViewerIntegration;
 QPointer<dsk::MainDock> mainDock;
 QObject *timerContext = nullptr;
 QPointer<QTimer> verticalEditorLoadTimer;
@@ -45,7 +44,7 @@ bool frontendCallbackRegistered = false;
 bool frontendUiRemoved = false;
 bool shutdownPrepared = false;
 bool frontendExiting = false;
-bool toolsMenuRegistered = false;
+bool frontendUiInitialized = false;
 
 void cancelVerticalEditorLoad();
 void scheduleVerticalEditorLoad(int delayMs = 0);
@@ -62,10 +61,6 @@ protected:
 		return QObject::eventFilter(watched, event);
 	}
 };
-
-constexpr auto kCommentBrowserDockTitle = "DSK Comments";
-constexpr auto kCommentBrowserDockUuid = "dskcommentsviewer";
-constexpr auto kCommentBrowserDockUrl = "http://127.0.0.1:17321/viewer?dock=chat&send=1";
 
 class VerticalLayoutDockHost : public QWidget {
 public:
@@ -109,6 +104,7 @@ public:
 	}
 
 	bool hasEditor() const { return editor_ != nullptr; }
+#ifdef DSK_INCLUDE_E2E_HOOKS
 	bool exercisePreviewCanvasReplacementForTest()
 	{
 		return editor_ && editor_->exercisePreviewCanvasReplacementForTest();
@@ -121,6 +117,7 @@ public:
 	{
 		return editor_ && editor_->exerciseSetupVisibilityToggleForTest();
 	}
+#endif
 
 protected:
 	void showEvent(QShowEvent *event) override
@@ -295,95 +292,6 @@ void showMainDock(void *)
 	showDockForWidget(mainDock);
 }
 
-void showVerticalDock(void *)
-{
-	ensureVerticalDockRegistered();
-	ensureVerticalDockEditorLoaded();
-
-	showDockForWidget(verticalDock);
-}
-
-void openCommentViewer(void *)
-{
-	if (!dsk::openCommentViewerApp())
-		QDesktopServices::openUrl(dsk::commentViewerPageUrl());
-}
-
-void ensureCommentBrowserDockConfig()
-{
-	config_t *config = obs_frontend_get_user_config();
-	if (!config)
-		return;
-
-	const char *raw = config_get_string(config, "BasicWindow", "ExtraBrowserDocks");
-	const QByteArray rawPayload(raw ? raw : "");
-	QJsonParseError parseError{};
-	QJsonDocument document;
-	QJsonArray docks;
-	if (!rawPayload.trimmed().isEmpty()) {
-		document = QJsonDocument::fromJson(rawPayload, &parseError);
-		if (parseError.error != QJsonParseError::NoError || !document.isArray()) {
-			dsk::logWarning("OBS ExtraBrowserDocks is not valid JSON. DSK left it unchanged to protect existing docks.");
-			return;
-		}
-		docks = document.array();
-	}
-
-	bool found = false;
-	bool changed = rawPayload.trimmed().isEmpty();
-	for (QJsonValueRef value : docks) {
-		if (!value.isObject())
-			continue;
-
-		QJsonObject dock = value.toObject();
-		const QString title = dock.value(QStringLiteral("title")).toString();
-		const QString uuid = dock.value(QStringLiteral("uuid")).toString();
-		if (uuid != QString::fromLatin1(kCommentBrowserDockUuid) && title != QString::fromLatin1(kCommentBrowserDockTitle))
-			continue;
-
-		found = true;
-		if (dock.value(QStringLiteral("title")).toString() != QString::fromLatin1(kCommentBrowserDockTitle)) {
-			dock.insert(QStringLiteral("title"), QString::fromLatin1(kCommentBrowserDockTitle));
-			changed = true;
-		}
-		if (dock.value(QStringLiteral("url")).toString() != QString::fromLatin1(kCommentBrowserDockUrl)) {
-			dock.insert(QStringLiteral("url"), QString::fromLatin1(kCommentBrowserDockUrl));
-			changed = true;
-		}
-		if (dock.value(QStringLiteral("uuid")).toString() != QString::fromLatin1(kCommentBrowserDockUuid)) {
-			dock.insert(QStringLiteral("uuid"), QString::fromLatin1(kCommentBrowserDockUuid));
-			changed = true;
-		}
-		value = dock;
-	}
-
-	if (!found) {
-		QJsonObject dock;
-		dock.insert(QStringLiteral("title"), QString::fromLatin1(kCommentBrowserDockTitle));
-		dock.insert(QStringLiteral("url"), QString::fromLatin1(kCommentBrowserDockUrl));
-		dock.insert(QStringLiteral("uuid"), QString::fromLatin1(kCommentBrowserDockUuid));
-		docks.append(dock);
-		changed = true;
-	}
-
-	if (!changed)
-		return;
-
-	const QByteArray payload = QJsonDocument(docks).toJson(QJsonDocument::Compact);
-	config_set_string(config, "BasicWindow", "ExtraBrowserDocks", payload.constData());
-	config_save_safe(config, "tmp", "bak");
-	dsk::logInfo("Ensured OBS browser dock for DSK Comments. It uses the DSK Comment Viewer page directly.");
-}
-
-void startCommentViewerServiceDelayed()
-{
-	QTimer::singleShot(2500, pluginTimerContext(), []() {
-		dsk::logInfo("Starting DSK Comment Viewer service for OBS browser dock");
-		if (!dsk::startCommentViewerServer())
-			dsk::logWarning("DSK Comment Viewer service launch was not available");
-	});
-}
-
 void registerDskDocksDelayed()
 {
 	QTimer::singleShot(0, pluginTimerContext(), []() {
@@ -400,6 +308,7 @@ void registerDskDocksDelayed()
 	});
 }
 
+#ifdef DSK_INCLUDE_E2E_HOOKS
 void scheduleVerticalUiStress()
 {
 	const QByteArray enabled = qgetenv("DSK_E2E_VERTICAL_UI_STRESS").trimmed().toLower();
@@ -563,6 +472,7 @@ void scheduleVerticalUiStress()
 		timer->start();
 	});
 }
+#endif
 
 void removeFrontendUi()
 {
@@ -570,7 +480,11 @@ void removeFrontendUi()
 		return;
 	frontendUiRemoved = true;
 	cancelVerticalEditorLoad();
+	if (commentViewerIntegration)
+		commentViewerIntegration->shutdown();
+#ifdef DSK_INCLUDE_E2E_HOOKS
 	e2eRunner.reset();
+#endif
 	if (verticalDock) {
 		verticalDock->prepareForUnload();
 		obs_frontend_remove_dock("dsk_vertical_layout");
@@ -588,6 +502,8 @@ void prepareShutdown()
 		return;
 	shutdownPrepared = true;
 	cancelVerticalEditorLoad();
+	if (commentViewerIntegration)
+		commentViewerIntegration->shutdown();
 	if (manager)
 		manager->prepareForUnload();
 }
@@ -603,9 +519,9 @@ void releaseObsSceneReferences()
 
 void initializeFrontendUi()
 {
-	if (toolsMenuRegistered)
+	if (frontendUiInitialized)
 		return;
-	toolsMenuRegistered = true;
+	frontendUiInitialized = true;
 
 	if (!manager)
 		manager = std::make_unique<dsk::OutputManager>();
@@ -617,19 +533,18 @@ void initializeFrontendUi()
 		}
 	}
 
-	ensureCommentBrowserDockConfig();
-	startCommentViewerServiceDelayed();
+	if (!commentViewerIntegration)
+		commentViewerIntegration = std::make_unique<dsk::CommentViewerIntegration>();
+	commentViewerIntegration->initialize();
 	registerDskDocksDelayed();
 
-	obs_frontend_add_tools_menu_item("DSK Streaming", showMainDock, nullptr);
-	obs_frontend_add_tools_menu_item("DSK Vertical", showVerticalDock, nullptr);
-	obs_frontend_add_tools_menu_item("Open DSK Comment Viewer", openCommentViewer, nullptr);
+	dsk::logInfo("DSK docks registered without duplicate Tools menu shortcuts.");
 
-	dsk::logInfo("Frontend menu registered; DSK docks will be created on demand.");
-
+#ifdef DSK_INCLUDE_E2E_HOOKS
 	e2eRunner = std::make_unique<dsk::E2eAutoRunner>(manager.get());
 	e2eRunner->schedule();
 	scheduleVerticalUiStress();
+#endif
 
 	if (qEnvironmentVariableIsSet("DSK_AUTO_OPEN_SETTINGS")) {
 		QTimer::singleShot(3000, pluginTimerContext(), []() { showMainDock(nullptr); });
@@ -710,11 +625,11 @@ void obs_module_unload()
 		delete mainWindowCloseFilter.data();
 		mainWindowCloseFilter = nullptr;
 	}
+	prepareShutdown();
+	removeFrontendUi();
+	commentViewerIntegration.reset();
 	delete timerContext;
 	timerContext = nullptr;
-	removeFrontendUi();
-	if (manager) {
-		prepareShutdown();
+	if (manager)
 		manager.reset();
-	}
 }

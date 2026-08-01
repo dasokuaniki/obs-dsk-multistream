@@ -1,6 +1,6 @@
 param(
     [string]$OutputPath = "",
-    [string]$RelayUrl = "https://45-77-181-113.sslip.io",
+    [string]$RelayUrl = "https://auth.dasoku.org",
     [int]$CodeIntegrityLookbackDays = 7
 )
 

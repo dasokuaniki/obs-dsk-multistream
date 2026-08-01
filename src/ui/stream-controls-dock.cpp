@@ -1,5 +1,9 @@
 #include "ui/stream-controls-dock.hpp"
 
+#include "ui/stream-control-visuals.hpp"
+#include "ui/stream-control-assets.hpp"
+#include "ui/stream-controls-state.hpp"
+
 #include "core/diagnostics.hpp"
 #include "core/oauth-provider.hpp"
 #include "core/youtube-api-warning.hpp"
@@ -8,15 +12,24 @@
 #include <obs-frontend-api.h>
 #include <util/bmem.h>
 
+#include <QDateTime>
 #include <QFile>
+#include <QFrame>
+#include <QGraphicsDropShadowEffect>
+#include <QGridLayout>
 #include <QHBoxLayout>
+#include <QInputDialog>
+#include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QLabel>
-#include <QPainter>
-#include <QPainterPath>
+#include <QMenu>
 #include <QPushButton>
+#include <QScrollArea>
+#include <QSet>
+#include <QShowEvent>
 #include <QTimer>
+#include <QToolButton>
 #include <QVBoxLayout>
 
 namespace dsk {
@@ -28,106 +41,6 @@ struct ObsNativeStreamInfo {
 	QString serviceName = "OBS Native Stream";
 	QString accountLabel;
 	QString detail = "OBS native stream";
-};
-
-class PlatformBadge : public QWidget {
-public:
-	explicit PlatformBadge(QString platformId, QString fallbackText, QWidget *parent = nullptr)
-		: QWidget(parent),
-		  platformId_(platformId.toLower()),
-		  fallbackText_(fallbackText.trimmed().isEmpty() ? QStringLiteral("?") : fallbackText.trimmed().left(2).toUpper())
-	{
-		setFixedSize(30, 30);
-	}
-
-protected:
-	void paintEvent(QPaintEvent *) override
-	{
-		QPainter p(this);
-		p.setRenderHint(QPainter::Antialiasing, true);
-
-		const QRectF r = rect().adjusted(1, 1, -1, -1);
-		if (platformId_ == "youtube") {
-			p.setPen(Qt::NoPen);
-			p.setBrush(QColor("#ff0033"));
-			p.drawRoundedRect(r, 4, 4);
-			QPainterPath play;
-			play.moveTo(12, 9);
-			play.lineTo(12, 21);
-			play.lineTo(22, 15);
-			play.closeSubpath();
-			p.setBrush(Qt::white);
-			p.drawPath(play);
-			return;
-		}
-
-		if (platformId_ == "kick") {
-			p.setPen(Qt::NoPen);
-			p.setBrush(QColor("#53fc18"));
-			p.drawRoundedRect(r, 4, 4);
-			p.setPen(QColor("#111318"));
-			QFont f = p.font();
-			f.setBold(true);
-			f.setPixelSize(20);
-			p.setFont(f);
-			p.drawText(rect(), Qt::AlignCenter, "K");
-			return;
-		}
-
-		if (platformId_ == "tiktok") {
-			p.setPen(Qt::NoPen);
-			p.setBrush(QColor("#111318"));
-			p.drawRoundedRect(r, 4, 4);
-			QPen cyan(QColor("#25f4ee"), 4, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin);
-			QPen red(QColor("#fe2c55"), 4, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin);
-			QPen white(Qt::white, 4, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin);
-			auto drawNote = [&](const QPen &pen, qreal dx, qreal dy) {
-				p.setPen(pen);
-				p.drawLine(QPointF(18 + dx, 7 + dy), QPointF(18 + dx, 20 + dy));
-				p.drawLine(QPointF(18 + dx, 7 + dy), QPointF(24 + dx, 11 + dy));
-				p.drawEllipse(QPointF(13 + dx, 21 + dy), 4, 4);
-			};
-			drawNote(cyan, -2, 1);
-			drawNote(red, 2, -1);
-			drawNote(white, 0, 0);
-			return;
-		}
-
-		if (platformId_ == "twitch") {
-			p.setPen(Qt::NoPen);
-			p.setBrush(QColor("#9146ff"));
-			p.drawRoundedRect(r, 4, 4);
-			QPainterPath bubble;
-			bubble.moveTo(7, 6);
-			bubble.lineTo(24, 6);
-			bubble.lineTo(24, 19);
-			bubble.lineTo(19, 24);
-			bubble.lineTo(15, 24);
-			bubble.lineTo(15, 21);
-			bubble.lineTo(7, 21);
-			bubble.closeSubpath();
-			p.setBrush(Qt::white);
-			p.drawPath(bubble);
-			p.setBrush(QColor("#9146ff"));
-			p.drawRect(QRectF(12, 10, 2.5, 7));
-			p.drawRect(QRectF(18, 10, 2.5, 7));
-			return;
-		}
-
-		p.setPen(Qt::NoPen);
-		p.setBrush(QColor("#7a8494"));
-		p.drawRoundedRect(r, 4, 4);
-		p.setPen(QColor("#111318"));
-		QFont f = p.font();
-		f.setBold(true);
-		f.setPixelSize(12);
-		p.setFont(f);
-		p.drawText(rect(), Qt::AlignCenter, fallbackText_);
-	}
-
-private:
-	QString platformId_;
-	QString fallbackText_;
 };
 
 bool isRunning(const OutputTarget &target)
@@ -193,6 +106,10 @@ QString rowDetailText(const OutputTarget &target, const TargetRuntimeStatus &run
 		return liveYouTubeApiWarningRowText(target.lastError.trimmed());
 	if (!target.startWithAll && target.state == TargetState::Stopped)
 		return "Start All off";
+	if (target.state == TargetState::Stopped) {
+		QString error;
+		return validateOutputTargetConfig(target, &error) ? QStringLiteral("Ready") : QStringLiteral("Needs setup");
+	}
 	return targetStateToString(target.state);
 }
 
@@ -205,21 +122,68 @@ QString actionText(const OutputTarget &target, const TargetRuntimeStatus &runtim
 	return isRunning(target, runtime) ? QStringLiteral("Stop") : QStringLiteral("Start");
 }
 
+QString youtubePrivacyLabel(const QString &privacy)
+{
+	if (privacy == QStringLiteral("public"))
+		return QStringLiteral("公開");
+	if (privacy == QStringLiteral("unlisted"))
+		return QStringLiteral("限定公開");
+	if (privacy == QStringLiteral("private"))
+		return QStringLiteral("非公開");
+	return privacy;
+}
+
+QString youtubeBroadcastChoiceLabel(const QJsonObject &broadcast)
+{
+	const QJsonObject snippet = broadcast.value(QStringLiteral("snippet")).toObject();
+	const QJsonObject status = broadcast.value(QStringLiteral("status")).toObject();
+	QString title = snippet.value(QStringLiteral("title")).toString().trimmed();
+	if (title.isEmpty())
+		title = QStringLiteral("タイトルなし");
+
+	QStringList details;
+	const QDateTime scheduled = QDateTime::fromString(
+		snippet.value(QStringLiteral("scheduledStartTime")).toString(), Qt::ISODate);
+	if (scheduled.isValid())
+		details.push_back(scheduled.toLocalTime().toString(QStringLiteral("M/d HH:mm")));
+	const QString privacy = youtubePrivacyLabel(status.value(QStringLiteral("privacyStatus")).toString());
+	if (!privacy.isEmpty())
+		details.push_back(privacy);
+
+	return details.isEmpty() ? title : QStringLiteral("%1 — %2").arg(title, details.join(QStringLiteral(" / ")));
+}
+
 QString buttonStyle(const OutputTarget &target, const TargetRuntimeStatus &runtime)
 {
-	if (target.state == TargetState::Stopping || runtime.transport == TransportState::Stopping)
-		return "QPushButton { min-width: 68px; min-height: 26px; padding: 4px 10px; font-weight: 700; color: #d6d8dc; "
-		       "background-color: #4a4d54; border: 1px solid #5b6068; border-radius: 3px; }";
-	if (runtime.transport == TransportState::Reconnecting)
-		return "QPushButton { min-width: 68px; min-height: 26px; padding: 4px 10px; font-weight: 800; color: #f4eefc; "
-		       "background-color: #5b3a82; border: 1px solid #7a57a6; border-radius: 3px; }";
+	const bool transitioning = target.state == TargetState::Starting || target.state == TargetState::Stopping ||
+				   runtimeTransportIsBusy(runtime);
+	const QString color = transitioning ? QStringLiteral("#8e979f")
+				     : (isRunning(target, runtime) ? QStringLiteral("#ff6c72")
+								   : QStringLiteral("#e6e9ec"));
+	return QStringLiteral("QPushButton#dskTargetPrimaryAction { color: %1; background: transparent; border: 0; padding: 0; }")
+		.arg(color);
+}
+
+QString allControlStyle(bool stopMode)
+{
+	if (stopMode)
+		return QStringLiteral("QPushButton#dskAllStreamsToggle { padding: 0; font-family: 'Bahnschrift SemiBold Condensed'; "
+				      "font-size: 12px; font-weight: 800; letter-spacing: 1px; background: transparent; border: 0; }");
+	return QStringLiteral("QPushButton#dskAllStreamsToggle { padding: 0 7px; font-family: 'Bahnschrift SemiBold Condensed'; "
+			      "font-size: 12px; font-weight: 800; letter-spacing: 1px; background: transparent; border: 0; }");
+}
+
+QColor statusColor(const OutputTarget &target, const TargetRuntimeStatus &runtime)
+{
+	if (target.state == TargetState::Error || !target.lastError.isEmpty())
+		return QColor(QStringLiteral("#ff646d"));
+	if (runtimePlatformIsWarning(runtime.platform) || runtimeTransportIsBusy(runtime))
+		return QColor(QStringLiteral("#e8bd59"));
 	if (isRunning(target, runtime))
-		return "QPushButton { min-width: 68px; min-height: 26px; padding: 4px 10px; font-weight: 800; color: white; "
-		       "background-color: #8b3232; border: 1px solid #aa4444; border-radius: 3px; }"
-		       "QPushButton:hover { background-color: #9b3838; }";
-	return "QPushButton { min-width: 68px; min-height: 26px; padding: 4px 10px; font-weight: 800; color: white; "
-	       "background-color: #26763d; border: 1px solid #3f9458; border-radius: 3px; }"
-	       "QPushButton:hover { background-color: #2d8547; }";
+		return QColor(QStringLiteral("#58e58a"));
+	if (!target.enabled)
+		return QColor(QStringLiteral("#78828a"));
+	return QColor(QStringLiteral("#2ed47a"));
 }
 
 QString platformFromService(const QString &serviceName, const QString &server, const QString &type)
@@ -263,8 +227,9 @@ ObsNativeStreamInfo obsNativeStreamInfo()
 	const QString username = settings.value("username").toString().trimmed();
 	const QString account = settings.value("account").toString().trimmed();
 
+	info.available = obsNativeServiceConfigured(!serviceName.isEmpty(), !name.isEmpty(), !server.isEmpty(),
+						 !type.trimmed().isEmpty());
 	info.serviceName = !serviceName.isEmpty() ? serviceName : (!name.isEmpty() ? name : QStringLiteral("OBS Native Stream"));
-	info.available = !info.serviceName.trimmed().isEmpty() || !type.trimmed().isEmpty();
 	info.platformId = platformFromService(info.serviceName, server, type);
 	info.accountLabel = !username.isEmpty() ? username : account;
 	info.detail = info.accountLabel.isEmpty() ? QStringLiteral("OBS native stream")
@@ -279,100 +244,342 @@ StreamControlsDock::StreamControlsDock(OutputManager *manager, QWidget *parent)
 	  manager_(manager)
 {
 	logInfo("Stream Controls dock constructor begin");
+	setObjectName(QStringLiteral("dskStreamingControlSurface"));
 	auto *layout = new QVBoxLayout(this);
-	layout->setContentsMargins(6, 6, 6, 6);
-	layout->setSpacing(5);
+	layout->setContentsMargins(0, 0, 0, 0);
+	layout->setSpacing(0);
 
-	buttons_ = new QVBoxLayout();
-	buttons_->setContentsMargins(0, 0, 0, 0);
-	buttons_->setSpacing(4);
-	layout->addLayout(buttons_);
+	auto *scrollArea = new QScrollArea(this);
+	scrollArea->setObjectName(QStringLiteral("dskStreamingRowsViewport"));
+	scrollArea->setWidgetResizable(true);
+	scrollArea->setFrameShape(QFrame::NoFrame);
+	scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+	scrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
 
-	auto *footer = new QHBoxLayout();
-	footer->setContentsMargins(0, 0, 0, 0);
-	footer->setSpacing(5);
-	startChecked_ = new QPushButton("Start All", this);
-	stopAll_ = new QPushButton("Stop All", this);
-	startChecked_->setMinimumHeight(28);
-	stopAll_->setMinimumHeight(28);
-	startChecked_->setStyleSheet("QPushButton { padding: 5px 9px; font-weight: 800; color: #f3f7f4; "
-				     "background-color: #2b6f3f; border: 1px solid #438a56; border-radius: 3px; }"
-				     "QPushButton:hover { background-color: #327e49; }");
-	stopAll_->setStyleSheet("QPushButton { padding: 5px 9px; font-weight: 800; color: #f7f0f0; "
-				"background-color: #673437; border: 1px solid #87494d; border-radius: 3px; }"
-				"QPushButton:hover { background-color: #783d42; }");
-	connect(startChecked_, &QPushButton::clicked, this, &StreamControlsDock::handleStartEnabled);
-	connect(stopAll_, &QPushButton::clicked, this, &StreamControlsDock::handleStopAll);
-	footer->addWidget(startChecked_);
-	footer->addWidget(stopAll_);
-	layout->addLayout(footer);
-	layout->addStretch(1);
+	auto *rows = new QWidget(scrollArea);
+	rows->setObjectName(QStringLiteral("dskStreamingRows"));
 
-	setStyleSheet("StreamControlsDock { background-color: #1f1f1f; }");
+	buttons_ = new QVBoxLayout(rows);
+	buttons_->setContentsMargins(5, 5, 5, 0);
+	buttons_->setSpacing(5);
+	buttons_->setAlignment(Qt::AlignTop);
+	scrollArea->setWidget(rows);
+	layout->addWidget(scrollArea, 1);
+
+	allToggle_ = new ReferenceAllButton(this);
+	allToggle_->setText(QStringLiteral("START ALL"));
+	allToggle_->setObjectName(QStringLiteral("dskAllStreamsToggle"));
+	allToggle_->setFixedSize(90, 28);
+	allToggle_->setAccessibleName(QStringLiteral("Start all streams"));
+	allToggle_->setStyleSheet(allControlStyle(false));
+	connect(allToggle_, &QPushButton::clicked, this, &StreamControlsDock::handleAllToggle);
+
+	setStyleSheet(QStringLiteral(
+		"QWidget#dskStreamingControlSurface, QWidget#dskStreamingRows { background-color: #0f141d; }"
+		"QScrollArea#dskStreamingRowsViewport { background-color: #0f141d; border: 0; }"
+		"QScrollBar:vertical { width: 8px; background: #0c1114; margin: 0; }"
+		"QScrollBar::handle:vertical { min-height: 28px; background: #34434b; border-radius: 4px; }"
+		"QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }"));
 
 	if (manager_) {
-		connect(manager_, &OutputManager::targetsChanged, this, &StreamControlsDock::refresh, Qt::QueuedConnection);
-		connect(manager_, &OutputManager::targetRuntimeChanged, this, &StreamControlsDock::refresh, Qt::QueuedConnection);
-		connect(manager_, &OutputManager::statusMessage, this, &StreamControlsDock::refresh, Qt::QueuedConnection);
+		connect(manager_, &OutputManager::targetsChanged, this, &StreamControlsDock::scheduleRefresh,
+			Qt::QueuedConnection);
+		connect(manager_, &OutputManager::targetRuntimeChanged, this, &StreamControlsDock::scheduleRefresh,
+			Qt::QueuedConnection);
+		connect(manager_, &OutputManager::youtubeBroadcastSelectionRequired,
+			this, &StreamControlsDock::handleYouTubeBroadcastSelection, Qt::QueuedConnection);
 	}
 
-	logInfo("Stream Controls dock initial refresh begin");
-	refresh();
-	logInfo("Stream Controls dock initial refresh complete");
+	logInfo("Stream Controls dock initial refresh deferred until visible");
 	QTimer::singleShot(2500, this, [this]() {
 		obsNativeProbeReady_ = true;
 		logInfo("Stream Controls dock OBS native probe enabled");
-		refresh();
+		scheduleRefresh();
 	});
 	logInfo("Stream Controls dock constructor complete");
 }
 
+QPushButton *StreamControlsDock::allToggleButton() const
+{
+	return allToggle_;
+}
+
+void StreamControlsDock::showEvent(QShowEvent *event)
+{
+	QWidget::showEvent(event);
+	if (refreshGate_.takeIfVisible(true))
+		refresh();
+}
+
+bool StreamControlsDock::isYouTubeBroadcastSessionCurrent(const YouTubeBroadcastSelectionRequest &request) const
+{
+	if (!manager_ || request.targetId.isEmpty() || request.sessionSerial == 0)
+		return false;
+	const TargetRuntimeStatus runtime = manager_->runtimeStatusForTarget(request.targetId);
+	return runtime.sessionSerial == request.sessionSerial && runtimeTransportIsRunning(runtime);
+}
+
+bool StreamControlsDock::isYouTubeBroadcastRequestCurrent(const YouTubeBroadcastSelectionRequest &request) const
+{
+	if (!isYouTubeBroadcastSessionCurrent(request) || request.selectionGeneration == 0)
+		return false;
+	const TargetRuntimeStatus runtime = manager_->runtimeStatusForTarget(request.targetId);
+	const bool selectionStillRequired =
+		runtime.platform == PlatformLiveState::MultipleBroadcasts ||
+		(runtime.platform == PlatformLiveState::Failed &&
+		 runtime.lastTechnicalError.startsWith(
+			 QStringLiteral("YouTube broadcast start blocked: selected broadcast unavailable.")));
+	if (!selectionStillRequired)
+		return false;
+	const auto state = youtubeBroadcastLatestGenerations_.constFind(request.targetId);
+	return state != youtubeBroadcastLatestGenerations_.constEnd() && state->sessionSerial == request.sessionSerial &&
+	       state->selectionGeneration == request.selectionGeneration;
+}
+
+void StreamControlsDock::discardStaleYouTubeBroadcastSelections()
+{
+	for (auto state = youtubeBroadcastLatestGenerations_.begin(); state != youtubeBroadcastLatestGenerations_.end();) {
+		YouTubeBroadcastSelectionRequest request;
+		request.targetId = state.key();
+		request.sessionSerial = state->sessionSerial;
+		if (!isYouTubeBroadcastSessionCurrent(request))
+			state = youtubeBroadcastLatestGenerations_.erase(state);
+		else
+			++state;
+	}
+
+	for (int i = pendingYouTubeBroadcastSelections_.size() - 1; i >= 0; --i) {
+		if (!isYouTubeBroadcastRequestCurrent(pendingYouTubeBroadcastSelections_.at(i)))
+			pendingYouTubeBroadcastSelections_.removeAt(i);
+	}
+
+	if (youtubeBroadcastDialog_ && !isYouTubeBroadcastRequestCurrent(activeYouTubeBroadcastSelection_))
+		youtubeBroadcastDialog_->reject();
+}
+
+void StreamControlsDock::refreshYouTubeBroadcastDialog(const YouTubeBroadcastSelectionRequest &request)
+{
+	if (!youtubeBroadcastDialog_ || request.labels.isEmpty())
+		return;
+	const QString selected = youtubeBroadcastDialog_->textValue();
+	activeYouTubeBroadcastSelection_ = request;
+	youtubeBroadcastDialog_->setComboBoxItems(request.labels);
+	youtubeBroadcastDialog_->setTextValue(request.labels.contains(selected) ? selected : request.labels.first());
+	youtubeBroadcastDialog_->raise();
+	youtubeBroadcastDialog_->activateWindow();
+}
+
+void StreamControlsDock::showNextYouTubeBroadcastSelection()
+{
+	if (youtubeBroadcastDialog_)
+		return;
+
+	while (!pendingYouTubeBroadcastSelections_.isEmpty()) {
+		const YouTubeBroadcastSelectionRequest request = pendingYouTubeBroadcastSelections_.first();
+		pendingYouTubeBroadcastSelections_.removeAt(0);
+		if (!isYouTubeBroadcastRequestCurrent(request))
+			continue;
+
+		activeYouTubeBroadcastSelection_ = request;
+		auto *dialog = new QInputDialog(this);
+		dialog->setAttribute(Qt::WA_DeleteOnClose);
+		dialog->setWindowTitle(QStringLiteral("YouTube配信枠を選択"));
+		dialog->setLabelText(QStringLiteral("開始する配信枠を選んでください。予約枠は削除されません。"));
+		dialog->setComboBoxItems(request.labels);
+		dialog->setComboBoxEditable(false);
+		dialog->setTextValue(request.labels.first());
+		youtubeBroadcastDialog_ = dialog;
+
+		connect(dialog, &QInputDialog::finished, this, [this, dialog](int result) {
+			if (youtubeBroadcastDialog_ != dialog)
+				return;
+
+			const YouTubeBroadcastSelectionRequest request = activeYouTubeBroadcastSelection_;
+			const QString selected = dialog->textValue();
+			youtubeBroadcastDialog_.clear();
+			activeYouTubeBroadcastSelection_ = {};
+
+			if (result == QDialog::Accepted && isYouTubeBroadcastRequestCurrent(request)) {
+				const int index = request.labels.indexOf(selected);
+				if (index >= 0 && index < request.ids.size()) {
+					manager_->applyYouTubeBroadcastSelection(request.targetId,
+									 request.sessionSerial,
+									 request.selectionGeneration,
+									 request.ids.at(index));
+				}
+			} else if (result != QDialog::Accepted && isYouTubeBroadcastRequestCurrent(request)) {
+				manager_->cancelYouTubeBroadcastSelection(request.targetId,
+									  request.sessionSerial,
+									  request.selectionGeneration);
+			}
+
+			QTimer::singleShot(0, this, [this]() {
+				discardStaleYouTubeBroadcastSelections();
+				showNextYouTubeBroadcastSelection();
+			});
+		});
+		dialog->open();
+		return;
+	}
+
+	activeYouTubeBroadcastSelection_ = {};
+}
+
+void StreamControlsDock::handleYouTubeBroadcastSelection(const QString &targetId, quint64 sessionSerial,
+						  quint64 selectionGeneration, const QJsonArray &broadcasts)
+{
+	discardStaleYouTubeBroadcastSelections();
+	if (!manager_ || targetId.trimmed().isEmpty() || sessionSerial == 0 || selectionGeneration == 0 ||
+	    broadcasts.isEmpty()) {
+		showNextYouTubeBroadcastSelection();
+		return;
+	}
+
+	YouTubeBroadcastSelectionRequest request;
+	request.targetId = targetId;
+	request.sessionSerial = sessionSerial;
+	request.selectionGeneration = selectionGeneration;
+
+	for (const QJsonValue &value : broadcasts) {
+		const QJsonObject broadcast = value.toObject();
+		const QString id = broadcast.value(QStringLiteral("id")).toString().trimmed();
+		if (id.isEmpty())
+			continue;
+		QString label = youtubeBroadcastChoiceLabel(broadcast);
+		if (request.labels.contains(label))
+			label += QStringLiteral(" [%1]").arg(id.right(8));
+		request.labels.push_back(label);
+		request.ids.push_back(id);
+	}
+	if (request.labels.isEmpty() || !isYouTubeBroadcastSessionCurrent(request)) {
+		showNextYouTubeBroadcastSelection();
+		return;
+	}
+
+	const auto known = youtubeBroadcastLatestGenerations_.constFind(targetId);
+	if (known != youtubeBroadcastLatestGenerations_.constEnd() && known->sessionSerial == sessionSerial &&
+	    selectionGeneration <= known->selectionGeneration) {
+		showNextYouTubeBroadcastSelection();
+		return;
+	}
+	youtubeBroadcastLatestGenerations_.insert(targetId, {sessionSerial, selectionGeneration});
+
+	if (youtubeBroadcastDialog_ && activeYouTubeBroadcastSelection_.targetId == targetId &&
+	    activeYouTubeBroadcastSelection_.sessionSerial == sessionSerial) {
+		refreshYouTubeBroadcastDialog(request);
+		return;
+	}
+
+	for (YouTubeBroadcastSelectionRequest &pending : pendingYouTubeBroadcastSelections_) {
+		if (pending.targetId == targetId && pending.sessionSerial == sessionSerial) {
+			pending = request;
+			showNextYouTubeBroadcastSelection();
+			return;
+		}
+	}
+
+	pendingYouTubeBroadcastSelections_.push_back(request);
+	showNextYouTubeBroadcastSelection();
+}
+
+void StreamControlsDock::scheduleRefresh()
+{
+	refreshGate_.markDirty();
+	if (!isVisible())
+		return;
+	if (refreshScheduled_)
+		return;
+
+	refreshScheduled_ = true;
+	QTimer::singleShot(0, this, [this]() {
+		refreshScheduled_ = false;
+		if (refreshGate_.takeIfVisible(isVisible()))
+			refresh();
+	});
+}
+
 void StreamControlsDock::refresh()
 {
-	if (refreshing_ || !buttons_ || !startChecked_ || !stopAll_)
+	discardStaleYouTubeBroadcastSelections();
+	showNextYouTubeBroadcastSelection();
+	if (refreshing_ || !buttons_ || !allToggle_)
 		return;
 
 	refreshing_ = true;
-	clearButtons();
 
 	int eligibleStartAllCount = 0;
+	bool startAllBlockedByTransition = false;
 
 	const QVector<OutputTarget> targets = manager_ ? manager_->targets() : QVector<OutputTarget>{};
-	const bool hasObsNative = obsNativeProbeReady_ && obsNativeStreamInfo().available;
-	if (!manager_ || (targets.isEmpty() && !hasObsNative)) {
-		auto *empty = new QLabel("No stream targets configured.", this);
-		empty->setAlignment(Qt::AlignCenter);
-		empty->setMinimumHeight(48);
-		buttons_->addWidget(empty);
-		startChecked_->setEnabled(false);
-		stopAll_->setEnabled(false);
+	const bool obsNativeActive = obs_frontend_streaming_active();
+	const ObsNativeStreamInfo nativeInfo = obsNativeProbeReady_ ? obsNativeStreamInfo() : ObsNativeStreamInfo{};
+	const bool hasObsNative =
+		obsNativeRowAvailable(obsNativeProbeReady_, nativeInfo.available, obsNativeActive, obsNativeTransitioning_);
+	removeStaleTargetRows(targets);
+	if (!hasObsNative)
+		removeRow(obsNativeRow_);
+	if (targets.isEmpty() && !hasObsNative) {
+		setEmptyStateVisible(true);
+		allToggleStops_ = false;
+		allToggle_->setText(QStringLiteral("START ALL"));
+		allToggle_->setAccessibleName(QStringLiteral("Start all streams"));
+		allToggle_->setStyleSheet(allControlStyle(false));
+		allToggle_->setEnabled(false);
 		refreshing_ = false;
 		return;
 	}
+	setEmptyStateVisible(false);
 
-	if (hasObsNative)
-		buttons_->addWidget(createObsNativeRow());
+	int rowIndex = 0;
+	if (hasObsNative) {
+		if (!obsNativeRow_.row)
+			obsNativeRow_ = createObsNativeRow();
+		updateObsNativeRow(obsNativeRow_, nativeInfo.platformId, nativeInfo.serviceName, nativeInfo.detail);
+		placeRow(obsNativeRow_.row, rowIndex++);
+	}
 
+	QHash<QString, TargetRuntimeStatus> runtimes;
+	runtimes.reserve(targets.size());
 	for (const auto &target : targets) {
-		if (target.enabled && target.startWithAll)
+		const TargetRuntimeStatus runtime = manager_->runtimeStatusForTarget(target.id);
+		runtimes.insert(target.id, runtime);
+		if (targetCanStartWithAll(target, runtime))
 			++eligibleStartAllCount;
-		buttons_->addWidget(createTargetRow(target));
+		if (targetBlocksStartAll(target, runtime))
+			startAllBlockedByTransition = true;
+		auto row = targetRows_.find(target.id);
+		if (row == targetRows_.end())
+			row = targetRows_.insert(target.id, createTargetRow(target));
+		updateTargetRow(target, runtime, row.value());
+		placeRow(row->row, rowIndex++);
 	}
 
 	bool hasRunningTarget = false;
+	bool hasStoppingTarget = false;
 	if (manager_) {
 		for (const auto &target : targets) {
-			if (isRunning(target, manager_->runtimeStatusForTarget(target.id))) {
+			const TargetRuntimeStatus runtime = runtimes.value(target.id);
+			if (isRunning(target, runtime))
 				hasRunningTarget = true;
-				break;
-			}
+			if (target.state == TargetState::Stopping || runtime.transport == TransportState::Stopping)
+				hasStoppingTarget = true;
 		}
 	}
-	const bool startObsNative = hasObsNative && !obs_frontend_streaming_active();
-	startChecked_->setEnabled(eligibleStartAllCount > 0 || startObsNative);
-	startChecked_->setToolTip(QStringLiteral("Start OBS native streaming and %1 included DSK target(s).")
-						.arg(eligibleStartAllCount));
-	stopAll_->setEnabled(obs_frontend_streaming_active() || hasRunningTarget);
+	const bool startObsNative =
+		obsNativeCanStartWithAll(nativeInfo.available, obsNativeActive, obsNativeTransitioning_);
+	const AllControlState state = allControlState(eligibleStartAllCount, startAllBlockedByTransition,
+						      startObsNative, obsNativeActive, obsNativeTransitioning_,
+						      obsNativeExpectedActive_, hasRunningTarget, hasStoppingTarget);
+	allToggleStops_ = state.stopMode;
+	allToggle_->setText(state.stopMode ? QStringLiteral("STOP ALL") : QStringLiteral("START ALL"));
+	allToggle_->setAccessibleName(state.stopMode ? QStringLiteral("Stop all streams")
+						      : QStringLiteral("Start all streams"));
+	allToggle_->setStyleSheet(allControlStyle(state.stopMode));
+	allToggle_->setEnabled(state.enabled);
+	allToggle_->setToolTip(state.stopMode
+				       ? QStringLiteral("Stop OBS native streaming and all running DSK targets.")
+				       : QStringLiteral("Start OBS native streaming and %1 included DSK target(s).")
+						 .arg(eligibleStartAllCount));
 	refreshing_ = false;
 }
 
@@ -390,7 +597,7 @@ void StreamControlsDock::handleObsNativeStreamingStateChanged(bool active)
 		obsNativeTransitioning_ = false;
 		++obsNativeTransitionGeneration_;
 	}
-	refresh();
+	scheduleRefresh();
 }
 
 void StreamControlsDock::beginObsNativeTransition(bool expectedActive)
@@ -398,7 +605,7 @@ void StreamControlsDock::beginObsNativeTransition(bool expectedActive)
 	obsNativeExpectedActive_ = expectedActive;
 	obsNativeTransitioning_ = true;
 	const int generation = ++obsNativeTransitionGeneration_;
-	refresh();
+	scheduleRefresh();
 
 	QTimer::singleShot(15000, this, [this, generation]() {
 		if (!obsNativeTransitioning_ || obsNativeTransitionGeneration_ != generation)
@@ -410,7 +617,7 @@ void StreamControlsDock::beginObsNativeTransition(bool expectedActive)
 				manager_->clearNextObsAutoStopSuppression();
 		}
 		obsNativeTransitioning_ = false;
-		refresh();
+		scheduleRefresh();
 	});
 }
 
@@ -459,45 +666,118 @@ void StreamControlsDock::handleButtonClicked()
 	}
 }
 
+void StreamControlsDock::handleAllToggle()
+{
+	if (allToggleStops_)
+		handleStopAll();
+	else
+		handleStartEnabled();
+}
+
 void StreamControlsDock::handleStartEnabled()
 {
-	if (!manager_)
-		return;
-
-	const QVector<QString> ids = startAllTargetIds(manager_->targets());
-	requestStartTargets(ids);
+	QVector<QString> ids;
+	bool startAllBlockedByTransition = false;
+	const QVector<OutputTarget> targets = manager_ ? manager_->targets() : QVector<OutputTarget>{};
+	for (const OutputTarget &target : targets) {
+		const TargetRuntimeStatus runtime = manager_->runtimeStatusForTarget(target.id);
+		if (targetCanStartWithAll(target, runtime))
+			ids.push_back(target.id);
+		if (targetBlocksStartAll(target, runtime))
+			startAllBlockedByTransition = true;
+	}
 
 	const bool hasObsNative = obsNativeProbeReady_ && obsNativeStreamInfo().available;
-	if (hasObsNative && !obs_frontend_streaming_active() && !obsNativeTransitioning_) {
+	const bool startObsNative =
+		obsNativeCanStartWithAll(hasObsNative, obs_frontend_streaming_active(), obsNativeTransitioning_);
+	if (startAllBlockedByTransition || (ids.isEmpty() && !startObsNative))
+		return;
+
+	requestStartTargets(ids);
+
+	if (startObsNative) {
 		beginObsNativeTransition(true);
-		manager_->suppressNextObsAutoStart();
+		if (manager_)
+			manager_->suppressNextObsAutoStart();
 		obs_frontend_streaming_start();
 	}
 }
 
 void StreamControlsDock::handleStopAll()
 {
-	if (!manager_)
-		return;
-	manager_->stopAll();
+	if (allToggle_)
+		allToggle_->setEnabled(false);
+	if (manager_)
+		manager_->stopAll();
 	const bool obsStopAlreadyPending = obsNativeTransitioning_ && !obsNativeExpectedActive_;
 	if (obs_frontend_streaming_active() && !obsStopAlreadyPending) {
 		beginObsNativeTransition(false);
-		manager_->suppressNextObsAutoStop();
+		if (manager_)
+			manager_->suppressNextObsAutoStop();
 		obs_frontend_streaming_stop();
 	}
 }
 
-void StreamControlsDock::clearButtons()
+void StreamControlsDock::placeRow(QWidget *row, int index)
 {
-	if (!buttons_)
+	if (!buttons_ || !row)
 		return;
-
-	while (QLayoutItem *item = buttons_->takeAt(0)) {
-		if (QWidget *widget = item->widget())
-			widget->deleteLater();
-		delete item;
+	if (buttons_->indexOf(row) != index) {
+		buttons_->removeWidget(row);
+		buttons_->insertWidget(index, row);
 	}
+	row->show();
+}
+
+void StreamControlsDock::removeRow(RowWidgets &widgets)
+{
+	if (!widgets.row)
+		return;
+	if (buttons_)
+		buttons_->removeWidget(widgets.row);
+	if (widgets.button) {
+		widgets.button->setEnabled(false);
+		widgets.button->setProperty("targetId", QVariant());
+		QObject::disconnect(widgets.button, nullptr, this, nullptr);
+	}
+	widgets.row->hide();
+	widgets.row->deleteLater();
+	widgets = {};
+}
+
+void StreamControlsDock::removeStaleTargetRows(const QVector<OutputTarget> &targets)
+{
+	QSet<QString> currentIds;
+	currentIds.reserve(targets.size());
+	for (const auto &target : targets)
+		currentIds.insert(target.id);
+
+	for (auto row = targetRows_.begin(); row != targetRows_.end();) {
+		if (currentIds.contains(row.key())) {
+			++row;
+			continue;
+		}
+		removeRow(row.value());
+		row = targetRows_.erase(row);
+	}
+
+}
+
+void StreamControlsDock::setEmptyStateVisible(bool visible)
+{
+	if (!visible) {
+		if (emptyState_) {
+			buttons_->removeWidget(emptyState_);
+			emptyState_->hide();
+		}
+		return;
+	}
+	if (!emptyState_) {
+		emptyState_ = new QLabel("No stream targets configured.", this);
+		emptyState_->setAlignment(Qt::AlignCenter);
+		emptyState_->setMinimumHeight(48);
+	}
+	placeRow(emptyState_, 0);
 }
 
 void StreamControlsDock::requestStartTargets(const QVector<QString> &ids)
@@ -518,102 +798,182 @@ void StreamControlsDock::requestStartTargets(const QVector<QString> &ids)
 		logWarning(QStringLiteral("Start All completed with %1 started and %2 failed target(s).").arg(started).arg(failed));
 }
 
-QWidget *StreamControlsDock::createTargetRow(OutputTarget target)
+StreamControlsDock::RowWidgets StreamControlsDock::createVisualRow(const QString &platformId, const QString &displayName)
 {
-	const TargetRuntimeStatus runtime = manager_ ? manager_->runtimeStatusForTarget(target.id) : TargetRuntimeStatus{};
 	auto *row = new QWidget(this);
-	row->setObjectName("targetRow");
-	row->setStyleSheet("QWidget#targetRow { background-color: #292929; border: 1px solid #3a3a3a; border-radius: 4px; }");
-	auto *layout = new QHBoxLayout(row);
-	layout->setContentsMargins(6, 5, 6, 5);
-	layout->setSpacing(6);
+	row->setObjectName(QStringLiteral("dskTargetRow"));
+	row->setFixedHeight(50);
+	row->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+	row->setStyleSheet(QStringLiteral(
+		"QWidget#dskTargetRow { background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0, "
+		"stop:0 #1a202b, stop:0.5 #141a24, stop:1 #1b212c); border: 1px solid #2d3541; "
+		"border-radius: 9px; }"));
 
-	auto *badge = new PlatformBadge(target.platformId, target.name, row);
+	auto *layout = new QGridLayout(row);
+	layout->setContentsMargins(10, 4, 10, 4);
+	layout->setHorizontalSpacing(8);
+	layout->setVerticalSpacing(0);
+	layout->setColumnStretch(2, 1);
 
-	auto *textColumn = new QVBoxLayout();
-	textColumn->setContentsMargins(0, 0, 0, 0);
-	textColumn->setSpacing(0);
-	auto *name = new QLabel(target.name.isEmpty() ? QStringLiteral("Untitled") : target.name, row);
-	name->setStyleSheet("QLabel { color: #ececec; font-size: 12px; font-weight: 800; border: 0; background: transparent; }");
-	auto *details = new QLabel(rowDetailText(target, runtime), row);
+	auto *badge = new PlatformBadge(platformId, displayName, row);
+	layout->addWidget(badge, 0, 1, 2, 1, Qt::AlignCenter);
+
+	auto *name = new QLabel(displayName.isEmpty() ? QStringLiteral("Untitled") : displayName, row);
+	name->setObjectName(QStringLiteral("dskTargetName"));
+	name->setMinimumWidth(70);
+	name->setStyleSheet(QStringLiteral(
+		"QLabel#dskTargetName { color: #f1f3f5; font-family: 'Bahnschrift SemiBold Condensed'; "
+		"font-size: 15px; font-weight: 650; letter-spacing: 0.5px; border: 0; background: transparent; }"));
+	auto *nameShadow = new QGraphicsDropShadowEffect(name);
+	nameShadow->setBlurRadius(1.2);
+	nameShadow->setOffset(1, 1);
+	nameShadow->setColor(QColor(0, 0, 0, 220));
+	name->setGraphicsEffect(nameShadow);
+	layout->addWidget(name, 0, 2, Qt::AlignLeft | Qt::AlignBottom);
+
+	auto *statusLine = new QWidget(row);
+	statusLine->setObjectName(QStringLiteral("dskTargetStatusLine"));
+	statusLine->setStyleSheet(QStringLiteral("QWidget#dskTargetStatusLine { background: transparent; border: 0; }"));
+	auto *statusLayout = new QHBoxLayout(statusLine);
+	statusLayout->setContentsMargins(0, 0, 0, 0);
+	statusLayout->setSpacing(5);
+	auto *statusLight = new StatusLight(statusLine);
+	auto *details = new QLabel(row);
+	details->setObjectName(QStringLiteral("dskTargetState"));
 	details->setTextInteractionFlags(Qt::TextSelectableByMouse);
-	const bool liveWarning = isYouTubeTarget(target) && runtimePlatformIsWarning(runtime.platform) &&
-				 runtimeTransportIsRunning(runtime);
-	details->setStyleSheet(liveWarning ? "QLabel { color: #d0a84f; font-size: 10px; border: 0; background: transparent; }"
-					   : "QLabel { color: #a4a4a4; font-size: 10px; border: 0; background: transparent; }");
-	details->setMaximumHeight(14);
-	textColumn->addWidget(name);
-	textColumn->addWidget(details);
+	details->setStyleSheet(QStringLiteral(
+		"QLabel#dskTargetState { color: #aeb7c1; font-family: 'Bahnschrift Light Condensed'; "
+		"font-size: 12px; font-weight: 350; letter-spacing: 0.5px; border: 0; background: transparent; }"));
+	statusLayout->addWidget(statusLight);
+	statusLayout->addWidget(details, 1);
+	layout->addWidget(statusLine, 1, 2, Qt::AlignLeft | Qt::AlignTop);
 
-	auto *button = new QPushButton(actionText(target, runtime), row);
-	button->setProperty("targetId", target.id);
-	button->setToolTip(isRunning(target, runtime) ? QString("Stop only %1.").arg(target.name)
-						      : QString("Start only %1.").arg(target.name));
-	button->setEnabled(!isBusy(target, runtime));
-	button->setStyleSheet(buttonStyle(target, runtime));
-	connect(button, &QPushButton::clicked, this, &StreamControlsDock::handleButtonClicked);
+	auto *button = new ReferenceActionButton(row);
+	button->setObjectName(QStringLiteral("dskTargetPrimaryAction"));
+	button->setFixedSize(42, 30);
 
-	layout->addWidget(badge);
-	layout->addLayout(textColumn, 1);
-	layout->addWidget(button);
-	return row;
+	auto *actionMenu = new ReferenceMenuButton(row);
+	actionMenu->setObjectName(QStringLiteral("dskTargetActionMenu"));
+	actionMenu->setPopupMode(QToolButton::InstantPopup);
+	actionMenu->setFixedSize(32, 30);
+	actionMenu->setStyleSheet(QStringLiteral(
+		"QToolButton#dskTargetActionMenu { background: transparent; border: 0; padding: 0; }"
+		"QToolButton#dskTargetActionMenu::menu-indicator { image: none; width: 0; height: 0; }"
+		"QToolButton#dskTargetActionMenu:hover { background: transparent; }"));
+
+	auto *actionBar = new QWidget(row);
+	auto *actionLayout = new QHBoxLayout(actionBar);
+	actionLayout->setContentsMargins(0, 0, 0, 0);
+	actionLayout->setSpacing(6);
+	actionLayout->addWidget(actionMenu);
+	actionLayout->addWidget(button);
+	layout->addWidget(actionBar, 0, 3, 2, 1, Qt::AlignRight | Qt::AlignCenter);
+
+	return {row, badge, name, details, statusLight, button, actionMenu};
 }
 
-QWidget *StreamControlsDock::createObsNativeRow()
+StreamControlsDock::RowWidgets StreamControlsDock::createTargetRow(const OutputTarget &target)
 {
-	const ObsNativeStreamInfo info = obsNativeStreamInfo();
+	RowWidgets widgets = createVisualRow(target.platformId, target.name);
+	widgets.button->setProperty("targetId", target.id);
+	connect(widgets.button, &QPushButton::clicked, this, &StreamControlsDock::handleButtonClicked);
+
+	auto *actionMenu = new QMenu(widgets.actionMenu);
+	auto *toggleAction = actionMenu->addAction(QStringLiteral("Start or stop this target"));
+	connect(toggleAction, &QAction::triggered, widgets.button, &QPushButton::click);
+	auto *actionEdit = actionMenu->addAction(QStringLiteral("Edit target"));
+	connect(actionEdit, &QAction::triggered, this, [this, id = target.id]() { emit editTargetRequested(id); });
+	widgets.actionMenu->setMenu(actionMenu);
+
+	return widgets;
+}
+
+void StreamControlsDock::updateTargetRow(const OutputTarget &target, const TargetRuntimeStatus &runtime,
+					 RowWidgets &widgets)
+{
+	if (!widgets.row)
+		return;
+	static_cast<PlatformBadge *>(widgets.badge)->setIdentity(target.platformId, target.name);
+	widgets.name->setText(target.name.isEmpty() ? QStringLiteral("Untitled") : target.name);
+	widgets.details->setText(rowDetailText(target, runtime));
+	const bool liveWarning = isYouTubeTarget(target) && runtimePlatformIsWarning(runtime.platform) &&
+				 runtimeTransportIsRunning(runtime);
+	const QString detailStyle = liveWarning
+		? QStringLiteral("QLabel#dskTargetState { color: #e8bd59; font-family: 'Bahnschrift Light Condensed'; font-size: 12px; letter-spacing: 0.5px; border: 0; background: transparent; }")
+		: (isRunning(target, runtime)
+			   ? QStringLiteral("QLabel#dskTargetState { color: #b8c4cc; font-family: 'Bahnschrift Light Condensed'; font-size: 12px; letter-spacing: 0.5px; border: 0; background: transparent; }")
+			   : QStringLiteral("QLabel#dskTargetState { color: #aeb7c1; font-family: 'Bahnschrift Light Condensed'; font-size: 12px; letter-spacing: 0.5px; border: 0; background: transparent; }"));
+	if (widgets.details->styleSheet() != detailStyle)
+		widgets.details->setStyleSheet(detailStyle);
+	if (widgets.statusLight)
+		static_cast<StatusLight *>(widgets.statusLight)->setColor(statusColor(target, runtime));
+	widgets.button->setProperty("targetId", target.id);
+	const QString action = actionText(target, runtime);
+	widgets.button->setText(action.toUpper());
+	widgets.button->setAccessibleName(QString("%1 %2").arg(action, target.name));
+	widgets.button->setToolTip(isRunning(target, runtime) ? QString("Stop only %1.").arg(target.name)
+							      : QString("Start only %1.").arg(target.name));
+	if (widgets.actionMenu) {
+		widgets.actionMenu->setAccessibleName(QString("More stream actions for %1").arg(target.name));
+		widgets.actionMenu->setToolTip(QString("More stream actions for %1.").arg(target.name));
+	}
+	widgets.button->setEnabled(!isBusy(target, runtime));
+	const QString style = buttonStyle(target, runtime);
+	if (widgets.button->styleSheet() != style)
+		widgets.button->setStyleSheet(style);
+}
+
+StreamControlsDock::RowWidgets StreamControlsDock::createObsNativeRow()
+{
+	RowWidgets widgets = createVisualRow(QStringLiteral("custom"), QStringLiteral("OBS Native Stream"));
+	connect(widgets.button, &QPushButton::clicked, this, &StreamControlsDock::handleObsNativeClicked);
+	auto *actionMenu = new QMenu(widgets.actionMenu);
+	auto *toggleAction = actionMenu->addAction(QStringLiteral("Start or stop OBS native stream"));
+	connect(toggleAction, &QAction::triggered, widgets.button, &QPushButton::click);
+	widgets.actionMenu->setMenu(actionMenu);
+	auto *notice = actionMenu->addAction(QStringLiteral("Managed by OBS stream settings"));
+	notice->setEnabled(false);
+	return widgets;
+}
+
+void StreamControlsDock::updateObsNativeRow(RowWidgets &widgets, const QString &platformId,
+					    const QString &serviceName, const QString &detail)
+{
+	if (!widgets.row)
+		return;
 	const bool active = obs_frontend_streaming_active();
-	const QString detailText = obsNativeTransitioning_
-		? (obsNativeExpectedActive_ ? QStringLiteral("Starting OBS native stream")
-					    : QStringLiteral("Stopping OBS native stream"))
-		: (active ? QStringLiteral("Live - OBS native stream") : info.detail);
-	const QString buttonText = obsNativeTransitioning_ ? (obsNativeExpectedActive_ ? QStringLiteral("Starting")
-										 : QStringLiteral("Stopping"))
-							  : (active ? QStringLiteral("Stop") : QStringLiteral("Start"));
-	const QString buttonToolTip = obsNativeTransitioning_
-		? QStringLiteral("OBS native streaming is changing state.")
-		: (active ? QStringLiteral("Stop OBS native streaming.")
-			  : QStringLiteral("Start OBS native streaming with the OBS account/settings."));
-	const QString buttonStyle = obsNativeTransitioning_
-		? QStringLiteral("QPushButton { min-width: 68px; min-height: 26px; padding: 4px 10px; font-weight: 700; color: #d6d8dc; background-color: #4a4d54; border: 1px solid #5b6068; border-radius: 3px; }")
-		: (active ? QStringLiteral("QPushButton { min-width: 68px; min-height: 26px; padding: 4px 10px; font-weight: 800; color: white; background-color: #8b3232; border: 1px solid #aa4444; border-radius: 3px; } QPushButton:hover { background-color: #9b3838; }")
-			  : QStringLiteral("QPushButton { min-width: 68px; min-height: 26px; padding: 4px 10px; font-weight: 800; color: white; background-color: #2f6f9f; border: 1px solid #4c87b8; border-radius: 3px; } QPushButton:hover { background-color: #397ead; }"));
-	OutputTarget fake;
-	fake.name = info.serviceName;
-	fake.platformId = info.platformId;
-	fake.enabled = true;
-
-	auto *row = new QWidget(this);
-	row->setObjectName("targetRow");
-	row->setStyleSheet("QWidget#targetRow { background-color: #24262a; border: 1px solid #464b53; border-radius: 4px; }");
-	auto *layout = new QHBoxLayout(row);
-	layout->setContentsMargins(6, 5, 6, 5);
-	layout->setSpacing(6);
-
-	auto *badge = new PlatformBadge(fake.platformId, fake.name, row);
-
-	auto *textColumn = new QVBoxLayout();
-	textColumn->setContentsMargins(0, 0, 0, 0);
-	textColumn->setSpacing(0);
-	auto *name = new QLabel(QString("%1 (OBS)").arg(info.serviceName), row);
-	name->setStyleSheet("QLabel { color: #f0f0f0; font-size: 12px; font-weight: 800; border: 0; background: transparent; }");
-	auto *details = new QLabel(detailText, row);
-	details->setTextInteractionFlags(Qt::TextSelectableByMouse);
-	details->setStyleSheet("QLabel { color: #aeb4bd; font-size: 10px; border: 0; background: transparent; }");
-	details->setMaximumHeight(14);
-	textColumn->addWidget(name);
-	textColumn->addWidget(details);
-
-	auto *button = new QPushButton(buttonText, row);
-	button->setToolTip(buttonToolTip);
-	button->setEnabled(!obsNativeTransitioning_);
-	button->setStyleSheet(buttonStyle);
-	connect(button, &QPushButton::clicked, this, &StreamControlsDock::handleObsNativeClicked);
-
-	layout->addWidget(badge);
-	layout->addLayout(textColumn, 1);
-	layout->addWidget(button);
-	return row;
+	static_cast<PlatformBadge *>(widgets.badge)->setIdentity(platformId, serviceName);
+	widgets.name->setText(serviceName);
+	widgets.details->setText(obsNativeTransitioning_
+				 ? (obsNativeExpectedActive_ ? QStringLiteral("Starting OBS native stream")
+							     : QStringLiteral("Stopping OBS native stream"))
+				 : (active ? QStringLiteral("Live - OBS native stream") : QStringLiteral("Ready")));
+	widgets.details->setToolTip(detail);
+	const QString action = obsNativeTransitioning_ ? (obsNativeExpectedActive_ ? QStringLiteral("Starting")
+									     : QStringLiteral("Stopping"))
+						      : (active ? QStringLiteral("Stop") : QStringLiteral("Start"));
+	widgets.button->setText(action.toUpper());
+	widgets.button->setAccessibleName(QString("%1 OBS native streaming").arg(action));
+	widgets.button->setToolTip(obsNativeTransitioning_
+				   ? QStringLiteral("OBS native streaming is changing state.")
+				   : (active ? QStringLiteral("Stop OBS native streaming.")
+					     : QStringLiteral("Start OBS native streaming with the OBS account/settings.")));
+	widgets.button->setEnabled(!obsNativeTransitioning_);
+	if (widgets.statusLight) {
+		const QColor color = obsNativeTransitioning_ ? QColor(QStringLiteral("#e8bd59"))
+							      : (active ? QColor(QStringLiteral("#58e58a"))
+									: QColor(QStringLiteral("#2ed47a")));
+		static_cast<StatusLight *>(widgets.statusLight)->setColor(color);
+	}
+	const QString nativeColor = obsNativeTransitioning_ ? QStringLiteral("#8e979f")
+						     : (active ? QStringLiteral("#ff6c72") : QStringLiteral("#e6e9ec"));
+	const QString style = QStringLiteral(
+		"QPushButton#dskTargetPrimaryAction { color: %1; background: transparent; border: 0; "
+		"font-family: 'Bahnschrift SemiBold Condensed'; font-size: 12px; font-weight: 700; }"
+		"QPushButton#dskTargetPrimaryAction:hover { color: white; }")
+		.arg(nativeColor);
+	if (widgets.button->styleSheet() != style)
+		widgets.button->setStyleSheet(style);
 }
 
 } // namespace dsk

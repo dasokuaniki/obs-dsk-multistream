@@ -2,16 +2,25 @@
 #include "core/oauth-provider.hpp"
 #include "core/output-target.hpp"
 #include "core/platform-preset-registry.hpp"
+#include "ui/layout-widget-utils.hpp"
 #include "ui/target-edit-dialog.hpp"
 
 #include <QApplication>
 #include <QCheckBox>
 #include <QComboBox>
+#include <QCoreApplication>
+#include <QEvent>
+#include <QFormLayout>
 #include <QLabel>
 #include <QLineEdit>
+#include <QListWidget>
+#include <QPointer>
 #include <QPushButton>
 #include <QScrollArea>
 #include <QString>
+#include <QToolButton>
+#include <QVBoxLayout>
+#include <QWidget>
 
 #include <iostream>
 
@@ -76,29 +85,198 @@ void testTargetEditDialogAddDefaults()
 		if (presetServer)
 			check(presetServer->isEnabled(), "Kick enables its server preset");
 
-		platform->setCurrentIndex(platform->findData(QStringLiteral("tiktok")));
-		dialog.fillTarget(accepted);
-		check(accepted.platformId == "tiktok", "new target switches to TikTok");
-		check(accepted.serverUrl.isEmpty(), "TikTok manual RTMP does not invent an ingest server");
-		check(accepted.authMode == dsk::TargetAuthMode::ManualRtmp, "TikTok uses manual RTMP authentication");
-		check(accepted.encoderGroup == dsk::EncoderGroup::DskVertical, "TikTok defaults to DSK Vertical output");
-		if (presetServer)
-			check(!presetServer->isEnabled(), "TikTok disables an unavailable server preset");
-		if (streamKey)
-			check(streamKey->placeholderText() == "Paste TikTok stream key",
-			      "TikTok stream key field names the required value");
-		if (platformHint)
-			check(platformHint->text().contains("Manual RTMP only"),
-			      "TikTok hint explains that login is not available");
-
 		platform->setCurrentIndex(platform->findData(QStringLiteral("custom")));
 		dialog.fillTarget(accepted);
 		check(accepted.serverUrl.isEmpty(), "custom target clears a previously followed platform preset");
+		check(accepted.authMode == dsk::TargetAuthMode::ManualRtmp, "custom target uses Manual RTMP authentication");
 		if (presetServer)
 			check(!presetServer->isEnabled(), "custom target disables an unavailable server preset");
 		if (streamKey)
 			check(streamKey->placeholderText() == "Enter stream key", "custom target asks for a stream key");
+		if (platformHint)
+			check(platformHint->text().contains("supplied by the platform"),
+			      "custom target explains where to get its RTMP URL");
 	}
+}
+
+bool dialogHasLabel(const dsk::TargetEditDialog &dialog, const QString &text)
+{
+	for (const QLabel *label : dialog.findChildren<QLabel *>()) {
+		if (label->text() == text)
+			return true;
+	}
+	return false;
+}
+
+void testTargetEditDialogLocalizationAndAdvancedSettings()
+{
+	dsk::PlatformPresetRegistry platforms;
+
+	qputenv("DSK_UI_TEST_LOCALE", QByteArrayLiteral("ja-JP"));
+	dsk::TargetEditDialog japaneseDialog(platforms);
+	auto *japaneseIntro = japaneseDialog.findChild<QLabel *>(QStringLiteral("dskTargetIntro"));
+	auto *japaneseAdvanced =
+		japaneseDialog.findChild<QToolButton *>(QStringLiteral("dskAdvancedSettingsToggle"));
+	auto *japaneseAdvancedPanel =
+		japaneseDialog.findChild<QWidget *>(QStringLiteral("dskAdvancedSettingsPanel"));
+	auto *japaneseVideoEncoder =
+		japaneseDialog.findChild<QComboBox *>(QStringLiteral("dskTargetVideoEncoder"));
+	auto *japaneseContent =
+		japaneseDialog.findChild<QWidget *>(QStringLiteral("dskTargetContent"));
+	auto *japaneseScrollArea =
+		japaneseDialog.findChild<QScrollArea *>(QStringLiteral("dskTargetScrollArea"));
+	auto *japaneseBasicForm =
+		japaneseDialog.findChild<QFormLayout *>(QStringLiteral("dskTargetBasicForm"));
+	auto *japaneseAdvancedForm =
+		japaneseDialog.findChild<QFormLayout *>(QStringLiteral("dskTargetAdvancedForm"));
+	auto *japaneseAuthStatus =
+		japaneseDialog.findChild<QLabel *>(QStringLiteral("dskTargetAuthStatus"));
+	auto *japanesePlatformHint =
+		japaneseDialog.findChild<QLabel *>(QStringLiteral("dskPlatformHint"));
+
+	check(japaneseDialog.windowTitle() == QStringLiteral("配信先を編集"),
+	      "Japanese environment localizes the target editor title");
+	check(japaneseIntro && japaneseIntro->text().contains(QStringLiteral("配信先を1つ設定")),
+	      "Japanese environment localizes the target editor introduction");
+	check(dialogHasLabel(japaneseDialog, QStringLiteral("配信先名")),
+	      "Japanese environment localizes the basic form labels");
+	check(dialogHasLabel(japaneseDialog, QStringLiteral("出力方向")),
+	      "Japanese environment localizes the output mode label");
+	check(japaneseAdvanced && japaneseAdvanced->text() == QStringLiteral("高度な設定"),
+	      "Japanese environment localizes the advanced settings toggle");
+	check(japaneseAdvancedPanel && japaneseAdvancedPanel->isHidden(),
+	      "advanced settings are collapsed by default");
+	check(japaneseContent && japaneseContent->layout() &&
+		      japaneseContent->layout()->alignment().testFlag(Qt::AlignTop),
+	      "target editor content stays top-aligned instead of stretching into empty space");
+	check(japaneseScrollArea && japaneseScrollArea->alignment().testFlag(Qt::AlignTop),
+	      "target editor scroll area pins compact content to the top");
+	check(japaneseIntro &&
+		      japaneseIntro->sizePolicy().verticalPolicy() == QSizePolicy::Fixed,
+	      "target editor introduction cannot absorb unused vertical space");
+	check(japaneseBasicForm && japaneseAdvancedForm &&
+		      japaneseBasicForm->horizontalSpacing() == japaneseAdvancedForm->horizontalSpacing() &&
+		      japaneseBasicForm->verticalSpacing() == japaneseAdvancedForm->verticalSpacing(),
+	      "basic and advanced forms use the same spacing rules");
+	check(japaneseBasicForm && japaneseAdvancedForm &&
+		      japaneseBasicForm->labelAlignment() == japaneseAdvancedForm->labelAlignment() &&
+		      japaneseBasicForm->fieldGrowthPolicy() == japaneseAdvancedForm->fieldGrowthPolicy(),
+	      "basic and advanced forms align labels and fields consistently");
+	if (japaneseBasicForm && japaneseAuthStatus) {
+		int row = -1;
+		QFormLayout::ItemRole role = QFormLayout::LabelRole;
+		japaneseBasicForm->getWidgetPosition(japaneseAuthStatus, &row, &role);
+		check(row >= 0 && role == QFormLayout::SpanningRole,
+		      "authentication guidance spans the full form width without an empty label column");
+	}
+	if (japaneseBasicForm && japanesePlatformHint) {
+		int row = -1;
+		QFormLayout::ItemRole role = QFormLayout::LabelRole;
+		japaneseBasicForm->getWidgetPosition(japanesePlatformHint, &row, &role);
+		check(row >= 0 && role == QFormLayout::SpanningRole,
+		      "platform guidance spans the full form width without an empty label column");
+	}
+	japaneseDialog.resize(620, 780);
+	japaneseDialog.show();
+	QCoreApplication::processEvents();
+	check(japaneseContent && japaneseIntro && japaneseContent->layout() &&
+		      japaneseIntro->geometry().top() <=
+			      japaneseContent->layout()->contentsMargins().top() + 1,
+	      "target editor does not leave a blank band above the introduction");
+	check(japaneseVideoEncoder &&
+		      japaneseVideoEncoder->itemText(0) == QStringLiteral("自動（推奨・H.264）"),
+	      "Japanese environment uses an unambiguous automatic encoder label");
+	check(japaneseVideoEncoder &&
+		      japaneseVideoEncoder->toolTip().contains(QStringLiteral("DSK専用の別エンコーダー")),
+	      "Japanese encoder help explains that DSK creates a separate encoder");
+	if (japaneseAdvanced)
+		japaneseAdvanced->setChecked(true);
+	check(japaneseAdvancedPanel && !japaneseAdvancedPanel->isHidden(),
+	      "advanced settings can be expanded");
+
+	qputenv("DSK_UI_TEST_LOCALE", QByteArrayLiteral("en-US"));
+	dsk::TargetEditDialog englishDialog(platforms);
+	auto *englishAdvanced =
+		englishDialog.findChild<QToolButton *>(QStringLiteral("dskAdvancedSettingsToggle"));
+	auto *englishVideoEncoder =
+		englishDialog.findChild<QComboBox *>(QStringLiteral("dskTargetVideoEncoder"));
+
+	check(englishDialog.windowTitle() == QStringLiteral("Edit Destination"),
+	      "English environment keeps the target editor in English");
+	check(dialogHasLabel(englishDialog, QStringLiteral("Destination name")),
+	      "English environment uses English basic form labels");
+	check(englishAdvanced && englishAdvanced->text() == QStringLiteral("Advanced settings"),
+	      "English environment localizes the advanced settings toggle");
+	check(englishVideoEncoder &&
+		      englishVideoEncoder->itemText(0) == QStringLiteral("Auto (recommended - H.264)"),
+	      "English automatic encoder label does not imply sharing OBS output");
+	check(englishVideoEncoder &&
+		      !englishVideoEncoder->itemText(0).contains(QStringLiteral("OBS"), Qt::CaseInsensitive),
+	      "automatic encoder label removes the misleading OBS wording");
+	check(englishVideoEncoder &&
+		      englishVideoEncoder->toolTip().contains(QStringLiteral("separate DSK encoder")),
+	      "English encoder help explains that DSK creates a separate encoder");
+}
+
+void testListSelectionCanBeClearedForPreviewBackgroundClick()
+{
+	QListWidget items;
+	items.addItems({QStringLiteral("Camera"), QStringLiteral("Game")});
+	items.setCurrentRow(0);
+	check(items.currentRow() == 0 && !items.selectedItems().isEmpty(),
+	      "vertical source list starts with a selected row");
+
+	dsk::clearListWidgetSelection(&items);
+	check(items.currentRow() == -1, "preview background click clears the current vertical source row");
+	check(items.selectedItems().isEmpty(), "preview background click clears the vertical source selection");
+}
+
+void testSceneRoutingControlsAreHiddenByDefault()
+{
+	const QByteArray previous = qgetenv("DSK_EXPERIMENTAL_SCENE_ROUTING");
+	qunsetenv("DSK_EXPERIMENTAL_SCENE_ROUTING");
+
+	dsk::PlatformPresetRegistry platforms;
+	dsk::TargetEditDialog dialog(platforms);
+
+	QComboBox *sceneMode = nullptr;
+	for (QComboBox *combo : dialog.findChildren<QComboBox *>()) {
+		if (combo->findData(QStringLiteral("fixed-scene")) >= 0 &&
+		    combo->findData(QStringLiteral("linked-scene")) >= 0) {
+			sceneMode = combo;
+			break;
+		}
+	}
+	QLineEdit *sceneName = nullptr;
+	for (QLineEdit *lineEdit : dialog.findChildren<QLineEdit *>()) {
+		if (lineEdit->placeholderText().contains(QStringLiteral("Fixed mode"))) {
+			sceneName = lineEdit;
+			break;
+		}
+	}
+
+	check(sceneMode != nullptr, "dialog retains the experimental scene mode control");
+	check(sceneMode && sceneMode->isHidden(), "scene routing mode is hidden by default");
+	check(sceneName != nullptr, "dialog retains the experimental scene name control");
+	check(sceneName && sceneName->isHidden(), "scene routing scene is hidden by default");
+
+	qputenv("DSK_EXPERIMENTAL_SCENE_ROUTING", QByteArrayLiteral("1"));
+	dsk::TargetEditDialog experimentalDialog(platforms);
+	QComboBox *experimentalSceneMode = nullptr;
+	for (QComboBox *combo : experimentalDialog.findChildren<QComboBox *>()) {
+		if (combo->findData(QStringLiteral("fixed-scene")) >= 0 &&
+		    combo->findData(QStringLiteral("linked-scene")) >= 0) {
+			experimentalSceneMode = combo;
+			break;
+		}
+	}
+	check(experimentalSceneMode && !experimentalSceneMode->isHidden(),
+	      "explicit experimental flag reveals scene routing controls");
+
+	if (previous.isNull())
+		qunsetenv("DSK_EXPERIMENTAL_SCENE_ROUTING");
+	else
+		qputenv("DSK_EXPERIMENTAL_SCENE_ROUTING", previous);
 }
 
 void testTargetEditDialogPreservesCustomServerAcrossPlatformChange()
@@ -253,25 +431,20 @@ void testTargetEditDialogRoundTrips()
 	kick.serverUrl = "rtmps://stream.kick.com/1234567890";
 	checkRoundTrip(kick, "Kick OAuth target");
 
-	dsk::OutputTarget tiktok = youtube;
-	tiktok.id = "target-tiktok";
-	tiktok.name = "TikTok Vertical";
-	tiktok.platformId = "tiktok";
-	tiktok.authMode = dsk::TargetAuthMode::ManualRtmp;
-	tiktok.authAccountName.clear();
-	tiktok.authCredentialRef.clear();
-	tiktok.oauthClientId.clear();
-	tiktok.oauthClientSecret.clear();
-	tiktok.oauthClientSecretRef.clear();
-	tiktok.oauthRefreshToken.clear();
-	tiktok.oauthRefreshTokenRef.clear();
-	tiktok.serverUrl = "rtmp://push.tiktokcdn.com/live";
-	tiktok.encoderGroup = dsk::EncoderGroup::DskVertical;
-	tiktok.videoEncoderId.clear();
-	tiktok.audioEncoderId.clear();
-	tiktok.state = dsk::TargetState::Stopped;
-	tiktok.lastError.clear();
-	checkRoundTrip(tiktok, "TikTok manual target");
+	dsk::OutputTarget legacy = youtube;
+	legacy.id = "target-legacy-manual";
+	legacy.name = "Legacy Manual RTMP";
+	legacy.platformId = "tiktok";
+	legacy.authMode = dsk::TargetAuthMode::ManualRtmp;
+	legacy.serverUrl = "rtmps://legacy.example/live";
+	dsk::PlatformPresetRegistry platforms;
+	dsk::TargetEditDialog dialog(platforms);
+	dialog.setTarget(legacy);
+	dsk::OutputTarget migrated;
+	dialog.fillTarget(migrated);
+	check(migrated.platformId == "custom", "removed legacy preset migrates to Manual RTMP");
+	check(migrated.serverUrl == legacy.serverUrl, "legacy Manual RTMP migration preserves the server URL");
+	check(migrated.streamKey == legacy.streamKey, "legacy Manual RTMP migration preserves the stream key");
 }
 
 void testTargetEditDialogClearsUnusedOAuthSecrets()
@@ -407,9 +580,9 @@ void testTargetEditDialogValidatesBeforeSave()
 	input.serverUrl = "rtmp://push.tiktokcdn.com/live";
 	input.streamKey = "key";
 	dialog.setTarget(input);
-	check(!dialog.validateForSave(&error), "dialog rejects the legacy generic TikTok URL before Save");
-	check(error == "TikTok needs the server URL shown in TikTok LIVE setup.",
-	      "dialog reports how to replace the legacy TikTok URL");
+	dsk::OutputTarget migrated;
+	dialog.fillTarget(migrated);
+	check(migrated.platformId == "custom", "dialog migrates a removed legacy preset to Manual RTMP");
 
 	input.platformId = "custom";
 	input.serverUrl = "rtmps://ingest.example.test/live";
@@ -504,6 +677,57 @@ void testTargetEditDialogUsesScrollableForm()
 	check(scrollArea != nullptr, "target edit dialog has a scrollable form area");
 	check(scrollArea && scrollArea->widgetResizable(), "target edit dialog scroll area resizes its form");
 	check(scrollArea && scrollArea->maximumHeight() >= 280, "target edit dialog keeps a usable scroll height");
+}
+
+void testRefreshRowsHideBeforeDeferredDelete()
+{
+	QWidget parent;
+	auto *layout = new QVBoxLayout(&parent);
+	parent.show();
+
+	QVector<QPointer<QWidget>> retiredRows;
+	for (int i = 0; i < 4; ++i) {
+		auto *row = new QWidget(&parent);
+		row->setObjectName(QStringLiteral("targetRow"));
+		row->setMinimumHeight(24);
+		layout->addWidget(row);
+		retiredRows.push_back(row);
+	}
+	layout->addStretch(1);
+	QCoreApplication::processEvents();
+	for (const QPointer<QWidget> &row : retiredRows)
+		check(row && row->isVisible(), "stream control rows start visible before a refresh");
+
+	dsk::clearLayoutWidgetsForRefresh(layout, 1);
+	check(layout->count() == 1 && layout->itemAt(0)->spacerItem(),
+	      "refresh removes retired rows while preserving the trailing layout stretch");
+	for (const QPointer<QWidget> &row : retiredRows) {
+		check(row, "retired stream control rows remain valid until DeferredDelete runs");
+		check(row && row->isHidden(), "retired stream control rows hide before DeferredDelete can run");
+	}
+
+	// Stop All can queue several target state changes before Qt processes
+	// DeferredDelete. Replacement rows must be the only visible generation.
+	QVector<QPointer<QWidget>> replacementRows;
+	for (int i = 0; i < 4; ++i) {
+		auto *row = new QWidget(&parent);
+		row->setObjectName(QStringLiteral("targetRow"));
+		row->setMinimumHeight(24);
+		layout->insertWidget(layout->count() - 1, row);
+		replacementRows.push_back(row);
+	}
+	QCoreApplication::processEvents();
+	int visibleTargetRows = 0;
+	for (QWidget *row : parent.findChildren<QWidget *>(QStringLiteral("targetRow"))) {
+		if (row->isVisible())
+			++visibleTargetRows;
+	}
+	check(visibleTargetRows == replacementRows.size(),
+	      "a refresh burst leaves only the final stream control row generation visible");
+
+	QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+	for (const QPointer<QWidget> &row : retiredRows)
+		check(row.isNull(), "retired stream control rows are deleted after DeferredDelete");
 }
 
 void testOAuthConnectorRejectsUnsupportedMode()
@@ -601,6 +825,14 @@ void testYouTubeBundledOAuthUi()
 	if (!authMode)
 		return;
 	authMode->setCurrentIndex(authMode->findData(QStringLiteral("youtube-oauth")));
+	auto *broadcastMode = dialog.findChild<QComboBox *>(QStringLiteral("dskYouTubeBroadcastMode"));
+	check(broadcastMode != nullptr, "YouTube target exposes the broadcast mode selector");
+	check(broadcastMode && !broadcastMode->isHidden(),
+	      "YouTube OAuth shows the broadcast mode selector");
+	check(broadcastMode && broadcastMode->currentData() == QStringLiteral("normal"),
+	      "YouTube target defaults to normal broadcast mode");
+	if (broadcastMode)
+		broadcastMode->setCurrentIndex(broadcastMode->findData(QStringLiteral("archive-rotation")));
 
 	auto *customApp = dialog.findChild<QCheckBox *>(QStringLiteral("dskUseCustomOAuthApp"));
 	auto *clientId = dialog.findChild<QLineEdit *>(QStringLiteral("dskOAuthClientId"));
@@ -623,6 +855,8 @@ void testYouTubeBundledOAuthUi()
 	dialog.fillTarget(bundled);
 	check(bundled.authMode == dsk::TargetAuthMode::YouTubeOAuth,
 	      "bundled YouTube login preserves the YouTube auth mode");
+	check(bundled.youtubeBroadcastMode == dsk::YouTubeBroadcastMode::ArchiveRotation,
+	      "target editor preserves archive rotation mode");
 	check(bundled.oauthClientId.isEmpty() && bundled.oauthClientSecret.isEmpty() &&
 	      bundled.oauthClientSecretRef.isEmpty(),
 	      "bundled publisher credentials are never copied into target settings");
@@ -637,6 +871,132 @@ void testYouTubeBundledOAuthUi()
 	check(custom.oauthClientId == "custom-client.apps.googleusercontent.com" &&
 	      custom.oauthClientSecret == "custom-secret",
 	      "custom Google OAuth mode persists explicitly entered credentials");
+}
+
+void testYouTubeOAuthRequiresLegalConsent()
+{
+	dsk::PlatformPresetRegistry platforms;
+	dsk::TargetEditDialog dialog(platforms);
+	dialog.setNewTargetDefaults(QStringLiteral("youtube-legal-consent"));
+
+	QComboBox *platform = nullptr;
+	for (QComboBox *combo : dialog.findChildren<QComboBox *>()) {
+		if (!platform && combo->findData(QStringLiteral("youtube")) >= 0)
+			platform = combo;
+	}
+	check(platform != nullptr,
+	      "YouTube legal consent test finds the platform selector");
+	if (!platform)
+		return;
+
+	platform->setCurrentIndex(platform->findData(QStringLiteral("youtube")));
+
+	QComboBox *authMode = nullptr;
+	for (QComboBox *combo : dialog.findChildren<QComboBox *>()) {
+		if (combo->findData(QStringLiteral("youtube-oauth")) >= 0) {
+			authMode = combo;
+			break;
+		}
+	}
+	check(authMode != nullptr,
+	      "YouTube legal consent test finds the login selector after selecting YouTube");
+	if (!authMode)
+		return;
+
+	authMode->setCurrentIndex(authMode->findData(QStringLiteral("youtube-oauth")));
+
+	auto *consent = dialog.findChild<QCheckBox *>(QStringLiteral("dskYouTubeDataConsent"));
+	auto *links = dialog.findChild<QLabel *>(QStringLiteral("dskYouTubeLegalLinks"));
+	auto *connectButton = dialog.findChild<QPushButton *>(QStringLiteral("dskConnectOAuth"));
+	check(consent != nullptr && !consent->isHidden(),
+	      "YouTube OAuth shows an explicit data-use consent control");
+	check(consent && !consent->isChecked(),
+	      "YouTube data-use consent is opt-in rather than preselected");
+	check(links != nullptr && links->openExternalLinks(),
+	      "YouTube OAuth shows externally openable policy links");
+	check(links && links->text().contains(QStringLiteral("https://dsk.dasoku.org/privacy")) &&
+		      links->text().contains(QStringLiteral("https://www.youtube.com/t/terms")) &&
+		      links->text().contains(QStringLiteral("https://policies.google.com/privacy")) &&
+		      links->text().contains(QStringLiteral("https://security.google.com/settings/security/permissions")),
+	      "YouTube OAuth exposes DSK privacy, YouTube terms, Google privacy, and permission controls");
+	check(connectButton && !connectButton->isEnabled(),
+	      "YouTube OAuth cannot start before informed consent");
+
+	if (consent)
+		consent->setChecked(true);
+	check(connectButton && connectButton->isEnabled(),
+	      "accepting the data-use terms enables YouTube OAuth");
+
+	authMode->setCurrentIndex(authMode->findData(QStringLiteral("manual-rtmp")));
+	check(consent && consent->isHidden(),
+	      "YouTube-specific consent stays out of Manual RTMP mode");
+}
+
+void testYouTubeStreamSelectionAfterLogin()
+{
+	dsk::PlatformPresetRegistry platforms;
+	dsk::TargetEditDialog dialog(platforms);
+	dsk::OutputTarget input;
+	input.id = QStringLiteral("youtube-stream-selection");
+	input.name = QStringLiteral("New Target");
+	input.platformId = QStringLiteral("youtube");
+	input.authMode = dsk::TargetAuthMode::YouTubeOAuth;
+	input.serverUrl = QStringLiteral("rtmp://a.rtmp.youtube.com/live2");
+	dialog.setTarget(input);
+
+	auto *connector = dialog.findChild<dsk::OAuthConnector *>();
+	check(connector != nullptr, "YouTube stream selection test finds the OAuth connector");
+	if (!connector)
+		return;
+
+	dsk::OAuthConnectionResult result;
+	result.authMode = dsk::TargetAuthMode::YouTubeOAuth;
+	result.accountName = QStringLiteral("YouTube");
+	result.refreshToken = QStringLiteral("refresh-token");
+	result.youtubeStreams = {
+		{QStringLiteral("first-id"), QStringLiteral("Main stream"),
+		 QStringLiteral("rtmps://a.rtmps.youtube.com/live2"), QStringLiteral("secret-first-key"),
+		 QStringLiteral("inactive")},
+		{QStringLiteral("second-id"), QStringLiteral("Backup stream"),
+		 QStringLiteral("rtmp://b.rtmp.youtube.com/live2"), QStringLiteral("secret-second-key"),
+		 QStringLiteral("active")},
+	};
+	check(QMetaObject::invokeMethod(connector, "finished", Qt::DirectConnection,
+					Q_ARG(dsk::OAuthConnectionResult, result)),
+	      "YouTube OAuth result reaches the target editor");
+
+	auto *streamSelector = dialog.findChild<QComboBox *>(QStringLiteral("dskYouTubeStream"));
+	check(streamSelector != nullptr, "YouTube login exposes a named stream selector");
+	check(streamSelector && !streamSelector->isHidden(), "YouTube OAuth shows the stream selector");
+	check(streamSelector && streamSelector->count() == 3,
+	      "YouTube stream selector contains manual entry and all reusable streams");
+	if (!streamSelector)
+		return;
+	for (int i = 0; i < streamSelector->count(); ++i) {
+		check(!streamSelector->itemText(i).contains(QStringLiteral("secret-first-key")) &&
+			      !streamSelector->itemText(i).contains(QStringLiteral("secret-second-key")),
+		      "YouTube stream selector never displays stream keys");
+	}
+	check(streamSelector->currentIndex() == 1, "a fresh YouTube login selects the first reusable stream");
+
+	streamSelector->setCurrentIndex(2);
+	dsk::OutputTarget selected;
+	dialog.fillTarget(selected);
+	check(selected.serverUrl == QStringLiteral("rtmp://b.rtmp.youtube.com/live2"),
+	      "selecting a YouTube stream applies its ingestion server");
+	check(selected.streamKey == QStringLiteral("secret-second-key"),
+	      "selecting a YouTube stream applies its stream key");
+
+	input.streamKey = QStringLiteral("existing-manual-key");
+	dialog.setTarget(input);
+	check(QMetaObject::invokeMethod(connector, "finished", Qt::DirectConnection,
+					Q_ARG(dsk::OAuthConnectionResult, result)),
+	      "a second YouTube OAuth result reaches the target editor");
+	dialog.fillTarget(selected);
+	check(streamSelector->currentIndex() == 0,
+	      "a non-matching saved YouTube key keeps manual selection after reconnect");
+	check(selected.streamKey == QStringLiteral("existing-manual-key"),
+	      "YouTube stream lookup never overwrites a non-matching saved key");
 }
 
 void testKickPublisherOAuthUiAndMigration()
@@ -692,6 +1052,7 @@ void testKickPublisherOAuthUiAndMigration()
 int main(int argc, char **argv)
 {
 	QApplication app(argc, argv);
+	qputenv("DSK_UI_TEST_LOCALE", QByteArrayLiteral("en-US"));
 
 	const auto run = [](const char *name, auto test) {
 		std::cerr << "RUN: " << name << '\n';
@@ -699,6 +1060,9 @@ int main(int argc, char **argv)
 		std::cerr << "DONE: " << name << '\n';
 	};
 	run("target add defaults", testTargetEditDialogAddDefaults);
+	run("target localization and advanced settings", testTargetEditDialogLocalizationAndAdvancedSettings);
+	run("clear vertical preview selection", testListSelectionCanBeClearedForPreviewBackgroundClick);
+	run("scene routing hidden by default", testSceneRoutingControlsAreHiddenByDefault);
 	run("custom server preservation", testTargetEditDialogPreservesCustomServerAcrossPlatformChange);
 	run("target round trips", testTargetEditDialogRoundTrips);
 	run("clear unused OAuth secrets", testTargetEditDialogClearsUnusedOAuthSecrets);
@@ -709,10 +1073,13 @@ int main(int argc, char **argv)
 	run("client change invalidates login", testTargetEditDialogClientChangeInvalidatesOldLogin);
 	run("saved stream key reference", testTargetEditDialogKeepsSavedStreamKeyReference);
 	run("scrollable form", testTargetEditDialogUsesScrollableForm);
+	run("refresh rows hide before deferred delete", testRefreshRowsHideBeforeDeferredDelete);
 	run("unsupported OAuth mode", testOAuthConnectorRejectsUnsupportedMode);
 	run("Twitch publisher OAuth UI", testTwitchPublisherOAuthUiAndMigration);
 	run("Kick publisher OAuth UI", testKickPublisherOAuthUiAndMigration);
 	run("YouTube bundled OAuth UI", testYouTubeBundledOAuthUi);
+	run("YouTube OAuth legal consent", testYouTubeOAuthRequiresLegalConsent);
+	run("YouTube stream selection", testYouTubeStreamSelectionAfterLogin);
 
 	if (failures > 0) {
 		std::cerr << failures << " UI smoke test checks failed.\n";

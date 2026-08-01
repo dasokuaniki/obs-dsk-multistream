@@ -1,5 +1,7 @@
 build/
+.deps/
 release/
+release*/
 deps/
 .venv/
 .appdata/
@@ -17,4 +19,11 @@ _obs_plugin_backups/
 *.pdb
 *.obj
 *.log
+*.pem
+*.key
+*.pfx
+*.p12
+.env
+.env.*
 dsk-ui-smoke-progress.txt
+tasks/

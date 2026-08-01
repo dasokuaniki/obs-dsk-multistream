@@ -35,25 +35,14 @@
       "verticalCommon": false
     },
     {
-      "id": "tiktok",
-      "name": "TikTok (Manual RTMP)",
-      "defaultServer": "",
-      "helpUrl": "https://www.tiktok.com/live",
-      "recommendedOutput": "dsk-vertical",
-      "horizontalBitrateKbps": 6000,
-      "verticalBitrateKbps": 4500,
-      "note": "",
-      "verticalCommon": true
-    },
-    {
       "id": "custom",
-      "name": "Custom RTMP",
+      "name": "Manual RTMP",
       "defaultServer": "",
       "helpUrl": "",
       "recommendedOutput": "dsk-horizontal",
       "horizontalBitrateKbps": 6000,
       "verticalBitrateKbps": 4500,
-      "note": "Paste the RTMP server URL from the platform.",
+      "note": "Paste the RTMP URL and stream key issued by the streaming service.",
       "verticalCommon": false
     }
   ]

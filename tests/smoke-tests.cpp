@@ -1,6 +1,10 @@
 #include "core/encoder-profile-manager.hpp"
+#include "core/experimental-features.hpp"
+#include "core/comment-viewer-contract.hpp"
+#include "core/comment-viewer-integration-policy.hpp"
 #include "core/layout-manager.hpp"
 #include "core/oauth-provider.hpp"
+#include "core/output-signal-policy.hpp"
 #include "core/output-runtime-status.hpp"
 #include "core/output-target.hpp"
 #include "core/platform-preset-registry.hpp"
@@ -9,15 +13,23 @@
 #include "core/vertical-layout-geometry.hpp"
 #include "core/youtube-api-warning.hpp"
 #include "core/youtube-broadcast-selector.hpp"
+#include "core/youtube-archive-rotation.hpp"
+#include "core/youtube-stream-options.hpp"
+#include "ui/stream-controls-state.hpp"
+#include "core/stable-id-order.hpp"
+#include "ui/vertical-source-icon.hpp"
+#include "ui/visible-refresh-gate.hpp"
 #include "ui/vertical-layout-metrics.hpp"
 
 #include <QCoreApplication>
+#include <QDateTime>
 #include <QFile>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QSet>
 #include <QStringList>
+#include <QTemporaryDir>
 #include <QUrlQuery>
 #include <QtGlobal>
 #include <QUuid>
@@ -87,6 +99,14 @@ void testOutputTargetHelpers()
 	check(platformSupportsAuthMode("youtube", TargetAuthMode::YouTubeOAuth), "YouTube supports YouTube OAuth");
 	check(platformSupportsAuthMode("kick", TargetAuthMode::KickOAuth), "Kick supports Kick OAuth");
 	check(!platformSupportsAuthMode("kick", TargetAuthMode::TwitchOAuth), "Kick does not support Twitch OAuth");
+	check(youtubeBroadcastModeToString(YouTubeBroadcastMode::Normal) == "normal",
+	      "normal YouTube broadcast mode string");
+	check(youtubeBroadcastModeToString(YouTubeBroadcastMode::ArchiveRotation) == "archive-rotation",
+	      "archive rotation YouTube broadcast mode string");
+	check(youtubeBroadcastModeFromString("archive-rotation") == YouTubeBroadcastMode::ArchiveRotation,
+	      "archive rotation YouTube broadcast mode parse");
+	check(youtubeBroadcastModeFromString("unknown") == YouTubeBroadcastMode::Normal,
+	      "unknown YouTube broadcast mode defaults normal");
 
 	OutputTarget legacyTwitch;
 	legacyTwitch.authMode = TargetAuthMode::TwitchOAuth;
@@ -159,7 +179,7 @@ void testOutputTargetHelpers()
 	legacyTikTok.platformId = "tiktok";
 	legacyTikTok.serverUrl = "rtmp://push.tiktokcdn.com/live";
 	check(!validateOutputTargetConfig(legacyTikTok, &error), "legacy generic TikTok URL fails validation");
-	check(error == "TikTok needs the server URL shown in TikTok LIVE setup.",
+	check(error == "The legacy generic RTMP URL cannot be used. Paste the server URL issued for this stream.",
 	      "legacy generic TikTok URL explains how to get the correct server");
 	legacyTikTok.serverUrl = "rtmps://live.tiktok.example/live";
 	check(validateOutputTargetConfig(legacyTikTok, &error), "TikTok accepts a server supplied by LIVE setup");
@@ -188,6 +208,17 @@ void testOutputTargetHelpers()
 	mismatchedLogin.authMode = TargetAuthMode::TwitchOAuth;
 	check(!validateOutputTargetConfig(mismatchedLogin, &error), "mismatched login mode fails validation");
 	check(error == "Login mode does not match the selected platform.", "mismatched login error");
+
+	OutputTarget invalidArchiveRotation = valid;
+	invalidArchiveRotation.youtubeBroadcastMode = YouTubeBroadcastMode::ArchiveRotation;
+	check(!validateOutputTargetConfig(invalidArchiveRotation, &error),
+	      "archive rotation rejects a non-YouTube target");
+	invalidArchiveRotation.platformId = "youtube";
+	check(!validateOutputTargetConfig(invalidArchiveRotation, &error),
+	      "archive rotation rejects manual YouTube RTMP");
+	invalidArchiveRotation.authMode = TargetAuthMode::YouTubeOAuth;
+	check(validateOutputTargetConfig(invalidArchiveRotation, &error),
+	      "archive rotation accepts YouTube OAuth");
 
 	OutputTarget noStart = valid;
 	noStart.id = "no-start";
@@ -310,6 +341,68 @@ void testLayoutsAndProfiles()
 	check(layouts.removeVerticalScene(secondSceneId), "second vertical scene can be removed");
 	check(!layouts.removeVerticalScene(sanitizedScene.id), "last vertical scene cannot be removed");
 
+	LayoutManager reorderedLayouts;
+	VerticalLayoutScene sceneA{"scene-a", "A", {}};
+	VerticalLayoutScene sceneB{"scene-b", "B", {}};
+	VerticalLayoutScene sceneC{"scene-c", "C", {}};
+	reorderedLayouts.initializeVerticalScenes({sceneA, sceneB, sceneC}, sceneB.id, {});
+	check(reorderedLayouts.reorderVerticalScenes({sceneC.id, sceneA.id, sceneB.id}),
+	      "vertical scenes can be reordered by drag result IDs");
+	check(reorderedLayouts.verticalScenes()[0].id == sceneC.id &&
+		      reorderedLayouts.verticalScenes()[1].id == sceneA.id &&
+		      reorderedLayouts.verticalScenes()[2].id == sceneB.id,
+	      "vertical scene drag order is preserved exactly");
+	check(reorderedLayouts.activeVerticalSceneId() == sceneB.id,
+	      "vertical scene drag order preserves the active scene");
+	check(!reorderedLayouts.reorderVerticalScenes({sceneA.id, sceneA.id, sceneC.id}),
+	      "duplicate scene IDs cannot corrupt drag order");
+	check(reorderedLayouts.verticalScenes()[0].id == sceneC.id,
+	      "an invalid scene drag order leaves the previous order intact");
+
+	QVector<VerticalLayoutItem> sourceItems{
+		{"source-a", "A"},
+		{"source-b", "B"},
+		{"source-c", "C"},
+	};
+	QVector<VerticalLayoutItem> reorderedSourceItems;
+	check(reorderValuesByStableIds(sourceItems,
+				       {QStringLiteral("source-b"), QStringLiteral("source-c"), QStringLiteral("source-a")},
+				       &reorderedSourceItems),
+	      "vertical sources can be reordered from the list drag result");
+	check(reorderedSourceItems[0].id == "source-b" && reorderedSourceItems[2].id == "source-a",
+	      "vertical source drag order is preserved exactly");
+	check(!reorderValuesByStableIds(sourceItems,
+					{QStringLiteral("source-b"), QStringLiteral("missing"), QStringLiteral("source-a")},
+					&reorderedSourceItems),
+	      "unknown source IDs cannot corrupt drag order");
+
+	check(obsSourceIconPropertyName(QStringLiteral("scene"), 0) == "sceneIcon",
+	      "OBS scene sources use the OBS scene icon");
+	check(obsSourceIconPropertyName(QStringLiteral("group"), 0) == "groupIcon",
+	      "OBS group sources use the OBS group icon");
+	const QVector<QPair<int, QString>> sourceIconProperties = {
+		{1, QStringLiteral("imageIcon")},
+		{2, QStringLiteral("colorIcon")},
+		{3, QStringLiteral("slideshowIcon")},
+		{4, QStringLiteral("audioInputIcon")},
+		{5, QStringLiteral("audioOutputIcon")},
+		{6, QStringLiteral("desktopCapIcon")},
+		{7, QStringLiteral("windowCapIcon")},
+		{8, QStringLiteral("gameCapIcon")},
+		{9, QStringLiteral("cameraIcon")},
+		{10, QStringLiteral("textIcon")},
+		{11, QStringLiteral("mediaIcon")},
+		{12, QStringLiteral("browserIcon")},
+		{13, QStringLiteral("defaultIcon")},
+		{14, QStringLiteral("audioProcessOutputIcon")},
+	};
+	for (const auto &[iconType, propertyName] : sourceIconProperties) {
+		check(obsSourceIconPropertyName(QStringLiteral("test_source"), iconType) == propertyName,
+		      qPrintable(QStringLiteral("OBS source icon type %1 uses %2").arg(iconType).arg(propertyName)));
+	}
+	check(obsSourceIconPropertyName(QStringLiteral("unknown"), 0) == "defaultIcon",
+	      "unknown OBS sources use the OBS default icon");
+
 	VerticalLayoutItem fitItem;
 	fitItem.rect = QRectF(0, 0, 1080, 1920);
 	fitItem.fitMode = FitMode::Fit;
@@ -349,11 +442,27 @@ void testLayoutsAndProfiles()
 	      "vertical preview selects the front-most source when no source is selected");
 	check(verticalPreviewHitItem(overlappingLayout, overlappingDisplayRects, QPointF(100, 100), 1) == 1,
 	      "vertical preview keeps an overlapping selected source interactive");
-	check(verticalPreviewHitItem(overlappingLayout, overlappingDisplayRects, QPointF(300, 300), 1) == 0,
-	      "vertical preview falls back to the front-most source outside the selected source");
+	check(verticalPreviewHitItem(overlappingLayout, overlappingDisplayRects, QPointF(300, 300), 1) == -1,
+	      "clicking outside the selected vertical source clears selection instead of selecting a background source");
 	overlappingLayout.items[1].visible = false;
 	check(verticalPreviewHitItem(overlappingLayout, overlappingDisplayRects, QPointF(100, 100), 1) == 0,
 	      "vertical preview does not prioritize a hidden selected source");
+	check(verticalPreviewHitItem(overlappingLayout, overlappingDisplayRects, QPointF(500, 500), 0) == -1,
+	      "vertical preview background is not treated as the selected source");
+
+	VerticalLayout oversizedPreviewLayout;
+	oversizedPreviewLayout.width = 1080;
+	oversizedPreviewLayout.height = 1920;
+	oversizedPreviewLayout.items.push_back(
+		{"oversized", "Oversized", QRectF(-540, -960, 2160, 3840)});
+	const QVector<QRectF> oversizedDisplayRects{oversizedPreviewLayout.items[0].rect};
+	const QRectF previewCanvas(187.5, 0.0, 225.0, 400.0);
+	check(verticalPreviewHitItemAtWidgetPoint(oversizedPreviewLayout, oversizedDisplayRects, previewCanvas,
+					      QPointF(100.0, 200.0), 0) == -1,
+	      "space outside the rendered vertical canvas never hits an oversized selected source");
+	check(verticalPreviewHitItemAtWidgetPoint(oversizedPreviewLayout, oversizedDisplayRects, previewCanvas,
+					      QPointF(300.0, 200.0), 0) == 0,
+	      "a point inside the rendered vertical canvas still hits the selected source");
 
 	VerticalLayout unsafeLayout;
 	unsafeLayout.width = 0;
@@ -387,6 +496,46 @@ void testLayoutsAndProfiles()
 	check(profiles.profileFor(EncoderGroup::DskVertical).height == 1920, "vertical profile height");
 }
 
+void testVerticalLayoutChangeClassification()
+{
+	using namespace dsk;
+
+	VerticalLayout original;
+	original.items = {
+		{QStringLiteral("camera"), QStringLiteral("Camera"), QRectF(0, 0, 1080, 1920), QRectF(), FitMode::Fill, true},
+		{QStringLiteral("game"), QStringLiteral("Game"), QRectF(90, 160, 900, 1600), QRectF(), FitMode::Fit, true},
+	};
+
+	check(verticalLayoutChange(original, original) == VerticalLayoutChange::None,
+	      "identical vertical layouts need no preview scene update");
+
+	VerticalLayout transformed = original;
+	transformed.items[1].rect.translate(10, 20);
+	check(verticalLayoutChange(original, transformed) == VerticalLayoutChange::TransformOnly,
+	      "a rect-only vertical layout change uses incremental scene transforms");
+	transformed.items[1].crop = QRectF(1, 2, 3, 4);
+	transformed.items[1].fitMode = FitMode::Stretch;
+	check(verticalLayoutChange(original, transformed) == VerticalLayoutChange::TransformOnly,
+	      "crop and fit changes use incremental scene transforms");
+
+	VerticalLayout structural = original;
+	structural.items[1].sourceName = QStringLiteral("Replacement");
+	check(verticalLayoutChange(original, structural) == VerticalLayoutChange::Rebuild,
+	      "source replacement rebuilds the preview scene");
+	structural = original;
+	structural.items[1].visible = false;
+	check(verticalLayoutChange(original, structural) == VerticalLayoutChange::Rebuild,
+	      "visibility changes rebuild the preview scene");
+	structural = original;
+	structural.items.move(1, 0);
+	check(verticalLayoutChange(original, structural) == VerticalLayoutChange::Rebuild,
+	      "layer order changes rebuild the preview scene");
+	structural = original;
+	structural.width = 720;
+	check(verticalLayoutChange(original, structural) == VerticalLayoutChange::Rebuild,
+	      "canvas size changes rebuild the preview scene");
+}
+
 void testSettingsCodec()
 {
 	using namespace dsk;
@@ -396,6 +545,7 @@ void testSettingsCodec()
 	target.name = "YouTube vertical";
 	target.platformId = "youtube";
 	target.authMode = TargetAuthMode::YouTubeOAuth;
+	target.youtubeBroadcastMode = YouTubeBroadcastMode::ArchiveRotation;
 	target.authAccountName = "channel@example.test";
 	target.authCredentialRef = "dsk/youtube/target-1";
 	target.oauthClientId = "oauth-client-id";
@@ -425,6 +575,8 @@ void testSettingsCodec()
 	check(decodedTarget.name == target.name, "target codec preserves name");
 	check(decodedTarget.platformId == target.platformId, "target codec preserves platform");
 	check(decodedTarget.authMode == target.authMode, "target codec preserves auth mode");
+	check(decodedTarget.youtubeBroadcastMode == target.youtubeBroadcastMode,
+	      "target codec preserves YouTube broadcast mode");
 	check(decodedTarget.authAccountName == target.authAccountName, "target codec preserves auth account");
 	check(decodedTarget.authCredentialRef == target.authCredentialRef, "target codec preserves auth credential ref");
 	check(decodedTarget.oauthClientId == target.oauthClientId, "target codec preserves OAuth client id");
@@ -456,6 +608,8 @@ void testSettingsCodec()
 	check(minimalTarget.name == "Untitled", "target codec defaults missing name");
 	check(minimalTarget.platformId == "custom", "target codec defaults missing platform");
 	check(minimalTarget.authMode == TargetAuthMode::ManualRtmp, "target codec defaults manual auth");
+	check(minimalTarget.youtubeBroadcastMode == YouTubeBroadcastMode::Normal,
+	      "target codec defaults YouTube broadcast mode to normal");
 	check(minimalTarget.encoderGroup == EncoderGroup::DskHorizontal, "target codec defaults unknown encoder group");
 	check(minimalTarget.useSharedEncoder, "target codec defaults shared encoder");
 	check(!minimalTarget.autoStartWithObs, "target codec defaults OBS auto-start off");
@@ -600,13 +754,12 @@ void testSettingsCodec()
 void testPlatformRegistry()
 {
 	dsk::PlatformPresetRegistry registry;
-	check(registry.presets().size() == 5, "registry has five presets");
+	check(registry.presets().size() == 4, "registry has four public presets");
 	check(registry.presetById("twitch").defaultServer == "rtmp://live.twitch.tv/app", "Twitch default server");
 	check(registry.presetById("youtube").defaultServer == "rtmp://a.rtmp.youtube.com/live2", "YouTube default server");
 	check(registry.presetById("kick").defaultServer.startsWith("rtmps://"), "Kick uses RTMPS");
-	check(registry.presetById("tiktok").verticalCommon, "TikTok marked vertical common");
-	check(registry.presetById("tiktok").recommendedOutput == "dsk-vertical", "TikTok recommends vertical output");
 	check(registry.presetById("youtube").horizontalBitrateKbps >= 6000, "YouTube horizontal bitrate present");
+	check(registry.presetById("tiktok").id == "custom", "removed legacy platform falls back to Manual RTMP");
 	check(registry.presetById("missing").id == "custom", "missing preset falls back to custom");
 }
 
@@ -625,6 +778,7 @@ void testOAuthProviders()
 		twitch, QUrl("http://localhost:17371/callback"), "state-value", "challenge-value");
 	const QUrlQuery twitchRelayQuery(twitchRelayUrl);
 	check(twitchRelayUrl.scheme() == "https", "Twitch publisher relay uses HTTPS");
+	check(twitchRelayUrl.host() == "auth.dasoku.org", "Twitch publisher relay uses the permanent OAuth domain");
 	check(twitchRelayUrl.path() == "/v1/twitch/authorize", "Twitch publisher relay authorize path");
 	check(twitchRelayQuery.queryItemValue("profile") == "multistream", "Twitch relay URL pins the multistream profile");
 	check(twitchRelayQuery.queryItemValue("redirect_uri") == "http://localhost:17371/callback",
@@ -785,6 +939,40 @@ void testYouTubeApiWarningHelpers()
 	check(targetHasYouTubeApiWarning(youtube), "multiple broadcasts is API warning");
 	check(userFacingYouTubeApiWarningText(youtube.lastError).contains("Multiple YouTube broadcasts"),
 	      "multiple broadcasts user text");
+	check(userFacingYouTubeApiWarningText(youtube.lastError).contains("DSK Streaming"),
+	      "multiple broadcasts are selected in DSK Streaming");
+	check(!userFacingYouTubeApiWarningText(youtube.lastError).contains("YouTube Studio"),
+	      "multiple broadcasts do not send users to YouTube Studio for selection");
+	check(userFacingYouTubePreflightWarningText(youtube.lastError).contains("before video is sent"),
+	      "preflight multiple-broadcast text does not claim RTMP is already connected");
+
+	youtube.lastError =
+		"YouTube broadcast start blocked: another broadcast using this stream key has Auto-start enabled";
+	check(userFacingYouTubePreflightWarningText(youtube.lastError).contains("Video was not sent"),
+	      "preflight Auto-start conflict text confirms that no video left OBS");
+
+	youtube.lastError = "YouTube broadcast start blocked: selected broadcast is no longer available";
+	check(targetHasYouTubeApiWarning(youtube), "unavailable selected broadcast is API warning");
+	check(userFacingYouTubeApiWarningText(youtube.lastError).contains("selected broadcast is no longer available"),
+	      "unavailable selected broadcast is explained");
+	check(userFacingYouTubeApiWarningText(youtube.lastError).contains("DSK Streaming"),
+	      "unavailable selected broadcast asks for another DSK Streaming choice");
+	check(liveYouTubeApiWarningRowText(youtube.lastError) == "Live signal - selected broadcast unavailable",
+	      "unavailable selected broadcast has a focused live row label");
+
+	youtube.lastError = "YouTube broadcast lookup blocked: the upcoming broadcast list exceeded 10 pages";
+	check(targetHasYouTubeApiWarning(youtube), "truncated broadcast lookup is API warning");
+	check(userFacingYouTubeApiWarningText(youtube.lastError).contains("Too many scheduled broadcasts"),
+	      "truncated broadcast lookup fails closed with corrective guidance");
+	check(liveYouTubeApiWarningRowText(youtube.lastError) == "Live signal - broadcast list too large",
+	      "truncated broadcast lookup has a focused live row label");
+
+	youtube.lastError = "YouTube archive rotation failed: next broadcast creation failed";
+	check(targetHasLiveYouTubeApiWarning(youtube), "archive rotation failure is a live YouTube warning");
+	check(userFacingYouTubeApiWarningText(youtube.lastError).contains("remains live"),
+	      "archive rotation warning confirms that the current frame is safe");
+	check(liveYouTubeApiWarningRowText(youtube.lastError) == "YouTube Live - archive split retrying",
+	      "archive rotation warning keeps the live state visible");
 
 	OutputTarget twitch = youtube;
 	twitch.platformId = "twitch";
@@ -835,6 +1023,114 @@ void testRuntimeStatusHelpers()
 	check(runtimeStatusLabel(twitch, runtime) == "RTMP sending", "Twitch active runtime uses transport label");
 }
 
+void testOutputSignalPolicy()
+{
+	for (const QString &signal : {QStringLiteral("starting"), QStringLiteral("start"),
+				      QStringLiteral("activate"), QStringLiteral("reconnect"),
+				      QStringLiteral("reconnect_success")}) {
+		check(dsk::shouldIgnoreOutputSignalDuringPendingRelease(signal),
+		      qPrintable(QStringLiteral("pending output release ignores stale %1 signals").arg(signal)));
+	}
+
+	for (const QString &signal : {QStringLiteral("stopping"), QStringLiteral("deactivate"),
+				      QStringLiteral("stop")}) {
+		check(!dsk::shouldIgnoreOutputSignalDuringPendingRelease(signal),
+		      qPrintable(QStringLiteral("pending output release preserves %1 cleanup signals").arg(signal)));
+	}
+}
+
+void testStreamControlsState()
+{
+	dsk::OutputTarget target;
+	target.enabled = true;
+	target.startWithAll = true;
+	target.state = dsk::TargetState::Stopped;
+	dsk::TargetRuntimeStatus runtime;
+	check(dsk::targetCanStartWithAll(target, runtime), "stopped included target enables Start All");
+
+	target.state = dsk::TargetState::Stopping;
+	check(!dsk::targetCanStartWithAll(target, runtime), "stopping target does not enable Start All");
+	check(dsk::targetBlocksStartAll(target, runtime), "stopping included target blocks Start All");
+	target.state = dsk::TargetState::Starting;
+	check(!dsk::targetCanStartWithAll(target, runtime), "starting target does not enable Start All");
+	check(dsk::targetBlocksStartAll(target, runtime), "starting included target blocks Start All");
+	target.state = dsk::TargetState::Live;
+	check(!dsk::targetCanStartWithAll(target, runtime), "live target does not enable Start All");
+	check(!dsk::targetBlocksStartAll(target, runtime), "stable live target does not block other Start All targets");
+
+	target.state = dsk::TargetState::Stopped;
+	runtime.transport = dsk::TransportState::Stopping;
+	check(!dsk::targetCanStartWithAll(target, runtime), "stopping runtime does not enable Start All");
+	check(dsk::targetBlocksStartAll(target, runtime), "stopping included runtime blocks Start All");
+	runtime.transport = dsk::TransportState::Connected;
+	check(!dsk::targetCanStartWithAll(target, runtime), "connected runtime does not enable Start All");
+	runtime.transport = dsk::TransportState::Idle;
+	target.enabled = false;
+	check(!dsk::targetCanStartWithAll(target, runtime), "disabled target does not enable Start All");
+	target.enabled = true;
+	target.startWithAll = false;
+	check(!dsk::targetCanStartWithAll(target, runtime), "excluded target does not enable Start All");
+
+	check(dsk::obsNativeCanStartWithAll(true, false, false), "idle OBS native stream enables Start All");
+	check(!dsk::obsNativeCanStartWithAll(true, false, true),
+	      "transitioning OBS native stream does not enable Start All");
+	check(!dsk::obsNativeCanStartWithAll(true, true, false), "active OBS native stream does not enable Start All");
+	check(!dsk::obsNativeCanStartWithAll(false, false, false),
+	      "unavailable OBS native stream does not enable Start All");
+
+	check(!dsk::obsNativeServiceConfigured(false, false, false, false),
+	      "an empty OBS service object is not a configured native stream");
+	check(dsk::obsNativeServiceConfigured(true, false, false, false),
+	      "an OBS service name configures native streaming");
+	check(dsk::obsNativeServiceConfigured(false, false, true, false),
+	      "an OBS server configures native streaming");
+	check(dsk::obsNativeRowAvailable(true, true, false, false),
+	      "a probed OBS service displays the native stream row");
+	check(dsk::obsNativeRowAvailable(false, false, true, false),
+	      "an active OBS stream remains controllable when its service probe fails");
+	check(dsk::obsNativeRowAvailable(false, false, false, true),
+	      "an OBS transition remains visible while its service probe is unavailable");
+	check(!dsk::obsNativeRowAvailable(true, false, false, false),
+	      "an empty inactive OBS service does not display a native stream row");
+
+	const dsk::AllControlState ready =
+		dsk::allControlState(2, false, false, false, false, false, false, false);
+	check(!ready.stopMode && ready.enabled, "idle included targets show an enabled Start All control");
+
+	const dsk::AllControlState obsLive =
+		dsk::allControlState(0, false, false, true, false, true, false, false);
+	check(obsLive.stopMode && obsLive.enabled, "an active OBS stream changes the all control to Stop All");
+
+	const dsk::AllControlState targetLive =
+		dsk::allControlState(0, false, false, false, false, false, true, false);
+	check(targetLive.stopMode && targetLive.enabled, "a running DSK target changes the all control to Stop All");
+
+	const dsk::AllControlState targetStopping =
+		dsk::allControlState(0, true, false, false, false, false, false, true);
+	check(targetStopping.stopMode && !targetStopping.enabled,
+	      "a stopping-only target keeps Stop All visible but prevents a duplicate stop");
+
+	const dsk::AllControlState obsStarting =
+		dsk::allControlState(0, true, false, false, true, true, false, false);
+	check(obsStarting.stopMode && !obsStarting.enabled,
+	      "an OBS start transition changes the all control to Stop All without accepting duplicate clicks");
+}
+
+void testVisibleRefreshGate()
+{
+	dsk::VisibleRefreshGate gate;
+	check(gate.isDirty(), "a newly constructed page needs its first refresh");
+	check(!gate.takeIfVisible(false), "a hidden page defers its pending refresh");
+	check(gate.isDirty(), "a hidden page keeps the pending refresh dirty");
+	check(gate.takeIfVisible(true), "showing a dirty page consumes exactly one refresh");
+	check(!gate.isDirty(), "a visible refresh clears the dirty state");
+	check(!gate.takeIfVisible(true), "an unchanged visible page does not refresh again");
+	gate.markDirty();
+	gate.markDirty();
+	check(gate.takeIfVisible(true), "a burst of changes coalesces into one visible refresh");
+	check(!gate.takeIfVisible(true), "a coalesced refresh is consumed only once");
+}
+
 void testSecretStoreHelpers()
 {
 	using namespace dsk;
@@ -880,7 +1176,7 @@ void testDataFiles()
 	const QJsonObject root = document.object();
 	check(root.value("schemaVersion").toInt() == 1, "platform preset schema version");
 	const QJsonArray platforms = root.value("platforms").toArray();
-	check(platforms.size() == 5, "platform preset json has five platforms");
+	check(platforms.size() == 4, "platform preset json has four public platforms");
 	dsk::PlatformPresetRegistry registry;
 	check(registry.presets().size() == platforms.size(), "runtime registry and preset json have the same size");
 
@@ -921,8 +1217,9 @@ void testDataFiles()
 		      qPrintable(QString("runtime vertical flag matches json for %1").arg(id)));
 	}
 
-	for (const QString &required : {"twitch", "youtube", "kick", "tiktok", "custom"})
+	for (const QString &required : {"twitch", "youtube", "kick", "custom"})
 		check(ids.contains(required), qPrintable(QString("required platform %1 exists").arg(required)));
+	check(!ids.contains("tiktok"), "public presets do not advertise a dedicated TikTok target");
 
 	const QSet<QString> en = localeKeys("data/locale/en-US.ini");
 	const QSet<QString> ja = localeKeys("data/locale/ja-JP.ini");
@@ -976,6 +1273,8 @@ void testYouTubeBroadcastSelection()
 	check(selection.state == YouTubeBroadcastSelectionState::Selected &&
 		      selection.broadcast.value(QStringLiteral("id")).toString() == QStringLiteral("broadcast-b"),
 	      "stream key selects exactly one active YouTube broadcast");
+	check(selection.candidates.size() == 1,
+	      "YouTube selection exposes the matching broadcast candidate");
 	selection = selectYouTubeBroadcast(two, streams, QStringLiteral("missing-key"));
 	check(selection.state == YouTubeBroadcastSelectionState::NoStreamKeyMatch,
 	      "active YouTube broadcasts with a different key are rejected");
@@ -986,12 +1285,405 @@ void testYouTubeBroadcastSelection()
 	selection = selectYouTubeBroadcast(two, duplicateKeyStreams, QStringLiteral("key-a"));
 	check(selection.state == YouTubeBroadcastSelectionState::MultipleStreamKeyMatches,
 	      "duplicate YouTube stream-key bindings are never auto-transitioned");
+	check(selection.candidates.size() == 2,
+	      "duplicate YouTube stream-key bindings expose both choices");
+	selection = selectYouTubeBroadcast(two, duplicateKeyStreams, QStringLiteral("key-a"),
+				   QStringLiteral("broadcast-b"));
+	check(selection.state == YouTubeBroadcastSelectionState::Selected &&
+		      selection.broadcast.value(QStringLiteral("id")).toString() == QStringLiteral("broadcast-b"),
+	      "an explicit YouTube broadcast choice resolves duplicate stream-key bindings");
+	selection = selectYouTubeBroadcast(two, duplicateKeyStreams, QStringLiteral("key-a"),
+				   QStringLiteral("missing-broadcast"));
+	check(selection.state == YouTubeBroadcastSelectionState::PreferredBroadcastUnavailable &&
+		      selection.broadcast.isEmpty() && selection.candidates.size() == 2,
+	      "a missing explicit YouTube broadcast choice never falls back to another broadcast");
+
+	QHash<QString, QJsonObject> inactiveDuplicateKeyStreams;
+	inactiveDuplicateKeyStreams.insert(
+		QStringLiteral("stream-a"),
+		youtubeTestStream(QStringLiteral("stream-a"), QStringLiteral("key-a"), QStringLiteral("inactive")));
+	inactiveDuplicateKeyStreams.insert(
+		QStringLiteral("stream-b"),
+		youtubeTestStream(QStringLiteral("stream-b"), QStringLiteral("key-a"), QStringLiteral("inactive")));
+	selection = selectYouTubeBroadcast(two,
+					   inactiveDuplicateKeyStreams,
+					   QStringLiteral("key-a"),
+					   QStringLiteral("broadcast-b"));
+	check(selection.state == YouTubeBroadcastSelectionState::PreferredBroadcastUnavailable,
+	      "normal YouTube selection still waits until RTMP makes the selected stream active");
+	selection = selectYouTubeBroadcast(two,
+					   inactiveDuplicateKeyStreams,
+					   QStringLiteral("key-a"),
+					   QStringLiteral("broadcast-b"),
+					   YouTubeBroadcastSelectionMode::Preflight);
+	check(selection.state == YouTubeBroadcastSelectionState::Selected &&
+		      selection.broadcast.value(QStringLiteral("id")).toString() == QStringLiteral("broadcast-b") &&
+		      selection.candidates.size() == 2,
+	      "YouTube preflight resolves the selected broadcast before RTMP makes the reusable stream active");
+
+	QJsonArray conflictingAutoStart = two;
+	QJsonObject firstConflict = conflictingAutoStart.at(0).toObject();
+	QJsonObject firstConflictDetails = firstConflict.value(QStringLiteral("contentDetails")).toObject();
+	firstConflictDetails.insert(QStringLiteral("enableAutoStart"), true);
+	firstConflict.insert(QStringLiteral("contentDetails"), firstConflictDetails);
+	conflictingAutoStart.replace(0, firstConflict);
+	selection = selectYouTubeBroadcast(conflictingAutoStart,
+					   inactiveDuplicateKeyStreams,
+					   QStringLiteral("key-a"),
+					   QStringLiteral("broadcast-b"),
+					   YouTubeBroadcastSelectionMode::Preflight);
+	check(youtubeHasConflictingAutoStart(selection.candidates, QStringLiteral("broadcast-b")),
+	      "YouTube preflight blocks RTMP while a non-selected broadcast can auto-start on the same stream key");
+	check(!youtubeHasConflictingAutoStart(selection.candidates, QStringLiteral("broadcast-a")),
+	      "the selected broadcast's own Auto-start setting is not treated as a conflict");
+
+	QJsonArray completedChoice{
+		youtubeTestBroadcast(QStringLiteral("broadcast-a"), QStringLiteral("stream-a")),
+		youtubeTestBroadcast(QStringLiteral("broadcast-b"), QStringLiteral("stream-b"),
+				     QStringLiteral("complete")),
+	};
+	selection = selectYouTubeBroadcast(completedChoice, duplicateKeyStreams, QStringLiteral("key-a"),
+				   QStringLiteral("broadcast-b"));
+	check(selection.state == YouTubeBroadcastSelectionState::PreferredBroadcastUnavailable &&
+		      selection.broadcast.isEmpty() && selection.candidates.size() == 1,
+	      "a completed explicit YouTube broadcast choice never falls back to a ready broadcast");
 
 	QJsonArray completed{youtubeTestBroadcast(QStringLiteral("done"), QStringLiteral("stream-a"),
 					   QStringLiteral("complete"))};
 	selection = selectYouTubeBroadcast(completed, streams, QStringLiteral("key-a"));
 	check(selection.state == YouTubeBroadcastSelectionState::NoActiveBroadcast,
 	      "completed YouTube broadcasts are ignored");
+
+	QJsonArray created{youtubeTestBroadcast(QStringLiteral("created"), QStringLiteral("stream-a"),
+					 QStringLiteral("created"))};
+	selection = selectYouTubeBroadcast(created, streams, QStringLiteral("key-a"));
+	check(selection.state == YouTubeBroadcastSelectionState::NoActiveBroadcast,
+	      "incomplete created YouTube broadcasts are not selected for transition");
+
+	for (const QString &lifecycle : {QStringLiteral("testing"), QStringLiteral("testStarting"),
+					 QStringLiteral("liveStarting"), QStringLiteral("live")}) {
+		QJsonArray actionable{youtubeTestBroadcast(QStringLiteral("actionable"), QStringLiteral("stream-a"),
+						       lifecycle)};
+		selection = selectYouTubeBroadcast(actionable, streams, QStringLiteral("key-a"));
+		check(selection.state == YouTubeBroadcastSelectionState::Selected,
+		      qPrintable(QStringLiteral("YouTube lifecycle %1 remains actionable").arg(lifecycle)));
+	}
+}
+
+void testYouTubeArchiveRotationHelpers()
+{
+	using namespace dsk;
+
+	const qint64 startMs = 1'700'000'000'000LL;
+	const bool hadRotationOverride = qEnvironmentVariableIsSet("DSK_YOUTUBE_ARCHIVE_ROTATION_MINUTES");
+	const QByteArray originalRotationOverride = qgetenv("DSK_YOUTUBE_ARCHIVE_ROTATION_MINUTES");
+	qunsetenv("DSK_YOUTUBE_ARCHIVE_ROTATION_MINUTES");
+	check(youtubeArchiveRotationIntervalMs() == YouTubeArchiveRotationIntervalMs,
+	      "YouTube archive rotation defaults to 11 hours 30 minutes");
+	check(youtubeArchiveRotationDeadlineMs(startMs) == startMs + YouTubeArchiveRotationIntervalMs,
+	      "YouTube archive rotation uses an 11 hour 30 minute deadline");
+	check(youtubeArchiveRotationDelayMs(startMs, startMs + 60'000) ==
+		      YouTubeArchiveRotationIntervalMs - 60'000,
+	      "YouTube archive rotation delay accounts for elapsed broadcast time");
+	check(youtubeArchiveRotationDelayMs(startMs, startMs + YouTubeArchiveRotationIntervalMs - 1) == 1,
+	      "YouTube archive rotation does not start one millisecond before the boundary");
+	check(youtubeArchiveRotationDelayMs(startMs, startMs + YouTubeArchiveRotationIntervalMs) == 0,
+	      "YouTube archive rotation starts exactly at the 11 hour 30 minute boundary");
+	check(youtubeArchiveRotationDelayMs(startMs, startMs + YouTubeArchiveRotationIntervalMs + 1) == 0,
+	      "overdue YouTube archive rotation runs immediately");
+	qputenv("DSK_YOUTUBE_ARCHIVE_ROTATION_MINUTES", QByteArrayLiteral("60"));
+	check(youtubeArchiveRotationIntervalMs() == 60 * 60 * 1000LL,
+	      "YouTube archive rotation accepts a one-hour development override");
+	check(youtubeArchiveRotationDeadlineMs(startMs) == startMs + 60 * 60 * 1000LL,
+	      "YouTube archive rotation applies the development override to its deadline");
+	qputenv("DSK_YOUTUBE_ARCHIVE_ROTATION_MINUTES", QByteArrayLiteral("0"));
+	check(youtubeArchiveRotationIntervalMs() == YouTubeArchiveRotationIntervalMs,
+	      "YouTube archive rotation rejects an unsafe zero-minute override");
+	if (hadRotationOverride)
+		qputenv("DSK_YOUTUBE_ARCHIVE_ROTATION_MINUTES", originalRotationOverride);
+	else
+		qunsetenv("DSK_YOUTUBE_ARCHIVE_ROTATION_MINUTES");
+	QJsonObject startedBroadcast{{QStringLiteral("snippet"),
+				      QJsonObject{{QStringLiteral("actualStartTime"),
+						   QStringLiteral("2026-07-22T12:00:00Z")}}}};
+	check(youtubeBroadcastActualStartMs(startedBroadcast, 1) ==
+		      QDateTime::fromString(QStringLiteral("2026-07-22T12:00:00Z"), Qt::ISODate).toMSecsSinceEpoch(),
+	      "YouTube archive rotation restores the actual platform start time");
+	check(youtubeBroadcastActualStartMs(QJsonObject(), startMs) == startMs,
+	      "missing YouTube actual start time uses the session fallback");
+	check(youtubeArchiveRotationFallbackStartMs(false, startMs, startMs + 1234) == startMs,
+	      "the first archive uses the RTMP session start when YouTube omits actualStartTime");
+	check(youtubeArchiveRotationFallbackStartMs(true, startMs, startMs + YouTubeArchiveRotationIntervalMs) ==
+		      startMs + YouTubeArchiveRotationIntervalMs,
+	      "a newly rotated archive uses the current time when YouTube omits actualStartTime");
+
+	qint64 virtualArchiveStartMs = startMs;
+	QString virtualTitle = QStringLiteral("Virtual stream");
+	for (int nextPart = 2; nextPart <= 5; ++nextPart) {
+		const qint64 virtualDeadlineMs = youtubeArchiveRotationDeadlineMs(virtualArchiveStartMs);
+		check(virtualDeadlineMs - virtualArchiveStartMs == YouTubeArchiveRotationIntervalMs,
+		      "each virtual YouTube archive remains live for exactly 11 hours 30 minutes");
+		virtualTitle = youtubeNextArchiveTitle(virtualTitle, nextPart);
+		check(youtubeNextArchivePart(virtualTitle) == nextPart + 1,
+		      "virtual consecutive YouTube archive parts retain their sequence");
+		virtualArchiveStartMs = youtubeArchiveRotationFallbackStartMs(
+			true, startMs, virtualDeadlineMs);
+	}
+
+	check(youtubeArchiveFailureAction(false, false, 0, 30) ==
+		      YouTubeArchiveFailureAction::RetryLaterCurrentLive,
+	      "a pre-completion failure keeps the current archive live and retries later");
+	check(youtubeArchiveFailureAction(true, false, 29, 30) ==
+		      YouTubeArchiveFailureAction::ConfirmCurrentState,
+	      "an ambiguous completion is confirmed before starting the next archive");
+	check(youtubeArchiveFailureAction(true, false, 30, 30) ==
+		      YouTubeArchiveFailureAction::NeedsAttention,
+	      "archive confirmation stops after the bounded poll limit");
+	check(youtubeArchiveFailureAction(true, true, 0, 30) ==
+		      YouTubeArchiveFailureAction::NeedsAttention,
+	      "a non-retryable next-archive start failure terminates after the current archive is confirmed complete");
+
+	check(youtubeNextArchiveTitle(QStringLiteral("Late night stream"), 2) ==
+		      QStringLiteral("Late night stream (Part 2)"),
+	      "next YouTube archive title adds a part suffix");
+	check(youtubeNextArchiveTitle(QStringLiteral("Late night stream (Part 2)"), 3) ==
+		      QStringLiteral("Late night stream (Part 3)"),
+	      "next YouTube archive title replaces an existing part suffix");
+	check(youtubeNextArchivePart(QStringLiteral("Late night stream")) == 2 &&
+		      youtubeNextArchivePart(QStringLiteral("Late night stream (Part 8)")) == 9,
+	      "YouTube archive part numbering survives a restart");
+
+	QJsonObject current;
+	current.insert(QStringLiteral("snippet"), QJsonObject{
+		{QStringLiteral("title"), QStringLiteral("Late night stream")},
+		{QStringLiteral("description"), QStringLiteral("Description")},
+	});
+	current.insert(QStringLiteral("status"), QJsonObject{
+		{QStringLiteral("privacyStatus"), QStringLiteral("unlisted")},
+		{QStringLiteral("selfDeclaredMadeForKids"), false},
+		{QStringLiteral("madeForKids"), true},
+	});
+	current.insert(QStringLiteral("contentDetails"), QJsonObject{
+		{QStringLiteral("enableDvr"), true},
+		{QStringLiteral("recordFromStart"), true},
+		{QStringLiteral("latencyPreference"), QStringLiteral("low")},
+		{QStringLiteral("enableAutoStart"), true},
+		{QStringLiteral("enableAutoStop"), true},
+	});
+	const QString scheduledStart = QStringLiteral("2026-07-22T12:00:00Z");
+	const QJsonObject body = youtubeArchiveBroadcastInsertBody(current, 2, scheduledStart);
+	check(body.value(QStringLiteral("snippet")).toObject().value(QStringLiteral("title")).toString() ==
+		      QStringLiteral("Late night stream (Part 2)"),
+	      "YouTube archive insert body uses the next title");
+	check(body.value(QStringLiteral("snippet")).toObject().value(QStringLiteral("scheduledStartTime")).toString() ==
+		      scheduledStart,
+	      "YouTube archive insert body includes a scheduled start");
+	check(body.value(QStringLiteral("status")).toObject().value(QStringLiteral("privacyStatus")).toString() ==
+		      QStringLiteral("unlisted"),
+	      "YouTube archive insert body preserves privacy");
+	check(!body.value(QStringLiteral("status")).toObject().contains(QStringLiteral("madeForKids")),
+	      "YouTube archive insert body omits read-only audience state");
+	const QJsonObject details = body.value(QStringLiteral("contentDetails")).toObject();
+	check(!details.value(QStringLiteral("monitorStream")).toObject()
+		       .value(QStringLiteral("enableMonitorStream")).toBool(true),
+	      "YouTube archive insert disables monitor mode for direct transition");
+	check(!details.value(QStringLiteral("enableAutoStart")).toBool(true) &&
+		      details.value(QStringLiteral("enableAutoStop")).toBool(false),
+	      "DSK controls archive transitions and lets YouTube end the final archive after RTMP stops");
+}
+
+void testYouTubeStreamOptions()
+{
+	using namespace dsk;
+
+	const QJsonObject response = QJsonDocument::fromJson(R"json({
+		"nextPageToken": "next-page",
+		"items": [
+			{
+				"id": "primary-id",
+				"snippet": {"title": "Main stream"},
+				"cdn": {
+					"ingestionType": "rtmp",
+					"ingestionInfo": {
+						"streamName": "secret-primary-key",
+						"ingestionAddress": "rtmp://a.rtmp.youtube.com/live2",
+						"rtmpsIngestionAddress": "rtmps://a.rtmps.youtube.com/live2"
+					}
+				},
+				"status": {"streamStatus": "inactive"},
+				"contentDetails": {"isReusable": true}
+			},
+			{
+				"id": "unsupported-hls",
+				"snippet": {"title": "HLS stream"},
+				"cdn": {
+					"ingestionType": "hls",
+					"ingestionInfo": {
+						"streamName": "secret-hls-key",
+						"ingestionAddress": "https://upload.youtube.com/http_upload_hls"
+					}
+				}
+			},
+			{
+				"id": "untrusted-host",
+				"snippet": {"title": "Untrusted host"},
+				"cdn": {
+					"ingestionType": "rtmp",
+					"ingestionInfo": {
+						"streamName": "untrusted-host-key",
+						"ingestionAddress": "rtmp://127.0.0.1/live"
+					}
+				},
+				"contentDetails": {"isReusable": true}
+			}
+		]
+	})json").object();
+
+	const YouTubeStreamPage page = parseYouTubeStreamPage(response);
+	check(page.nextPageToken == QStringLiteral("next-page"), "YouTube stream list preserves pagination token");
+	check(page.streams.size() == 1, "YouTube stream list accepts only reusable RTMP streams");
+	if (page.streams.size() == 1) {
+		const YouTubeStreamOption &stream = page.streams.first();
+		check(stream.id == QStringLiteral("primary-id"), "YouTube stream option preserves id");
+		check(stream.title == QStringLiteral("Main stream"), "YouTube stream option preserves title");
+		check(stream.serverUrl == QStringLiteral("rtmps://a.rtmps.youtube.com/live2"),
+		      "YouTube stream option prefers RTMPS ingestion");
+		check(stream.streamKey == QStringLiteral("secret-primary-key"),
+		      "YouTube stream option preserves the stream key for selection");
+		check(stream.status == QStringLiteral("inactive"), "YouTube stream option preserves status");
+		check(!youtubeStreamOptionLabel(stream).contains(stream.streamKey),
+		      "YouTube stream selector label never exposes the stream key");
+	}
+	YouTubeStreamOption adversarialLabel;
+	adversarialLabel.title = QStringLiteral("secret-label-key");
+	adversarialLabel.streamKey = QStringLiteral("secret-label-key");
+	check(!youtubeStreamOptionLabel(adversarialLabel).contains(adversarialLabel.streamKey),
+	      "YouTube stream selector redacts a key echoed into untrusted metadata");
+}
+
+void testCommentViewerObsIntegrationContract()
+{
+	using namespace dsk;
+
+	check(commentViewerYouTubeLiveStartUrl() ==
+		      QUrl(QStringLiteral("http://127.0.0.1:17321/api/integrations/obs/v2/youtube-live-start")),
+	      "Comment Viewer YouTube start notification is pinned to the loopback v2 endpoint");
+	check(commentViewerYouTubeLiveStartPayload(QStringLiteral("youtube-target:42"),
+						     QStringLiteral("abc123DEF45")) ==
+		      QByteArrayLiteral("{\"broadcastId\":\"abc123DEF45\",\"sessionId\":\"youtube-target:42\"}"),
+	      "Comment Viewer YouTube start notification identifies the selected live broadcast");
+	check(commentViewerYouTubeLiveStartPayload(QStringLiteral("../invalid"),
+						     QStringLiteral("abc123DEF45")).isEmpty(),
+	      "Comment Viewer YouTube start notification rejects invalid session IDs");
+	check(commentViewerYouTubeLiveStartPayload(QStringLiteral("youtube-target:42"),
+						     QStringLiteral("../invalid")).isEmpty(),
+	      "Comment Viewer YouTube start notification rejects invalid broadcast IDs");
+
+	const QByteArray valid = R"json({
+		"ok": true,
+		"service": "dsk-comment-viewer",
+		"schemaVersion": 1,
+		"appVersion": "0.2.0-beta.24",
+		"integration": "obs-browser-dock",
+		"obsDock": {
+			"viewerPath": "/viewer?dock=chat&send=1",
+			"capabilities": ["comments.read", "comments.send"]
+		}
+	})json";
+	const auto integration = parseCommentViewerObsIntegration(valid);
+	check(integration.has_value(), "valid Comment Viewer OBS integration contract is accepted");
+	check(integration && integration->appVersion == QStringLiteral("0.2.0-beta.24"),
+	      "Comment Viewer integration exposes its app version");
+	check(integration && integration->viewerUrl ==
+				     QUrl(QStringLiteral("http://127.0.0.1:17321/viewer?dock=chat&send=1")),
+	      "Comment Viewer integration is pinned to the loopback viewer URL");
+	check(integration && integration->canSendComments,
+	      "Comment Viewer integration advertises comment sending support");
+
+	QJsonObject wrongSchema = QJsonDocument::fromJson(valid).object();
+	wrongSchema.insert(QStringLiteral("schemaVersion"), 2);
+	check(!parseCommentViewerObsIntegration(QJsonDocument(wrongSchema).toJson(QJsonDocument::Compact)),
+	      "unsupported Comment Viewer integration schemas are rejected");
+
+	QJsonObject externalViewer = QJsonDocument::fromJson(valid).object();
+	QJsonObject externalDock = externalViewer.value(QStringLiteral("obsDock")).toObject();
+	externalDock.insert(QStringLiteral("viewerPath"), QStringLiteral("https://example.com/viewer"));
+	externalViewer.insert(QStringLiteral("obsDock"), externalDock);
+	check(!parseCommentViewerObsIntegration(QJsonDocument(externalViewer).toJson(QJsonDocument::Compact)),
+	      "Comment Viewer integration cannot redirect the OBS dock to an external URL");
+
+	check(!parseCommentViewerObsIntegration(QByteArrayLiteral("not-json")),
+	      "malformed Comment Viewer integration responses are rejected");
+}
+
+void testCommentViewerInstallDetection()
+{
+	QTemporaryDir temporary;
+	check(temporary.isValid(), "Comment Viewer install detection has a temporary directory");
+	check(!dsk::isCommentViewerInstallDirectory(temporary.path()),
+	      "an empty directory is not a Comment Viewer installation");
+
+	QFile metadata(temporary.filePath(QStringLiteral("package.json")));
+	check(metadata.open(QIODevice::WriteOnly), "create Comment Viewer package metadata fixture");
+	metadata.write(R"json({"name":"dsk-comment-viewer","version":"0.2.0-beta.24"})json");
+	metadata.close();
+	QFile serverLauncher(temporary.filePath(QStringLiteral("start-server-hidden.vbs")));
+	check(serverLauncher.open(QIODevice::WriteOnly), "create Comment Viewer server launcher fixture");
+	serverLauncher.write("fixture");
+	serverLauncher.close();
+	check(!dsk::isCommentViewerInstallDirectory(temporary.path()),
+	      "a partial Comment Viewer installation is rejected");
+
+	QFile appLauncher(temporary.filePath(QStringLiteral("start-hidden.vbs")));
+	check(appLauncher.open(QIODevice::WriteOnly), "create Comment Viewer app launcher fixture");
+	appLauncher.write("fixture");
+	appLauncher.close();
+	check(dsk::isCommentViewerInstallDirectory(temporary.path()),
+	      "a complete independent Comment Viewer installation is detected");
+}
+
+void testCommentViewerIntegrationProbePolicy()
+{
+	using dsk::CommentViewerProbeAction;
+	using dsk::CommentViewerMaxProbeAttempts;
+	using dsk::commentViewerIntegrationEnabledAtStartup;
+	using dsk::commentViewerProbeAction;
+	using dsk::shouldReconnectCommentViewerAfterOpen;
+
+	check(commentViewerIntegrationEnabledAtStartup(true),
+	      "an installed Comment Viewer enables integration at startup");
+	check(!commentViewerIntegrationEnabledAtStartup(false),
+	      "a missing Comment Viewer keeps integration off at startup");
+	check(commentViewerProbeAction(false, 7, 7, true, false, 0, 10) == CommentViewerProbeAction::Ignore,
+	      "a disabled Comment Viewer integration ignores a successful stale probe");
+	check(commentViewerProbeAction(true, 8, 7, true, false, 0, 10) == CommentViewerProbeAction::Ignore,
+	      "a superseded Comment Viewer probe cannot recreate the dock");
+	check(commentViewerProbeAction(true, 7, 7, true, false, 0, 10) == CommentViewerProbeAction::Connect,
+	      "a current valid probe connects the Comment Viewer dock");
+	check(commentViewerProbeAction(true, 7, 7, false, false, 0, 10) == CommentViewerProbeAction::Launch,
+	      "the first failed probe launches an installed but stopped Viewer");
+	check(commentViewerProbeAction(true, 7, 7, false, true, 0, 10) == CommentViewerProbeAction::Retry,
+	      "a failed post-launch probe retries while attempts remain");
+	check(commentViewerProbeAction(true, 7, 7, false, true, CommentViewerMaxProbeAttempts - 1,
+				       CommentViewerMaxProbeAttempts) == CommentViewerProbeAction::GiveUp,
+	      "the final failed post-launch probe gives up without leaving a dead dock");
+	check(shouldReconnectCommentViewerAfterOpen(true, false, true),
+	      "opening an installed Comment Viewer restarts a probe after startup retries expire");
+	check(!shouldReconnectCommentViewerAfterOpen(false, false, true),
+	      "opening the Viewer does not bypass an explicitly disabled integration");
+	check(!shouldReconnectCommentViewerAfterOpen(true, true, true),
+	      "opening the Viewer cannot restart integration while OBS is shutting down");
+	check(!shouldReconnectCommentViewerAfterOpen(true, false, false),
+	      "opening a missing Viewer does not start a pointless integration probe");
+}
+
+void testExperimentalSceneRoutingPolicy()
+{
+	check(!dsk::experimentalFeatureEnabled({}), "experimental features default off");
+	check(!dsk::experimentalFeatureEnabled(QByteArrayLiteral("0")), "zero keeps an experimental feature off");
+	check(!dsk::experimentalFeatureEnabled(QByteArrayLiteral("false")), "false keeps an experimental feature off");
+	check(dsk::experimentalFeatureEnabled(QByteArrayLiteral("1")), "one enables an experimental feature");
+	check(dsk::experimentalFeatureEnabled(QByteArrayLiteral(" TRUE ")), "true enables an experimental feature");
 }
 
 } // namespace
@@ -1002,13 +1694,23 @@ int main(int argc, char **argv)
 
 	testOutputTargetHelpers();
 	testLayoutsAndProfiles();
+	testVerticalLayoutChangeClassification();
 	testSettingsCodec();
 	testPlatformRegistry();
 	testOAuthProviders();
 	testYouTubeApiWarningHelpers();
 	testRuntimeStatusHelpers();
+	testOutputSignalPolicy();
+	testStreamControlsState();
+	testVisibleRefreshGate();
 	testSecretStoreHelpers();
 	testYouTubeBroadcastSelection();
+	testYouTubeArchiveRotationHelpers();
+	testYouTubeStreamOptions();
+	testCommentViewerObsIntegrationContract();
+	testCommentViewerInstallDetection();
+	testCommentViewerIntegrationProbePolicy();
+	testExperimentalSceneRoutingPolicy();
 	testDataFiles();
 
 	if (failures > 0) {

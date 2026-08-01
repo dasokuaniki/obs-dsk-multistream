@@ -18,6 +18,7 @@
 #include <functional>
 
 class QJsonArray;
+class QJsonObject;
 
 struct obs_encoder;
 struct obs_output;
@@ -74,6 +75,10 @@ public:
 
 	bool startTarget(const QString &id);
 	void stopTarget(const QString &id);
+	void applyYouTubeBroadcastSelection(const QString &targetId, quint64 sessionSerial, quint64 selectionGeneration,
+					    const QString &broadcastId);
+	void cancelYouTubeBroadcastSelection(const QString &targetId, quint64 sessionSerial,
+					     quint64 selectionGeneration);
 	void startAll();
 	void stopAll();
 	void suppressNextObsAutoStart();
@@ -102,6 +107,7 @@ public:
 	bool removeVerticalScene(const QString &id);
 	bool renameVerticalScene(const QString &id, const QString &name);
 	bool moveVerticalScene(const QString &id, int offset);
+	bool reorderVerticalScenes(const QVector<QString> &orderedIds);
 	void prepareForUnload();
 	void releaseObsSceneReferences();
 
@@ -109,6 +115,8 @@ signals:
 	void targetsChanged();
 	void targetRuntimeChanged(const QString &targetId);
 	void statusMessage(const QString &message);
+	void youtubeBroadcastSelectionRequired(const QString &targetId, quint64 sessionSerial, quint64 selectionGeneration,
+					       const QJsonArray &broadcasts);
 	void verticalLayoutChanged();
 
 private:
@@ -124,7 +132,8 @@ private:
 	void releaseSharedEncoders(const QString &key);
 	bool validateTarget(OutputTarget &target);
 	bool hydrateTargetSecrets(OutputTarget &target);
-	bool startIndependentTarget(OutputTarget &target);
+	bool beginYouTubeStartPreflight(OutputTarget &target);
+	bool startIndependentTarget(OutputTarget &target, Session *existingSession = nullptr);
 	bool setTargetError(OutputTarget &target, const QString &message);
 	Session *sessionForTarget(const QString &id) const;
 	void releaseSession(const QString &id, bool requestStop);
@@ -163,13 +172,59 @@ private:
 	void setRuntimeTransport(const QString &targetId, quint64 sessionSerial, TransportState state, const QString &message = {},
 				 int reconnectDelaySeconds = 0);
 	void setRuntimePlatform(const QString &targetId, quint64 sessionSerial, PlatformLiveState state, const QString &message = {},
-				const QString &technicalError = {});
+			       const QString &technicalError = {});
+	void notifyCommentViewerYouTubeStarted(const QString &targetId, quint64 sessionSerial,
+					       const QString &broadcastId);
 	void maybeStartYouTubeBroadcast(const QString &targetId, quint64 sessionSerial, int attempt = 0);
-	void refreshYouTubeAccessToken(const QString &targetId, quint64 sessionSerial, int attempt);
-	void listYouTubeBroadcasts(const QString &targetId, quint64 sessionSerial, const QString &accessToken, int attempt);
-	void listYouTubeStreams(const QString &targetId, quint64 sessionSerial, const QString &accessToken, int attempt, const QJsonArray &broadcasts);
+	bool youtubeOperationMatches(const QString &targetId, quint64 sessionSerial, quint64 operationGeneration) const;
+	void completeYouTubeOperation(const QString &targetId, quint64 sessionSerial, quint64 operationGeneration);
+	void scheduleYouTubePoll(const QString &targetId, quint64 sessionSerial, quint64 operationGeneration,
+				 int attempt, int delayMs);
+	bool stopYouTubeAutoStartIfTimedOut(const QString &targetId, quint64 sessionSerial,
+					   quint64 operationGeneration);
+	bool scheduleYouTubeRequestRetry(const QString &targetId, quint64 sessionSerial, quint64 operationGeneration,
+					int attempt, const HttpResponse &response, const QString &stage);
+	void refreshYouTubeAccessToken(const QString &targetId, quint64 sessionSerial, int attempt, quint64 operationGeneration);
+	void listYouTubeBroadcasts(const QString &targetId, quint64 sessionSerial, const QString &accessToken, int attempt,
+				   quint64 operationGeneration);
+	void listYouTubeBroadcastPage(const QString &targetId, quint64 sessionSerial, const QString &accessToken, int attempt,
+				      quint64 operationGeneration, const QString &broadcastStatus, const QString &pageToken, int pageNumber,
+				      const QJsonArray &broadcasts);
+	void listYouTubeStreams(const QString &targetId, quint64 sessionSerial, const QString &accessToken, int attempt,
+				quint64 operationGeneration, const QJsonArray &broadcasts);
+	void listYouTubeStreamBatch(const QString &targetId, quint64 sessionSerial, const QString &accessToken, int attempt,
+				    quint64 operationGeneration, const QJsonArray &broadcasts, const QStringList &streamIds, int offset,
+				    const QJsonArray &streams);
+	void processYouTubeBroadcastSelection(const QString &targetId, quint64 sessionSerial, const QString &accessToken,
+					      int attempt, quint64 operationGeneration, const QJsonArray &broadcasts,
+					      const QJsonArray &streams);
 	void transitionYouTubeBroadcast(const QString &targetId, const QString &accessToken, const QString &broadcastId,
-					const QString &broadcastStatus, quint64 sessionSerial, int attempt);
+					const QString &broadcastStatus, quint64 sessionSerial, int attempt,
+					quint64 operationGeneration);
+	void armYouTubeArchiveRotation(const QString &targetId, quint64 sessionSerial,
+				      const QJsonObject &currentBroadcast);
+	void beginYouTubeArchiveRotation(const QString &targetId, quint64 sessionSerial,
+					quint64 timerGeneration);
+	void refreshYouTubeRotationAccessToken(const QString &targetId, quint64 sessionSerial,
+					      quint64 operationGeneration);
+	void createYouTubeRotationBroadcast(const QString &targetId, quint64 sessionSerial,
+					    quint64 operationGeneration, const QString &accessToken);
+	void bindYouTubeRotationBroadcast(const QString &targetId, quint64 sessionSerial,
+					  quint64 operationGeneration, const QString &accessToken,
+					  const QString &nextBroadcastId);
+	void completeCurrentYouTubeRotationBroadcast(const QString &targetId, quint64 sessionSerial,
+						     quint64 operationGeneration,
+						     const QString &accessToken);
+	void pollYouTubeRotationBroadcast(const QString &targetId, quint64 sessionSerial,
+					 quint64 operationGeneration, const QString &accessToken,
+					 const QString &broadcastId, bool waitingForCurrentComplete);
+	void startNextYouTubeRotationBroadcast(const QString &targetId, quint64 sessionSerial,
+					       quint64 operationGeneration,
+					       const QString &accessToken);
+	void failYouTubeArchiveRotation(const QString &targetId, quint64 sessionSerial,
+					quint64 operationGeneration, const QString &message,
+					bool currentBroadcastMayBeComplete = false,
+					bool discardPreparedBroadcast = true);
 	void setTargetApiWarning(const QString &targetId, const QString &message, quint64 sessionSerial = 0);
 	void clearTargetApiWarning(const QString &targetId);
 

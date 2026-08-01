@@ -2,6 +2,7 @@ param(
     [string]$BuildDir = "build\windows-x64-sdk3",
     [string]$Configuration = "RelWithDebInfo",
     [string]$ObsPluginRoot = "$env:ProgramData\obs-studio\plugins\obs-dsk-multistream",
+    [string]$InstalledDllName = "obs-dsk-multistream.dll",
     [switch]$AllowRunningObs
 )
 
@@ -33,6 +34,10 @@ $targetRoot = Get-AbsolutePath -Path $ObsPluginRoot -BasePath $repoRoot
 $defaultInstalledRoot = [IO.Path]::GetFullPath("$env:ProgramData\obs-studio\plugins\obs-dsk-multistream")
 $obsRunning = [bool](Get-Process -Name "obs64" -ErrorAction SilentlyContinue)
 
+if ($InstalledDllName -notmatch "^[A-Za-z0-9._-]+\.dll$") {
+    throw "InstalledDllName must be a plain DLL file name: $InstalledDllName"
+}
+
 if ($obsRunning) {
     if (-not $AllowRunningObs) {
         throw "OBS is running. Close OBS before installing the plugin, or use -AllowRunningObs only for an isolated staging directory."
@@ -54,11 +59,18 @@ $dll = (Resolve-Path -LiteralPath $dll).Path
 
 $localeSource = Join-Path $repoRoot "data\locale"
 $presetsSource = Join-Path $repoRoot "data\presets"
-foreach ($requiredDirectory in @($localeSource, $presetsSource)) {
+$uiSource = Join-Path $repoRoot "data\ui"
+foreach ($requiredDirectory in @($localeSource, $presetsSource, $uiSource)) {
     if (-not (Test-Path -LiteralPath $requiredDirectory -PathType Container)) {
         throw "Required plugin data directory was not found: $requiredDirectory"
     }
 }
+
+$cmakeProject = Get-Content -LiteralPath (Join-Path $repoRoot "CMakeLists.txt") -Raw -Encoding UTF8
+if ($cmakeProject -notmatch 'project\(obs-dsk-multistream\s+VERSION\s+([0-9]+\.[0-9]+\.[0-9]+)') {
+    throw "Could not determine the plugin version from CMakeLists.txt."
+}
+$pluginVersion = $Matches[1]
 
 $pluginParent = Split-Path -Parent $targetRoot
 $pluginLeaf = Split-Path -Leaf $targetRoot
@@ -82,9 +94,46 @@ try {
     New-Item -ItemType Directory -Force -Path $stageDataDir | Out-Null
     $stageExists = $true
 
-    Copy-Item -LiteralPath $dll -Destination (Join-Path $stageBinDir "obs-dsk-multistream.dll") -Force
+    Copy-Item -LiteralPath $dll -Destination (Join-Path $stageBinDir $InstalledDllName) -Force
     Copy-Item -LiteralPath $localeSource -Destination $stageDataDir -Recurse -Force
     Copy-Item -LiteralPath $presetsSource -Destination $stageDataDir -Recurse -Force
+    Copy-Item -LiteralPath $uiSource -Destination $stageDataDir -Recurse -Force
+
+    # Developer installs must not remove an existing distribution installer's
+    # uninstall registration files when refreshing only the plugin payload.
+    $preservedInstallerFiles = @("unins000.exe", "unins000.dat")
+    if (Test-Path -LiteralPath $targetRoot -PathType Container) {
+        foreach ($fileName in $preservedInstallerFiles) {
+            $existingFile = Join-Path $targetRoot $fileName
+            if (Test-Path -LiteralPath $existingFile -PathType Leaf) {
+                Copy-Item -LiteralPath $existingFile -Destination (Join-Path $stageRoot $fileName) -Force
+            }
+        }
+    }
+
+    $manifestEntries = Get-ChildItem -LiteralPath $stageRoot -File -Recurse |
+        Where-Object { $_.Name -notin $preservedInstallerFiles -and $_.Name -ne "dsk-package-manifest.json" } |
+        Sort-Object FullName |
+        ForEach-Object {
+            [ordered]@{
+                path = $_.FullName.Substring($stageRoot.Length + 1).Replace('\', '/')
+                size = $_.Length
+                sha256 = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash
+            }
+        }
+    $manifest = [ordered]@{
+        schemaVersion = 1
+        name = "obs-dsk-multistream"
+        version = $pluginVersion
+        architecture = "windows-x64"
+        minimumObsVersion = "32.0.0"
+        files = @($manifestEntries)
+    }
+    [IO.File]::WriteAllText(
+        (Join-Path $stageRoot "dsk-package-manifest.json"),
+        ($manifest | ConvertTo-Json -Depth 5),
+        (New-Object Text.UTF8Encoding($false)))
+
     if (Test-Path -LiteralPath $targetRoot) {
         Move-Item -LiteralPath $targetRoot -Destination $backupRoot
         $oldMoved = $true

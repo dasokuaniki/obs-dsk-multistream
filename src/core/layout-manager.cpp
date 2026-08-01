@@ -1,5 +1,7 @@
 #include "core/layout-manager.hpp"
 
+#include "core/stable-id-order.hpp"
+
 #include "core/output-target.hpp"
 #include "core/vertical-layout-geometry.hpp"
 
@@ -231,6 +233,20 @@ bool LayoutManager::moveVerticalScene(const QString &id, int offset)
 			return false;
 		verticalScenes_.move(i, target);
 		return true;
+	}
+	return false;
+}
+
+bool LayoutManager::reorderVerticalScenes(const QVector<QString> &orderedIds)
+{
+	QVector<VerticalLayoutScene> reordered;
+	if (!reorderValuesByStableIds(verticalScenes_, orderedIds, &reordered))
+		return false;
+	for (int index = 0; index < reordered.size(); ++index) {
+		if (reordered[index].id != verticalScenes_[index].id) {
+			verticalScenes_ = std::move(reordered);
+			return true;
+		}
 	}
 	return false;
 }

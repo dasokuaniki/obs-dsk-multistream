@@ -1,11 +1,13 @@
 #pragma once
 
 #include "core/output-manager.hpp"
+#include "ui/visible-refresh-gate.hpp"
 
 #include <QWidget>
 
 class QLabel;
 class QComboBox;
+class QShowEvent;
 class QVBoxLayout;
 
 namespace dsk {
@@ -17,7 +19,11 @@ public:
 	explicit SceneRouterDock(OutputManager *manager, QWidget *parent = nullptr);
 
 private slots:
+	void scheduleRefresh();
 	void refresh();
+
+protected:
+	void showEvent(QShowEvent *event) override;
 
 private:
 	void populateSceneCombo(QComboBox *combo, const QStringList &scenes, const QString &selected, bool includeNone) const;
@@ -32,6 +38,8 @@ private:
 	QLabel *currentScene_ = nullptr;
 	QLabel *summary_ = nullptr;
 	QVBoxLayout *rows_ = nullptr;
+	VisibleRefreshGate refreshGate_;
+	bool refreshScheduled_ = false;
 	bool refreshing_ = false;
 };
 

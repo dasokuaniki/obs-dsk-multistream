@@ -12,7 +12,7 @@ namespace dsk {
 
 namespace {
 
-constexpr auto PublisherRelayUrl = "https://45-77-181-113.sslip.io";
+constexpr auto PublisherRelayUrl = "https://auth.dasoku.org";
 
 QUrl relayEndpoint(const OAuthProvider &provider, const QString &action)
 {

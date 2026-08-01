@@ -60,7 +60,7 @@ powershell.exe -ExecutionPolicy Bypass -File scripts\configure-windows.ps1 -ObsP
 }
 ```
 
-The configure step validates the values and generates `build\windows-x64-sdk3\generated\oauth-publisher-config.hpp`. Keep both the JSON and generated build tree out of source control and release archives. If the argument is omitted in this workspace, `scripts\configure-windows.ps1` detects the existing DSK Comment Viewer publisher config. Use `-DisableBundledOAuth` to explicitly produce a build with no publisher config; that build remains compatible but requires `Use custom Google OAuth app` for YouTube login.
+The configure step validates the values and generates `build\windows-x64-sdk3\generated\oauth-publisher-config.hpp`. Keep both the JSON and generated build tree out of source control and release archives. The config path must be supplied explicitly with `-OAuthAppConfig` or `DSK_OAUTH_APP_CONFIG`; the build never searches neighboring workspaces for credentials. Use `-DisableBundledOAuth` to explicitly produce a build with no publisher config; that build remains compatible but requires `Use custom Google OAuth app` for YouTube login.
 
 Then build:
 
@@ -109,10 +109,41 @@ No Qt TLS plugin DLLs are bundled. OAuth and YouTube/Kick/Twitch API requests us
 
 Restart OBS. The plugin registers these docks:
 
-- `DSK Streaming` with `Routes`, `Controls`, `Scenes`, and `Activity` tabs
+- `DSK Streaming` with `Controls` as the main page and `Targets` in the gear menu
 - `DSK Vertical` with an always-visible preview and optional Setup controls
-- `DSK Comments`
-- `DSK Comments` (browser dock backed by DSK Comment Viewer)
+- `DSK Comments` (optional browser dock; Multistream enables the integration automatically when the separate Viewer is installed, then detects/starts it and validates its local v1 API)
+
+Scene Routing is retained for internal testing but hidden from normal beta users. Set `DSK_EXPERIMENTAL_SCENE_ROUTING=1` before launching OBS to expose its settings and gear-menu page.
+
+## Build the Distribution Installer
+
+Install Inno Setup 7, then build the plugin and run:
+
+```powershell
+powershell.exe -ExecutionPolicy Bypass -File scripts\build-windows-installer.ps1 -BuildDir build\windows-x64-sdk3
+```
+
+The packaging script rejects build trees or DLLs that contain E2E automation hooks. If this build directory was used for OBS-integrated E2E testing, run the normal configure command again without `-EnableE2eHooks` and rebuild before packaging.
+
+The script stages only the runtime DLL, locale files, platform presets, and a SHA-256 manifest. It validates the staged layout, rejects development artifacts, compiles the installer without warnings, and writes:
+
+```text
+release\DSK-Multistream-<version>-Windows-x64-Setup.exe
+release\DSK-Multistream-<version>-Windows-x64-Setup.exe.sha256
+```
+
+The installer requires Windows 10 or later, 64-bit OBS Studio 32 or later, and administrator approval because it installs for all users under `%ProgramData%\obs-studio\plugins\obs-dsk-multistream`. Close OBS before installing or uninstalling. A newer package with the same application ID performs an in-place update.
+
+Uninstall from **Windows Settings > Apps > Installed apps > DSK Multistream for OBS > Uninstall**. Uninstall removes the dedicated plugin directory and Windows uninstall registration. OBS profiles, DSK target/layout settings, stream keys, and OAuth credentials are stored outside that directory and are intentionally preserved so reinstalling does not erase user configuration.
+
+Run the isolated install/update/uninstall test with an E2E-only installer build:
+
+```powershell
+powershell.exe -ExecutionPolicy Bypass -File scripts\build-windows-installer.ps1 -BuildDir build\windows-x64-sdk3 -OutputDir build\installer-e2e-artifacts -InstallerE2E
+powershell.exe -ExecutionPolicy Bypass -File scripts\test-windows-installer.ps1 -InstallerPath build\installer-e2e-artifacts\DSK-Multistream-<version>-Windows-x64-E2E-Setup.exe
+```
+
+The E2E package uses a separate application ID and isolated install directory. It must not be distributed. The test verifies fresh install, same-ID update, uninstall registration, complete plugin-directory removal, and preservation of data outside the plugin directory.
 
 ## Automated Checks
 
@@ -126,7 +157,7 @@ The script checks:
 
 - Built DLL exists.
 - Installed DLL exists and matches the built DLL after normalizing the PE signature area.
-- Platform presets are valid JSON and include Twitch, YouTube, Kick, TikTok, and Custom RTMP.
+- Platform presets are valid JSON and include Twitch, YouTube, Kick, and Manual RTMP.
 - `en-US` and `ja-JP` locale files have matching keys.
 - The OBS runtime contains a valid Authenticode-signed `libcurl.dll`, and the DSK package contains no obsolete Qt TLS plugins.
 
@@ -141,6 +172,8 @@ The script starts an `ffmpeg -listen 1` RTMP receiver on localhost, publishes a 
 To run the OBS-integrated E2E checks, close any running OBS instance, install the current build, then run:
 
 ```powershell
+powershell.exe -ExecutionPolicy Bypass -File scripts\configure-windows.ps1 -BuildDir build\windows-x64-sdk3 -EnableE2eHooks
+cmake --build build\windows-x64-sdk3
 powershell.exe -ExecutionPolicy Bypass -File scripts\install-user-plugin.ps1 -BuildDir build\windows-x64-sdk3
 powershell.exe -ExecutionPolicy Bypass -File scripts\run-obs-rtmp-e2e.ps1 -EncoderGroup dsk-horizontal
 powershell.exe -ExecutionPolicy Bypass -File scripts\run-obs-rtmp-e2e.ps1 -EncoderGroup dsk-vertical
@@ -180,7 +213,22 @@ Run the read-only diagnostic to distinguish an application failure from a policy
 powershell.exe -ExecutionPolicy Bypass -File scripts\diagnose-first-run.ps1 -OutputPath build\dsk-first-run-diagnostic.json
 ```
 
-Release packages intended for other machines should be Authenticode signed with the publisher's approved code-signing certificate. After signing both the built DLL and staged package DLL, enforce the release gate with:
+Release packages intended for other machines are built by `.github/workflows/windows-release.yml`. The workflow downloads pinned OBS dependencies, builds the plugin, runs tests, and creates the installer on a GitHub-hosted Windows runner.
+
+For SignPath release signing, configure these repository values after the SignPath Foundation application is approved:
+
+- Secret: `SIGNPATH_API_TOKEN`
+- Variable: `SIGNPATH_ORGANIZATION_ID`
+- Variable: `SIGNPATH_PROJECT_SLUG`
+- Variable: `SIGNPATH_SIGNING_POLICY_SLUG`
+- Variable: `SIGNPATH_PLUGIN_ARTIFACT_CONFIGURATION_SLUG`
+- Variable: `SIGNPATH_INSTALLER_ARTIFACT_CONFIGURATION_SLUG`
+
+Upload `signing/signpath-plugin.xml` and `signing/signpath-installer.xml` as the two SignPath artifact configurations. The workflow signs the plugin DLL first, verifies it, embeds it into the installer, then signs and verifies the installer. Signing runs only for a `v<version>` tag and requires manual approval in SignPath. The tag must match the version in `buildspec.json` and `CMakeLists.txt`.
+
+The optional `DSK_OAUTH_APP_CONFIG_JSON` repository secret supplies the publisher-managed YouTube OAuth desktop application to release builds. Pull-request builds do not require it and produce a compatible build without bundled publisher credentials.
+
+After signing both the built DLL and staged package DLL, enforce the local release gate with:
 
 ```powershell
 powershell.exe -ExecutionPolicy Bypass -File scripts\validate-package.ps1 -BuildDir build\windows-x64-sdk3 -ObsPluginRoot path\to\staged\obs-dsk-multistream -ObsPluginScanRoot path\to\staged\obs-dsk-multistream -RequireValidSignature

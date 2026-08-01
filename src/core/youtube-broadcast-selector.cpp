@@ -4,9 +4,22 @@
 
 namespace dsk {
 
+namespace {
+
+bool isTransitionableLifecycle(const QString &lifecycle)
+{
+	return lifecycle == QStringLiteral("ready") || lifecycle == QStringLiteral("testing") ||
+	       lifecycle == QStringLiteral("testStarting") || lifecycle == QStringLiteral("liveStarting") ||
+	       lifecycle == QStringLiteral("live");
+}
+
+} // namespace
+
 YouTubeBroadcastSelection selectYouTubeBroadcast(const QJsonArray &broadcasts,
 						  const QHash<QString, QJsonObject> &streamsById,
-						  const QString &targetStreamKey)
+						  const QString &targetStreamKey,
+						  const QString &preferredBroadcastId,
+						  YouTubeBroadcastSelectionMode mode)
 {
 	QVector<QJsonObject> activeBroadcasts;
 	QVector<QJsonObject> matchingBroadcasts;
@@ -18,7 +31,7 @@ YouTubeBroadcastSelection selectYouTubeBroadcast(const QJsonArray &broadcasts,
 						  .toObject()
 						  .value(QStringLiteral("lifeCycleStatus"))
 						  .toString();
-		if (lifecycle == QStringLiteral("complete") || lifecycle == QStringLiteral("revoked"))
+		if (!isTransitionableLifecycle(lifecycle))
 			continue;
 
 		const QString streamId = broadcast.value(QStringLiteral("contentDetails"))
@@ -30,7 +43,8 @@ YouTubeBroadcastSelection selectYouTubeBroadcast(const QJsonArray &broadcasts,
 						   .toObject()
 						   .value(QStringLiteral("streamStatus"))
 						   .toString();
-		if (streamStatus != QStringLiteral("active"))
+		if (mode == YouTubeBroadcastSelectionMode::ActiveSignal &&
+		    streamStatus != QStringLiteral("active"))
 			continue;
 
 		activeBroadcasts.push_back(broadcast);
@@ -44,21 +58,51 @@ YouTubeBroadcastSelection selectYouTubeBroadcast(const QJsonArray &broadcasts,
 			matchingBroadcasts.push_back(broadcast);
 	}
 
+	const QVector<QJsonObject> eligibleBroadcasts = cleanKey.isEmpty() ? activeBroadcasts : matchingBroadcasts;
+	const QString cleanPreferredId = preferredBroadcastId.trimmed();
+	if (!cleanPreferredId.isEmpty()) {
+		for (const QJsonObject &broadcast : eligibleBroadcasts) {
+			if (broadcast.value(QStringLiteral("id")).toString() == cleanPreferredId)
+				return {YouTubeBroadcastSelectionState::Selected, broadcast, eligibleBroadcasts};
+		}
+		return {YouTubeBroadcastSelectionState::PreferredBroadcastUnavailable, {}, eligibleBroadcasts};
+	}
+
 	if (cleanKey.isEmpty()) {
 		if (activeBroadcasts.size() == 1)
-			return {YouTubeBroadcastSelectionState::Selected, activeBroadcasts.first()};
+			return {YouTubeBroadcastSelectionState::Selected, activeBroadcasts.first(), activeBroadcasts};
 		if (activeBroadcasts.size() > 1)
-			return {YouTubeBroadcastSelectionState::MultipleActiveBroadcasts, {}};
+			return {YouTubeBroadcastSelectionState::MultipleActiveBroadcasts, {}, activeBroadcasts};
 		return {};
 	}
 
 	if (matchingBroadcasts.size() == 1)
-		return {YouTubeBroadcastSelectionState::Selected, matchingBroadcasts.first()};
+		return {YouTubeBroadcastSelectionState::Selected, matchingBroadcasts.first(), matchingBroadcasts};
 	if (matchingBroadcasts.size() > 1)
-		return {YouTubeBroadcastSelectionState::MultipleStreamKeyMatches, {}};
+		return {YouTubeBroadcastSelectionState::MultipleStreamKeyMatches, {}, matchingBroadcasts};
 	if (!activeBroadcasts.isEmpty())
-		return {YouTubeBroadcastSelectionState::NoStreamKeyMatch, {}};
+		return {YouTubeBroadcastSelectionState::NoStreamKeyMatch, {}, activeBroadcasts};
 	return {};
+}
+
+bool youtubeHasConflictingAutoStart(const QVector<QJsonObject> &candidates,
+				    const QString &selectedBroadcastId)
+{
+	const QString cleanSelectedId = selectedBroadcastId.trimmed();
+	if (cleanSelectedId.isEmpty())
+		return false;
+
+	for (const QJsonObject &candidate : candidates) {
+		const QString candidateId = candidate.value(QStringLiteral("id")).toString().trimmed();
+		if (candidateId.isEmpty() || candidateId == cleanSelectedId)
+			continue;
+		if (candidate.value(QStringLiteral("contentDetails"))
+			    .toObject()
+			    .value(QStringLiteral("enableAutoStart"))
+			    .toBool(false))
+			return true;
+	}
+	return false;
 }
 
 } // namespace dsk

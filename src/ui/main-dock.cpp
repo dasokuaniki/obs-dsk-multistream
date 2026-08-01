@@ -2,14 +2,19 @@
 
 #include "core/oauth-provider.hpp"
 #include "core/diagnostics.hpp"
+#include "core/experimental-features.hpp"
 #include "core/output-target.hpp"
 #include "core/youtube-api-warning.hpp"
 #include "ui/scene-router-dock.hpp"
+#include "ui/localized-text.hpp"
+#include "ui/stream-control-assets.hpp"
 #include "ui/stream-controls-dock.hpp"
 #include "ui/target-edit-dialog.hpp"
 
 #include <QAbstractItemView>
 #include <QActionGroup>
+#include <QDockWidget>
+#include <QDesktopServices>
 #include <QFrame>
 #include <QHeaderView>
 #include <QHBoxLayout>
@@ -18,14 +23,17 @@
 #include <QMenu>
 #include <QMessageBox>
 #include <QPainter>
+#include <QPixmap>
 #include <QPushButton>
 #include <QSignalBlocker>
+#include <QShowEvent>
 #include <QStackedWidget>
 #include <QStringList>
 #include <QStyle>
 #include <QTableWidget>
 #include <QTimer>
 #include <QToolButton>
+#include <QUrl>
 #include <QVBoxLayout>
 
 #include <utility>
@@ -38,6 +46,54 @@ constexpr int NameColumn = 1;
 constexpr int PlatformColumn = 2;
 constexpr int EncoderColumn = 3;
 constexpr int StateColumn = 4;
+
+class GearMenuButton final : public QToolButton {
+public:
+	explicit GearMenuButton(QWidget *parent = nullptr) : QToolButton(parent)
+	{
+		setObjectName(QStringLiteral("dskStreamingMenu"));
+		setFixedSize(22, 22);
+		setCursor(Qt::PointingHandCursor);
+		texture_.load(streamControlAssetPath("ui/settings-button.png"));
+	}
+
+protected:
+	void paintEvent(QPaintEvent *) override
+	{
+		QPainter painter(this);
+		painter.setRenderHint(QPainter::Antialiasing, true);
+		if (!texture_.isNull()) {
+			painter.drawPixmap(rect(), texture_);
+			return;
+		}
+		const QRectF frame = rect().adjusted(2, 2, -2, -2);
+		QLinearGradient surface(0, frame.top(), 0, frame.bottom());
+		surface.setColorAt(0.0, underMouse() ? QColor(QStringLiteral("#273239")) : QColor(QStringLiteral("#20282e")));
+		surface.setColorAt(1.0, QColor(QStringLiteral("#0d1215")));
+		painter.setPen(QPen(underMouse() ? QColor(QStringLiteral("#35e6f2")) : QColor(QStringLiteral("#4b5962")), 2));
+		painter.setBrush(surface);
+		painter.drawRoundedRect(frame, 5, 5);
+
+		painter.save();
+		painter.translate(width() / 2.0, height() / 2.0);
+		painter.scale(width() / 92.0, height() / 92.0);
+		painter.setPen(Qt::NoPen);
+		painter.setBrush(QColor(QStringLiteral("#d4dbe0")));
+		for (int i = 0; i < 8; ++i) {
+			painter.save();
+			painter.rotate(i * 45.0);
+			painter.drawRoundedRect(QRectF(-5.5, -29, 11, 17), 2, 2);
+			painter.restore();
+		}
+		painter.drawEllipse(QRectF(-20, -20, 40, 40));
+		painter.setBrush(QColor(QStringLiteral("#151c20")));
+		painter.drawEllipse(QRectF(-8, -8, 16, 16));
+		painter.restore();
+	}
+
+private:
+	QPixmap texture_;
+};
 
 QColor stateColor(TargetState state, bool enabled, bool hasError, bool hasWarning = false)
 {
@@ -234,31 +290,13 @@ MainDock::MainDock(OutputManager *manager, QWidget *parent)
 	  manager_(manager)
 {
 	auto *layout = new QVBoxLayout(this);
-	layout->setContentsMargins(4, 4, 4, 4);
-	layout->setSpacing(4);
-
-	auto *topbar = new QHBoxLayout();
-	topbar->setContentsMargins(0, 0, 0, 0);
-	topbar->setSpacing(4);
-
-	pageTitle_ = new QLabel(QStringLiteral("Controls"), this);
-	pageTitle_->setObjectName(QStringLiteral("dskStreamingPageTitle"));
-	auto pageTitleFont = pageTitle_->font();
-	pageTitleFont.setBold(true);
-	pageTitle_->setFont(pageTitleFont);
-
-	menuButton_ = new QToolButton(this);
-	menuButton_->setObjectName(QStringLiteral("dskStreamingMenu"));
-	menuButton_->setText(QString::fromUtf8("\xE2\x9A\x99"));
+	layout->setContentsMargins(0, 0, 0, 0);
+	layout->setSpacing(0);
+	setStyleSheet(QStringLiteral("MainDock { background-color: #080c0f; border: 0; }"));
+	menuButton_ = new GearMenuButton(this);
 	menuButton_->setToolTip(QStringLiteral("Choose DSK Streaming page"));
 	menuButton_->setAccessibleName(QStringLiteral("DSK Streaming menu"));
 	menuButton_->setPopupMode(QToolButton::InstantPopup);
-	menuButton_->setAutoRaise(true);
-	menuButton_->setFixedSize(28, 28);
-
-	topbar->addWidget(pageTitle_);
-	topbar->addStretch(1);
-	topbar->addWidget(menuButton_);
 
 	table_ = new QTableWidget(this);
 	table_->setColumnCount(5);
@@ -308,13 +346,17 @@ MainDock::MainDock(OutputManager *manager, QWidget *parent)
 
 	streamControls_ = new StreamControlsDock(manager_, this);
 	streamControls_->setObjectName(QStringLiteral("dskStreamingControls"));
-	sceneRouter_ = new SceneRouterDock(manager_, this);
-	sceneRouter_->setObjectName(QStringLiteral("dskStreamingScenes"));
+	connect(streamControls_, &StreamControlsDock::editTargetRequested,
+		this, &MainDock::editTargetById);
+	if (experimentalSceneRoutingEnabled()) {
+		sceneRouter_ = new SceneRouterDock(manager_, this);
+		sceneRouter_->setObjectName(QStringLiteral("dskStreamingScenes"));
+	}
 	table_->setObjectName(QStringLiteral("dskStreamingRoutes"));
 
-	auto *targetsPage = new QWidget(this);
-	targetsPage->setObjectName(QStringLiteral("dskStreamingTargetsPage"));
-	auto *targetsLayout = new QVBoxLayout(targetsPage);
+	targetsPage_ = new QWidget(this);
+	targetsPage_->setObjectName(QStringLiteral("dskStreamingTargetsPage"));
+	auto *targetsLayout = new QVBoxLayout(targetsPage_);
 	targetsLayout->setContentsMargins(0, 0, 0, 0);
 	targetsLayout->setSpacing(4);
 	targetsLayout->addWidget(table_, 1);
@@ -323,8 +365,9 @@ MainDock::MainDock(OutputManager *manager, QWidget *parent)
 	pages_ = new QStackedWidget(this);
 	pages_->setObjectName(QStringLiteral("dskStreamingPages"));
 	pages_->addWidget(streamControls_);
-	pages_->addWidget(targetsPage);
-	pages_->addWidget(sceneRouter_);
+	pages_->addWidget(targetsPage_);
+	if (sceneRouter_)
+		pages_->addWidget(sceneRouter_);
 
 	auto *pageMenu = new QMenu(menuButton_);
 	auto *pageActions = new QActionGroup(pageMenu);
@@ -337,17 +380,64 @@ MainDock::MainDock(OutputManager *manager, QWidget *parent)
 		connect(action, &QAction::triggered, this, [this, page, label]() { showPage(page, label); });
 	};
 	addPageAction(QStringLiteral("Controls"), streamControls_, true);
-	addPageAction(QStringLiteral("Targets"), targetsPage);
-	addPageAction(QStringLiteral("Scene Routing"), sceneRouter_);
+	addPageAction(QStringLiteral("Targets"), targetsPage_);
+	if (sceneRouter_)
+		addPageAction(QStringLiteral("Scene Routing (Experimental)"), sceneRouter_);
+	pageMenu->addSeparator();
+	auto addExternalAction = [this, pageMenu](const QString &label, const char *url) {
+		auto *action = pageMenu->addAction(label);
+		connect(action, &QAction::triggered, this,
+			[url]() { QDesktopServices::openUrl(QUrl(QString::fromUtf8(url))); });
+	};
+	addExternalAction(localizedText("DSKMenu.Privacy", "Privacy Policy"),
+			  "https://dsk.dasoku.org/privacy");
+	addExternalAction(localizedText("DSKMenu.Terms", "Terms of Use"),
+			  "https://dsk.dasoku.org/terms");
+	addExternalAction(localizedText("DSKMenu.GooglePermissions", "Google permissions / revoke access"),
+			  "https://security.google.com/settings/security/permissions");
+	addExternalAction(localizedText("DSKMenu.TwitchSimulcasting", "Twitch simulcasting terms"),
+			  "https://www.twitch.tv/p/terms-of-service#simulcasting");
 	menuButton_->setMenu(pageMenu);
 
-	layout->addLayout(topbar);
+	auto *toolbarHost = new QWidget(this);
+	toolbarHost->setObjectName(QStringLiteral("dskStreamingToolbarHost"));
+	toolbarHost->setFixedHeight(60);
+	toolbarHost->setStyleSheet(QStringLiteral(
+		"QWidget#dskStreamingToolbarHost { background-color: #080c0f; border: 0; }"));
+	auto *toolbarHostLayout = new QHBoxLayout(toolbarHost);
+	toolbarHostLayout->setContentsMargins(5, 5, 5, 5);
+	toolbarHostLayout->setSpacing(0);
+
+	auto *toolbar = new QWidget(toolbarHost);
+	toolbar->setObjectName(QStringLiteral("dskStreamingToolbar"));
+	toolbar->setFixedHeight(50);
+	toolbar->setStyleSheet(QStringLiteral(
+		"QWidget#dskStreamingToolbar { background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0, "
+		"stop:0 #1a202b, stop:0.5 #141a24, stop:1 #1b212c); border: 1px solid #2d3541; "
+		"border-radius: 9px; }"));
+	auto *toolbarLayout = new QHBoxLayout(toolbar);
+	toolbarLayout->setContentsMargins(6, 4, 8, 4);
+	toolbarLayout->setSpacing(8);
+	pageLabel_ = new QLabel(QStringLiteral("Controls"), toolbar);
+	pageLabel_->setObjectName(QStringLiteral("dskStreamingPageLabel"));
+	pageLabel_->setStyleSheet(QStringLiteral(
+		"QLabel#dskStreamingPageLabel { color: #b8c0c7; border: 0; background: transparent; "
+		"font-family: 'Bahnschrift Light Condensed'; font-size: 15px; font-weight: 350; letter-spacing: 1px; }"));
+	toolbarLayout->addWidget(menuButton_);
+	toolbarLayout->addWidget(pageLabel_);
+	toolbarLayout->addStretch(1);
+	toolbarLayout->addWidget(streamControls_->allToggleButton());
+	toolbarHostLayout->addWidget(toolbar);
 	layout->addWidget(pages_, 1);
+	layout->addWidget(toolbarHost);
 
-	connect(manager_, &OutputManager::targetsChanged, this, &MainDock::refresh, Qt::QueuedConnection);
-	connect(manager_, &OutputManager::targetRuntimeChanged, this, &MainDock::refresh, Qt::QueuedConnection);
+	connect(manager_, &OutputManager::targetsChanged, this, &MainDock::scheduleRefresh, Qt::QueuedConnection);
+	connect(manager_, &OutputManager::targetRuntimeChanged, this, &MainDock::scheduleRefresh, Qt::QueuedConnection);
 
-	QTimer::singleShot(0, this, [this]() { refresh(); });
+	QTimer::singleShot(0, this, [this]() {
+		updateDockTitle(currentPageTitle_);
+		scheduleRefresh();
+	});
 	QTimer::singleShot(1000, this, [this]() {
 		editArmed_ = true;
 		updateActionStates();
@@ -358,6 +448,31 @@ void MainDock::handleObsNativeStreamingStateChanged(bool active)
 {
 	if (streamControls_)
 		streamControls_->handleObsNativeStreamingStateChanged(active);
+}
+
+void MainDock::showEvent(QShowEvent *event)
+{
+	QWidget::showEvent(event);
+	updateDockTitle(currentPageTitle_);
+	if (pages_ && pages_->currentWidget() == targetsPage_ && targetRefreshGate_.isDirty())
+		scheduleRefresh();
+}
+
+void MainDock::scheduleRefresh()
+{
+	targetRefreshGate_.markDirty();
+	if (!pages_ || pages_->currentWidget() != targetsPage_ || !targetsPage_ || !targetsPage_->isVisible())
+		return;
+	if (refreshPending_)
+		return;
+
+	refreshPending_ = true;
+	QTimer::singleShot(0, this, [this]() {
+		refreshPending_ = false;
+		if (targetRefreshGate_.takeIfVisible(
+			    pages_ && pages_->currentWidget() == targetsPage_ && targetsPage_ && targetsPage_->isVisible()))
+			refresh();
+	});
 }
 
 void MainDock::refresh()
@@ -429,8 +544,26 @@ void MainDock::showPage(QWidget *page, const QString &title)
 	if (!pages_ || !page)
 		return;
 	pages_->setCurrentWidget(page);
-	if (pageTitle_)
-		pageTitle_->setText(title);
+	currentPageTitle_ = title;
+	if (pageLabel_)
+		pageLabel_->setText(title);
+	if (streamControls_ && streamControls_->allToggleButton())
+		streamControls_->allToggleButton()->setVisible(page == streamControls_);
+	updateDockTitle(title);
+	if (page == targetsPage_)
+		scheduleRefresh();
+}
+
+void MainDock::updateDockTitle(const QString &pageTitle)
+{
+	Q_UNUSED(pageTitle);
+	const QString dockTitle = QStringLiteral("DSK Streaming");
+	for (QWidget *ancestor = parentWidget(); ancestor; ancestor = ancestor->parentWidget()) {
+		if (auto *dock = qobject_cast<QDockWidget *>(ancestor)) {
+			dock->setWindowTitle(dockTitle);
+			return;
+		}
+	}
 }
 
 void MainDock::updateActionStates()
@@ -490,6 +623,13 @@ void MainDock::editSelectedTarget()
 	const int row = table_->currentRow();
 	const QString id = targetIdForRow(row);
 	logInfo(QString("Edit target row=%1 id=%2").arg(row).arg(id));
+	editTargetById(id);
+}
+
+void MainDock::editTargetById(const QString &id)
+{
+	if (!editArmed_ || !manager_)
+		return;
 	if (id.isEmpty())
 		return;
 

@@ -3,11 +3,83 @@
 #include <graphics/vec2.h>
 #include <obs.h>
 
+#include <QSet>
 #include <QVector>
 
 #include <utility>
 
 namespace dsk {
+namespace {
+
+void applyItemTransform(obs_sceneitem_t *item, const VerticalLayoutItem &layoutItem)
+{
+	vec2 pos;
+	pos.x = float(layoutItem.rect.x());
+	pos.y = float(layoutItem.rect.y());
+	obs_sceneitem_set_pos(item, &pos);
+
+	vec2 bounds;
+	bounds.x = float(layoutItem.rect.width());
+	bounds.y = float(layoutItem.rect.height());
+	obs_sceneitem_set_bounds(item, &bounds);
+	obs_sceneitem_set_bounds_alignment(item, OBS_ALIGN_CENTER);
+	obs_sceneitem_set_bounds_crop(item, true);
+
+	if (layoutItem.fitMode == FitMode::Fit)
+		obs_sceneitem_set_bounds_type(item, OBS_BOUNDS_SCALE_INNER);
+	else if (layoutItem.fitMode == FitMode::Fill)
+		obs_sceneitem_set_bounds_type(item, OBS_BOUNDS_SCALE_OUTER);
+	else
+		obs_sceneitem_set_bounds_type(item, OBS_BOUNDS_STRETCH);
+
+	obs_sceneitem_crop crop;
+	crop.left = int(layoutItem.crop.x());
+	crop.top = int(layoutItem.crop.y());
+	crop.right = int(layoutItem.crop.width());
+	crop.bottom = int(layoutItem.crop.height());
+	obs_sceneitem_set_crop(item, &crop);
+}
+
+struct TransformUpdateData {
+	const VerticalLayout *layout = nullptr;
+	const QHash<QString, obs_sceneitem_t *> *itemsById = nullptr;
+	const QSet<QString> *expectedIds = nullptr;
+	bool valid = false;
+};
+
+void updateTransformsAtomically(void *param, obs_scene_t *scene)
+{
+	auto *data = static_cast<TransformUpdateData *>(param);
+	if (!data || !data->layout || !data->itemsById || !data->expectedIds)
+		return;
+
+	QSet<obs_sceneitem_t *> liveItems;
+	obs_scene_enum_items(
+		scene,
+		[](obs_scene_t *, obs_sceneitem_t *item, void *itemsParam) {
+			static_cast<QSet<obs_sceneitem_t *> *>(itemsParam)->insert(item);
+			return true;
+		},
+		&liveItems);
+
+	for (const QString &id : *data->expectedIds) {
+		obs_sceneitem_t *item = data->itemsById->value(id, nullptr);
+		if (!item || !liveItems.contains(item))
+			return;
+	}
+
+	if (data->expectedIds->size() != data->itemsById->size() || liveItems.size() != data->expectedIds->size())
+		return;
+
+	for (const auto &layoutItem : data->layout->items) {
+		obs_sceneitem_t *item = data->itemsById->value(layoutItem.id, nullptr);
+		if (item)
+			applyItemTransform(item, layoutItem);
+	}
+	data->valid = true;
+}
+
+} // namespace
 
 VerticalSceneBuilder::VerticalSceneBuilder(QString sceneName)
 	: sceneName_(sceneName.trimmed().isEmpty() ? QStringLiteral("DSK Vertical Program") : std::move(sceneName))
@@ -72,36 +144,36 @@ obs_source_t *VerticalSceneBuilder::rebuild(const VerticalLayout &layout, obs_ca
 			continue;
 		}
 
-		vec2 pos;
-		pos.x = float(layoutItem.rect.x());
-		pos.y = float(layoutItem.rect.y());
-		obs_sceneitem_set_pos(item, &pos);
-
-		vec2 bounds;
-		bounds.x = float(layoutItem.rect.width());
-		bounds.y = float(layoutItem.rect.height());
-		obs_sceneitem_set_bounds(item, &bounds);
-		obs_sceneitem_set_bounds_alignment(item, OBS_ALIGN_CENTER);
-		obs_sceneitem_set_bounds_crop(item, true);
-
-		if (layoutItem.fitMode == FitMode::Fit) {
-			obs_sceneitem_set_bounds_type(item, OBS_BOUNDS_SCALE_INNER);
-		} else if (layoutItem.fitMode == FitMode::Fill) {
-			obs_sceneitem_set_bounds_type(item, OBS_BOUNDS_SCALE_OUTER);
-		} else {
-			obs_sceneitem_set_bounds_type(item, OBS_BOUNDS_STRETCH);
-		}
-
-		obs_sceneitem_crop crop;
-		crop.left = int(layoutItem.crop.x());
-		crop.top = int(layoutItem.crop.y());
-		crop.right = int(layoutItem.crop.width());
-		crop.bottom = int(layoutItem.crop.height());
-		obs_sceneitem_set_crop(item, &crop);
+		applyItemTransform(item, layoutItem);
+		obs_sceneitem_addref(item);
+		if (obs_sceneitem_t *previous = sceneItems_.take(layoutItem.id))
+			obs_sceneitem_release(previous);
+		sceneItems_.insert(layoutItem.id, item);
 		obs_source_release(source);
 	}
 
 	return source();
+}
+
+bool VerticalSceneBuilder::updateItemTransforms(const VerticalLayout &layout)
+{
+	if (!scene_)
+		return false;
+
+	QSet<QString> expectedIds;
+	for (const auto &layoutItem : layout.items) {
+		if (!layoutItem.visible || layoutItem.sourceName.isEmpty())
+			continue;
+		obs_source_t *source = obs_get_source_by_name(layoutItem.sourceName.toUtf8().constData());
+		if (!source)
+			continue;
+		obs_source_release(source);
+		expectedIds.insert(layoutItem.id);
+	}
+
+	TransformUpdateData data{&layout, &sceneItems_, &expectedIds, false};
+	obs_scene_atomic_update(scene_, updateTransformsAtomically, &data);
+	return data.valid;
 }
 
 obs_source_t *VerticalSceneBuilder::source() const
@@ -111,6 +183,9 @@ obs_source_t *VerticalSceneBuilder::source() const
 
 void VerticalSceneBuilder::clear()
 {
+	for (obs_sceneitem_t *item : std::as_const(sceneItems_))
+		obs_sceneitem_release(item);
+	sceneItems_.clear();
 	if (!scene_)
 		return;
 

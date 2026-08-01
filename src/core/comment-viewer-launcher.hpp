@@ -7,6 +7,8 @@ namespace dsk {
 
 QUrl commentViewerBaseUrl();
 QUrl commentViewerPageUrl();
+QUrl commentViewerObsIntegrationUrl();
+bool isCommentViewerInstalled();
 bool startCommentViewerServer();
 bool openCommentViewerApp();
 

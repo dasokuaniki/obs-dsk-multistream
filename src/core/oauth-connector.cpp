@@ -25,6 +25,7 @@ constexpr int OAuthTimeoutMs = 5 * 60 * 1000;
 constexpr int NetworkTimeoutMs = 20 * 1000;
 constexpr int CallbackSocketTimeoutMs = 15 * 1000;
 constexpr int MaxCallbackRequestBytes = 16 * 1024;
+constexpr int MaxYouTubeStreamPages = 20;
 
 QString base64Url(const QByteArray &data)
 {
@@ -337,7 +338,7 @@ void OAuthConnector::handleTokenReply(HttpResponse response)
 	if (authMode_ == TargetAuthMode::TwitchOAuth)
 		fetchTwitchUser(accessToken);
 	else if (authMode_ == TargetAuthMode::YouTubeOAuth)
-		completeYouTubeLogin();
+		fetchYouTubeStreams(accessToken);
 	else if (authMode_ == TargetAuthMode::KickOAuth) {
 		const QJsonObject account = object.value(QStringLiteral("account")).toObject();
 		QString accountName = account.value(QStringLiteral("display_name")).toString().trimmed();
@@ -468,14 +469,75 @@ void OAuthConnector::handleKickChannelReply(HttpResponse response, const QString
 	emit finished(result);
 }
 
-void OAuthConnector::completeYouTubeLogin()
+void OAuthConnector::fetchYouTubeStreams(const QString &accessToken, const QString &pageToken)
+{
+	QUrl url(QStringLiteral("https://www.googleapis.com/youtube/v3/liveStreams"));
+	QUrlQuery query;
+	query.addQueryItem(QStringLiteral("part"), QStringLiteral("id,snippet,cdn,status,contentDetails"));
+	query.addQueryItem(QStringLiteral("mine"), QStringLiteral("true"));
+	query.addQueryItem(QStringLiteral("maxResults"), QStringLiteral("50"));
+	if (!pageToken.isEmpty())
+		query.addQueryItem(QStringLiteral("pageToken"), pageToken);
+	url.setQuery(query);
+
+	HttpRequest request;
+	request.url = url;
+	request.timeoutMs = NetworkTimeoutMs;
+	request.headers.push_back({QByteArrayLiteral("Authorization"), QByteArrayLiteral("Bearer ") + accessToken.toUtf8()});
+	request.headers.push_back({QByteArrayLiteral("Accept"), QByteArrayLiteral("application/json")});
+	http_->send(std::move(request), [this, accessToken](HttpResponse response) {
+		handleYouTubeStreamsReply(std::move(response), accessToken);
+	});
+}
+
+void OAuthConnector::handleYouTubeStreamsReply(HttpResponse response, const QString &accessToken)
+{
+	QString error;
+	const QJsonObject object = responseObject(response, &error);
+	if (!error.isEmpty()) {
+		completeYouTubeLogin(QStringLiteral("YouTube stream list could not be loaded. %1 You can still enter a stream key manually.")
+					     .arg(error));
+		return;
+	}
+
+	const YouTubeStreamPage page = parseYouTubeStreamPage(object);
+	for (const YouTubeStreamOption &stream : page.streams) {
+		bool duplicate = false;
+		for (const YouTubeStreamOption &existing : youtubeStreams_) {
+			if (existing.streamKey == stream.streamKey) {
+				duplicate = true;
+				break;
+			}
+		}
+		if (!duplicate)
+			youtubeStreams_.push_back(stream);
+	}
+
+	++youtubeStreamPageCount_;
+	if (!page.nextPageToken.isEmpty() && youtubeStreamPageCount_ < MaxYouTubeStreamPages) {
+		fetchYouTubeStreams(accessToken, page.nextPageToken);
+		return;
+	}
+	if (!page.nextPageToken.isEmpty()) {
+		completeYouTubeLogin(QStringLiteral("Only the first %1 pages of YouTube streams were loaded. You can still select a loaded stream or enter a key manually.")
+					     .arg(MaxYouTubeStreamPages));
+		return;
+	}
+	completeYouTubeLogin();
+}
+
+void OAuthConnector::completeYouTubeLogin(const QString &streamLookupWarning)
 {
 	OAuthConnectionResult result;
 	result.authMode = authMode_;
 	result.accountName = QStringLiteral("YouTube");
 	result.serverUrl = QStringLiteral("rtmp://a.rtmp.youtube.com/live2");
 	result.refreshToken = refreshToken_;
-	logInfo("OAuth YouTube login completed without live stream lookup.");
+	result.youtubeStreams = youtubeStreams_;
+	result.youtubeStreamLookupWarning = streamLookupWarning;
+	logInfo(QStringLiteral("OAuth YouTube login completed: reusableStreams=%1 lookupWarning=%2")
+			.arg(result.youtubeStreams.size())
+			.arg(streamLookupWarning.isEmpty() ? QStringLiteral("absent") : QStringLiteral("present")));
 	reset();
 	emit finished(result);
 }
@@ -507,6 +569,8 @@ void OAuthConnector::reset()
 	refreshToken_.clear();
 	state_.clear();
 	codeVerifier_.clear();
+	youtubeStreams_.clear();
+	youtubeStreamPageCount_ = 0;
 	callbackHandled_ = false;
 }
 
