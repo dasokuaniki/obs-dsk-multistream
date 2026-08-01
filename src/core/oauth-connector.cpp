@@ -21,7 +21,6 @@ namespace dsk {
 namespace {
 
 constexpr quint16 OAuthCallbackPort = 17371;
-constexpr int OAuthTimeoutMs = 5 * 60 * 1000;
 constexpr int NetworkTimeoutMs = 20 * 1000;
 constexpr int CallbackSocketTimeoutMs = 15 * 1000;
 constexpr int MaxCallbackRequestBytes = 16 * 1024;
@@ -130,7 +129,7 @@ bool OAuthConnector::begin(TargetAuthMode authMode, const QString &clientId, con
 	}
 
 	running_ = true;
-	timeout_->start(OAuthTimeoutMs);
+	timeout_->start(oauthInteractiveTimeoutMs());
 	const QByteArray challengeBytes = QCryptographicHash::hash(codeVerifier_.toUtf8(), QCryptographicHash::Sha256);
 	const OAuthProvider provider = oauthProviderForAuthMode(authMode_);
 	const QString challenge = base64Url(challengeBytes);

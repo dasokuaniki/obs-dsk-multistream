@@ -748,6 +748,12 @@ void testOAuthConnectorRejectsUnsupportedMode()
 	check(!connector.isRunning(), "unsupported OAuth mode leaves no running callback server");
 }
 
+void testOAuthConnectorAllowsInteractiveVerificationTime()
+{
+	check(dsk::oauthInteractiveTimeoutMs() >= 15 * 60 * 1000,
+	      "OAuth callback listener stays available long enough for an unverified-app consent flow");
+}
+
 void testTwitchPublisherOAuthUiAndMigration()
 {
 	dsk::PlatformPresetRegistry platforms;
@@ -1075,6 +1081,7 @@ int main(int argc, char **argv)
 	run("scrollable form", testTargetEditDialogUsesScrollableForm);
 	run("refresh rows hide before deferred delete", testRefreshRowsHideBeforeDeferredDelete);
 	run("unsupported OAuth mode", testOAuthConnectorRejectsUnsupportedMode);
+	run("OAuth interactive timeout", testOAuthConnectorAllowsInteractiveVerificationTime);
 	run("Twitch publisher OAuth UI", testTwitchPublisherOAuthUiAndMigration);
 	run("Kick publisher OAuth UI", testKickPublisherOAuthUiAndMigration);
 	run("YouTube bundled OAuth UI", testYouTubeBundledOAuthUi);

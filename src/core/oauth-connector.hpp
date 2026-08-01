@@ -14,6 +14,11 @@ class QUrl;
 
 namespace dsk {
 
+constexpr int oauthInteractiveTimeoutMs()
+{
+	return 15 * 60 * 1000;
+}
+
 struct OAuthConnectionResult {
 	TargetAuthMode authMode = TargetAuthMode::ManualRtmp;
 	QString accountName;
