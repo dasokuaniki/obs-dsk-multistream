@@ -2,6 +2,14 @@
 
 All notable user-facing changes are documented in this file.
 
+## [Unreleased]
+
+### Changed
+
+- The neutral public Kick badge now uses the same frame, spacing, and centered
+  monochrome typography as the other fallback badges, without a trademark image
+  or brand-color imitation.
+
 ## [0.3.3] - Beta
 
 ### Fixed

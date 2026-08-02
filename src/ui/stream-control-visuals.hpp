@@ -1,5 +1,6 @@
 #pragma once
 
+#include "ui/neutral-platform-badge.hpp"
 #include "ui/stream-control-assets.hpp"
 
 #include <QColor>
@@ -137,9 +138,7 @@ private:
 
 	void drawNeutralTikTokGlyph(QPainter &painter) const
 	{
-		painter.setPen(QPen(QColor(QStringLiteral("#59646e")), 1));
-		painter.setBrush(QColor(QStringLiteral("#151b20")));
-		painter.drawRoundedRect(QRectF(2.5, 2.5, 25, 25), 5, 5);
+		drawNeutralBadgeFrame(painter);
 
 		QPen notePen(QColor(QStringLiteral("#dce2e8")), 2.4, Qt::SolidLine, Qt::RoundCap,
 			     Qt::RoundJoin);
@@ -154,24 +153,13 @@ private:
 
 	void drawNeutralKickGlyph(QPainter &painter) const
 	{
-		painter.setPen(QPen(QColor(QStringLiteral("#59646e")), 1));
-		painter.setBrush(QColor(QStringLiteral("#151b20")));
-		painter.drawRoundedRect(QRectF(2.5, 2.5, 25, 25), 5, 5);
-
-		QPen glyphPen(QColor(QStringLiteral("#dce2e8")), 2.8, Qt::SolidLine,
-			      Qt::SquareCap, Qt::MiterJoin);
-		painter.setPen(glyphPen);
-		painter.setBrush(Qt::NoBrush);
-		painter.drawLine(QPointF(10, 8), QPointF(10, 22));
-		painter.drawLine(QPointF(10, 15), QPointF(20, 8));
-		painter.drawLine(QPointF(10, 15), QPointF(20, 22));
+		drawNeutralBadgeFrame(painter);
+		drawNeutralMonogram(painter, QStringLiteral("K"));
 	}
 
 	void drawNeutralBadge(QPainter &painter) const
 	{
-		painter.setPen(QPen(QColor(QStringLiteral("#59646e")), 1));
-		painter.setBrush(QColor(QStringLiteral("#151b20")));
-		painter.drawRoundedRect(QRectF(2.5, 2.5, 25, 25), 5, 5);
+		drawNeutralBadgeFrame(painter);
 		painter.setPen(QColor(QStringLiteral("#dce2e8")));
 		QFont font(QStringLiteral("Bahnschrift SemiCondensed"));
 		font.setBold(true);

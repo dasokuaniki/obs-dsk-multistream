@@ -133,6 +133,8 @@ if(NOT visuals_hpp MATCHES "youtube-icons-2x.png" OR
    NOT visuals_hpp MATCHES "twitch-glitch-purple.png" OR
    visuals_hpp MATCHES "kick-logo.png" OR
    NOT visuals_hpp MATCHES "drawNeutralKickGlyph" OR
+   NOT visuals_hpp MATCHES "drawNeutralBadgeFrame\\(painter\\)" OR
+   NOT visuals_hpp MATCHES "drawNeutralMonogram\\(painter, QStringLiteral\\(\"K\"\\)\\)" OR
    NOT visuals_hpp MATCHES "tiktok-personal.png" OR
    NOT visuals_hpp MATCHES "normalizedPlatformId" OR
    NOT visuals_hpp MATCHES "drawNeutralTikTokGlyph" OR
@@ -143,7 +145,7 @@ if(NOT visuals_hpp MATCHES "youtube-icons-2x.png" OR
    visuals_hpp MATCHES "#53fc18" OR
    visuals_hpp MATCHES "#25f4ee")
   message(FATAL_ERROR
-    "Platform badges must use first-party YouTube/Twitch assets and neutral public Kick/TikTok glyphs")
+    "Platform badges must use first-party YouTube/Twitch assets and aligned neutral public Kick/TikTok glyphs")
 endif()
 foreach(asset_reference
     settings-button.png)

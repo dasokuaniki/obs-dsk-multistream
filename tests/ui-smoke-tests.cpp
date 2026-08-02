@@ -3,6 +3,7 @@
 #include "core/output-target.hpp"
 #include "core/platform-preset-registry.hpp"
 #include "ui/layout-widget-utils.hpp"
+#include "ui/neutral-platform-badge.hpp"
 #include "ui/target-edit-dialog.hpp"
 
 #include <QApplication>
@@ -12,16 +13,19 @@
 #include <QEvent>
 #include <QFormLayout>
 #include <QLabel>
+#include <QImage>
 #include <QLineEdit>
 #include <QListWidget>
 #include <QPointer>
 #include <QPushButton>
+#include <QPainter>
 #include <QScrollArea>
 #include <QString>
 #include <QToolButton>
 #include <QVBoxLayout>
 #include <QWidget>
 
+#include <algorithm>
 #include <iostream>
 
 namespace {
@@ -1053,6 +1057,45 @@ void testKickPublisherOAuthUiAndMigration()
 	check(connectButton->text() == "Connect Kick", "Kick Disconnect returns the action to Connect Kick");
 }
 
+void testNeutralKickBadgeRendering()
+{
+	QImage image(QSize(30, 30), QImage::Format_ARGB32_Premultiplied);
+	image.fill(Qt::transparent);
+	QPainter painter(&image);
+	dsk::drawNeutralBadgeFrame(painter);
+	dsk::drawNeutralMonogram(painter, QStringLiteral("K"));
+	painter.end();
+
+	int brightPixelCount = 0;
+	int maximumSaturation = 0;
+	qint64 brightPixelXTotal = 0;
+	for (int y = 0; y < image.height(); ++y) {
+		for (int x = 0; x < image.width(); ++x) {
+			const QColor pixel = image.pixelColor(x, y);
+			if (pixel.alpha() == 0)
+				continue;
+			maximumSaturation = std::max(maximumSaturation, pixel.hsvSaturation());
+			if (qGray(pixel.rgb()) >= 180) {
+				++brightPixelCount;
+				brightPixelXTotal += x;
+			}
+		}
+	}
+
+	check(brightPixelCount >= 18, "neutral Kick badge renders a legible foreground monogram");
+	if (brightPixelCount > 0) {
+		const double brightCenterX = static_cast<double>(brightPixelXTotal) / brightPixelCount;
+		check(brightCenterX >= 12.0 && brightCenterX <= 17.0,
+		      "neutral Kick monogram remains visually centered in the shared badge frame");
+	}
+	check(maximumSaturation < 90,
+	      "neutral Kick badge avoids official brand colors and remains monochrome");
+
+	const QByteArray previewPath = qgetenv("DSK_UI_PREVIEW_PATH");
+	if (!previewPath.isEmpty())
+		check(image.save(QString::fromLocal8Bit(previewPath)), "neutral Kick preview can be saved");
+}
+
 } // namespace
 
 int main(int argc, char **argv)
@@ -1084,6 +1127,7 @@ int main(int argc, char **argv)
 	run("OAuth interactive timeout", testOAuthConnectorAllowsInteractiveVerificationTime);
 	run("Twitch publisher OAuth UI", testTwitchPublisherOAuthUiAndMigration);
 	run("Kick publisher OAuth UI", testKickPublisherOAuthUiAndMigration);
+	run("neutral Kick badge rendering", testNeutralKickBadgeRendering);
 	run("YouTube bundled OAuth UI", testYouTubeBundledOAuthUi);
 	run("YouTube OAuth legal consent", testYouTubeOAuthRequiresLegalConsent);
 	run("YouTube stream selection", testYouTubeStreamSelectionAfterLogin);
