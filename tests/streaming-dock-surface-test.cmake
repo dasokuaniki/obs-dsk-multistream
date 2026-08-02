@@ -124,14 +124,22 @@ get_filename_component(repo_dir "${source_dir}" DIRECTORY)
 foreach(asset
     settings-button.png
     youtube-icons-2x.png
-    twitch-glitch-purple.png)
+    twitch-glitch-purple.png
+    kick-icon-green.png)
   if(NOT EXISTS "${repo_dir}/data/ui/${asset}")
     message(FATAL_ERROR "Reference button asset is missing: ${asset}")
   endif()
 endforeach()
+file(SHA256 "${repo_dir}/data/ui/kick-icon-green.png" kick_icon_sha256)
+if(NOT kick_icon_sha256 STREQUAL "c69a9134c1dab882b09ec0d37ec8b0c27ce0060c49958584a2a3e976e0bb5a10")
+  message(FATAL_ERROR "The official Kick icon must remain byte-for-byte identical to the Brand Hub asset")
+endif()
 if(NOT visuals_hpp MATCHES "youtube-icons-2x.png" OR
    NOT visuals_hpp MATCHES "twitch-glitch-purple.png" OR
-   visuals_hpp MATCHES "kick-logo.png" OR
+   NOT visuals_hpp MATCHES "kick-icon-green.png" OR
+   NOT visuals_hpp MATCHES "kickOfficialIcon" OR
+   NOT visuals_hpp MATCHES "QImageReader" OR
+   NOT visuals_hpp MATCHES "setScaledSize" OR
    NOT visuals_hpp MATCHES "drawNeutralKickGlyph" OR
    NOT visuals_hpp MATCHES "drawNeutralBadgeFrame\\(painter\\)" OR
    NOT visuals_hpp MATCHES "drawNeutralMonogram\\(painter, QStringLiteral\\(\"K\"\\)\\)" OR
@@ -142,10 +150,9 @@ if(NOT visuals_hpp MATCHES "youtube-icons-2x.png" OR
    NOT visuals_hpp MATCHES "Qt::KeepAspectRatio" OR
    visuals_hpp MATCHES "#ff2028" OR
    visuals_hpp MATCHES "#9146ff" OR
-   visuals_hpp MATCHES "#53fc18" OR
    visuals_hpp MATCHES "#25f4ee")
   message(FATAL_ERROR
-    "Platform badges must use first-party YouTube/Twitch assets and aligned neutral public Kick/TikTok glyphs")
+    "Platform badges must use first-party YouTube/Twitch/Kick assets and an aligned neutral public TikTok glyph")
 endif()
 foreach(asset_reference
     settings-button.png)

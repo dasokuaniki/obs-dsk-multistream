@@ -87,4 +87,7 @@ DSK Multistream is free and open-source software. Sponsorships and donations sup
 
 ## License
 
-GPL-2.0-or-later.
+The DSK Multistream source code is GPL-2.0-or-later. Third-party trademarks and
+brand assets identified in `docs/third-party-notices.md`, including the official
+Kick icon, remain the property of their respective owners and are not licensed
+under the GPL.

@@ -2,6 +2,14 @@
 
 All notable user-facing changes are documented in this file.
 
+## [0.3.5] - Beta
+
+### Changed
+
+- The Kick destination badge now uses Kick's unmodified official Green Icon from
+  the first-party KICK Brand Hub. The bundled notice identifies the icon as a
+  Kick-owned trademark asset outside the project's GPL license.
+
 ## [0.3.4] - Beta
 
 ### Fixed

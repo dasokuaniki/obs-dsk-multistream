@@ -67,6 +67,15 @@ foreach(required_notice_text IN ITEMS "OBS Studio" "Twitch" "YouTube" "Kick")
     message(FATAL_ERROR "Third-party notice is missing ${required_notice_text}")
   endif()
 endforeach()
+foreach(required_kick_notice IN ITEMS
+    "https://brandfolder.com/s/rn8r76txqxvc4vcjhf6km6w"
+    "not licensed under DSK Multistream's GPL-2.0-or-later license"
+    "owned by Kick or its licensors")
+  string(FIND "${notice}" "${required_kick_notice}" position)
+  if(position EQUAL -1)
+    message(FATAL_ERROR "Kick trademark notice is missing: ${required_kick_notice}")
+  endif()
+endforeach()
 
 foreach(required_removal_guard IN ITEMS
     "DSK Multistream/"

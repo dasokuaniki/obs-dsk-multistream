@@ -27,12 +27,19 @@ listed platform.
 
 ## Kick
 
+- UI asset: `data/ui/kick-icon-green.png`
+- Source: KICK Brand Hub, Icons collection
+  <https://brandfolder.com/s/rn8r76txqxvc4vcjhf6km6w>
 - Official brand resources: <https://about.kick.com/brand>
-- Public UI: neutral monochrome destination glyph drawn by DSK; no Kick image is
-  included in source or installer payloads.
-- Reason: a third-party repository's GPL license governs copyright in its code
-  and files but does not grant permission to redistribute another company's
-  trademark. The first-party toolkit is linked for reference and is not bundled.
+- Developer terms: <https://dev.kick.com/terms-of-service>
+- Retrieved: 2026-08-02
+- SHA-256: `C69A9134C1DAB882B09EC0D37EC8B0C27CE0060C49958584A2A3E976E0BB5A10`
+- Usage: the official Green Icon PNG is displayed only to identify Kick as the
+  user-selected streaming destination. It is resized with its original aspect
+  ratio and is not cropped, recolored, reshaped, or used as DSK branding.
+- License: the image and Kick marks remain property of Kick or its licensors and
+  are not licensed under DSK Multistream's GPL-2.0-or-later license. See
+  `docs/third-party-notices.md`.
 
 ## TikTok in public builds
 

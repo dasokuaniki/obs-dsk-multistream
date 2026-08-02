@@ -5,6 +5,7 @@
 
 #include <QColor>
 #include <QDesktopServices>
+#include <QImageReader>
 #include <QLinearGradient>
 #include <QPainter>
 #include <QPixmap>
@@ -74,6 +75,13 @@ protected:
 				return;
 			}
 		} else if (platformId_ == QStringLiteral("kick")) {
+			const QPixmap &icon = kickOfficialIcon();
+			if (!icon.isNull()) {
+				const QRectF bounds = QRectF(rect()).adjusted(3, 2, -3, -2);
+				painter.drawPixmap(fittedRect(bounds, icon.size()), icon,
+						   QRectF(icon.rect()));
+				return;
+			}
 			drawNeutralKickGlyph(painter);
 			return;
 		} else if (platformId_ == QStringLiteral("tiktok")) {
@@ -120,6 +128,22 @@ private:
 	static const QPixmap &twitchGlitchIcon()
 	{
 		static const QPixmap icon(streamControlAssetPath("ui/twitch-glitch-purple.png"));
+		return icon;
+	}
+
+	static const QPixmap &kickOfficialIcon()
+	{
+		// Official unmodified Green Icon from KICK's public Brand Hub.
+		// This trademark asset is not licensed under the project's GPL license.
+		static const QPixmap icon = []() {
+			QImageReader reader(streamControlAssetPath("ui/kick-icon-green.png"));
+			QSize decodedSize = reader.size();
+			if (decodedSize.isValid()) {
+				decodedSize.scale(QSize(48, 48), Qt::KeepAspectRatio);
+				reader.setScaledSize(decodedSize);
+			}
+			return QPixmap::fromImage(reader.read());
+		}();
 		return icon;
 	}
 

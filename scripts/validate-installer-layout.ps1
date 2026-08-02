@@ -19,6 +19,7 @@ $requiredFiles = @(
     "data\locale\ja-JP.ini",
     "data\presets\platforms.json",
     "data\ui\settings-button.png",
+    "data\ui\kick-icon-green.png",
     "docs\beta-distribution.md",
     "docs\privacy.md",
     "docs\third-party-notices.md",

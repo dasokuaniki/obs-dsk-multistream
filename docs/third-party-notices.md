@@ -40,10 +40,19 @@ without changing its color or proportions.
 
 ## Kick
 
-The public installer does not contain a Kick trademark image. The UI uses a
-neutral monochrome destination glyph because third-party source-code licensing
-does not grant trademark permission. Kick publishes first-party resources at
-<https://about.kick.com/brand>; those resources are not redistributed here.
+The Kick Green Icon is obtained directly from Kick's official Brand Hub and is
+displayed only to identify Kick as a user-selected streaming destination. It is
+included without recoloring, cropping, reshaping, or implying that DSK is
+affiliated with, sponsored by, or endorsed by Kick.
+
+The Kick icon, Kick name, and other Kick marks are owned by Kick or its licensors.
+They are not licensed under DSK Multistream's GPL-2.0-or-later license. No rights
+to reuse the Kick asset separately from its permitted attribution purpose are
+granted by this distribution.
+
+- Official asset collection: <https://brandfolder.com/s/rn8r76txqxvc4vcjhf6km6w>
+- Brand resources: <https://about.kick.com/brand>
+- Developer agreement: <https://dev.kick.com/terms-of-service>
 
 ## TikTok
 
