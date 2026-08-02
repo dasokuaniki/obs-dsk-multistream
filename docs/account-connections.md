@@ -37,6 +37,14 @@ does not replace removal of the local credential.
 
 `Login with Kick` uses the DSK publisher OAuth relay and a dedicated `multistream` application profile. The desktop plugin opens the system browser, uses a loopback callback with PKCE, and requests `user:read`, `channel:read`, and `streamkey:read`.
 
+The Kick developer application must enable all three matching permissions:
+user information, channel information, and stream-key access. Kick can accept
+the authorization request while omitting a permission that is disabled on the
+developer application. In that case the relay rejects the incomplete token and
+the plugin cannot retrieve the stream URL or key. After changing the developer
+application permissions, reconnect Kick in the target editor to issue a new
+grant.
+
 Comment Viewer and Multistream use different Twitch and Kick provider applications. Multistream must never fall back to the Comment Viewer client registration, and a connection created before this separation may require one reconnect.
 
 After authorization, DSK reads the authenticated channel from Kick's official `GET /public/v1/channels` endpoint and stores the returned RTMP(S) URL and stream key locally. The OAuth access and refresh tokens are not retained by the OBS target. The Comment Viewer keeps its separate Kick profile and does not receive the stream-key permission.
