@@ -2,7 +2,12 @@
 
 All notable user-facing changes are documented in this file.
 
-## [Unreleased]
+## [0.3.4] - Beta
+
+### Fixed
+
+- Google and Twitch login now keep the local OAuth callback listener available
+  for 15 minutes, allowing manual verification screens to complete safely.
 
 ### Changed
 

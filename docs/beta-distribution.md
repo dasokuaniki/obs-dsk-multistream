@@ -1,4 +1,4 @@
-# DSK Multistream 0.3.3 limited beta guide
+# DSK Multistream 0.3.4 limited beta guide
 
 This build is for a limited beta of up to 20 invited users. Do not mirror or
 redistribute the installer. DSK Multistream is free and open-source software;
@@ -33,7 +33,7 @@ client secrets, and personal information before sending a log.
 
 ---
 
-# DSK Multistream 0.3.3 限定ベータ案内
+# DSK Multistream 0.3.4 限定ベータ案内
 
 このビルドは招待した最大20人向けの限定ベータです。インストーラーを転載・再配布
 しないでください。DSK Multistreamは無料のオープンソースソフトウェアで、対応する
