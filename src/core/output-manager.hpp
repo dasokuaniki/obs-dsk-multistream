@@ -175,6 +175,7 @@ private:
 			       const QString &technicalError = {});
 	void notifyCommentViewerYouTubeStarted(const QString &targetId, quint64 sessionSerial,
 					       const QString &broadcastId);
+	void resolveCommentViewerYouTubeBroadcastSelection(const QString &targetId, quint64 sessionSerial);
 	void maybeStartYouTubeBroadcast(const QString &targetId, quint64 sessionSerial, int attempt = 0);
 	bool youtubeOperationMatches(const QString &targetId, quint64 sessionSerial, quint64 operationGeneration) const;
 	void completeYouTubeOperation(const QString &targetId, quint64 sessionSerial, quint64 operationGeneration);

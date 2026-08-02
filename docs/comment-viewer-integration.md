@@ -30,6 +30,12 @@ This regressed intermittently before 2026-07-30 and can appear fixed after a res
 
 Turning **Comment Viewer integration** off cancels pending checks and removes only the `dskcommentsviewer` dock for the current OBS session. It does not stop Viewer or remove Viewer files, settings, accounts, or credentials. If Viewer remains installed, the integration starts on again at the next OBS startup.
 
+When Comment Viewer has just created and bound a YouTube broadcast, Multistream checks the following loopback-only endpoint before it sends RTMP video:
+
+`GET http://127.0.0.1:17321/api/integrations/obs/v2/youtube-broadcast-selection`
+
+The response contains only the prepared 11-character YouTube broadcast ID and its scheduled time. Multistream uses it only when the user has not already selected a broadcast in Multistream. It then performs the normal YouTube broadcast/stream-key lookup and the existing same-key auto-start conflict checks before sending video. A missing, old, invalid, or unavailable Viewer response falls back to the existing YouTube selection flow. No OAuth token, stream key, or account data is exchanged, and browser-origin requests are rejected.
+
 After YouTube confirms that the selected broadcast is actually `live`, Multistream sends one loopback-only `POST` notification to:
 
 `http://127.0.0.1:17321/api/integrations/obs/v2/youtube-live-start`

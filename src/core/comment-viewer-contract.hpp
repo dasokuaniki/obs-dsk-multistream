@@ -21,6 +21,26 @@ struct CommentViewerObsIntegration {
 	bool canSendComments = false;
 };
 
+struct CommentViewerYouTubeBroadcastSelection {
+	QString broadcastId;
+};
+
+inline bool isCommentViewerYouTubeBroadcastId(const QString &value)
+{
+	const QString broadcastId = value.trimmed();
+	if (broadcastId.size() != 11)
+		return false;
+	for (const QChar character : broadcastId) {
+		const ushort code = character.unicode();
+		const bool asciiAlphaNumeric = (code >= 'A' && code <= 'Z') ||
+					       (code >= 'a' && code <= 'z') ||
+					       (code >= '0' && code <= '9');
+		if (!asciiAlphaNumeric && character != QLatin1Char('_') && character != QLatin1Char('-'))
+			return false;
+	}
+	return true;
+}
+
 inline QUrl commentViewerYouTubeRecheckUrl()
 {
 	return QUrl(QStringLiteral("http://127.0.0.1:17321/api/youtube/recheck"));
@@ -31,13 +51,18 @@ inline QUrl commentViewerYouTubeLiveStartUrl()
 	return QUrl(QStringLiteral("http://127.0.0.1:17321/api/integrations/obs/v2/youtube-live-start"));
 }
 
+inline QUrl commentViewerYouTubeBroadcastSelectionUrl()
+{
+	return QUrl(QStringLiteral("http://127.0.0.1:17321/api/integrations/obs/v2/youtube-broadcast-selection"));
+}
+
 inline QByteArray commentViewerYouTubeLiveStartPayload(const QString &sessionId,
 						       const QString &broadcastId)
 {
 	const QString normalizedSessionId = sessionId.trimmed();
 	const QString normalizedBroadcastId = broadcastId.trimmed();
 	if (normalizedSessionId.isEmpty() || normalizedSessionId.size() > 120 ||
-	    normalizedBroadcastId.size() != 11)
+	    !isCommentViewerYouTubeBroadcastId(normalizedBroadcastId))
 		return {};
 	for (const QChar character : normalizedSessionId) {
 		if (!character.isLetterOrNumber() && character != QLatin1Char(':') &&
@@ -45,19 +70,23 @@ inline QByteArray commentViewerYouTubeLiveStartPayload(const QString &sessionId,
 			return {};
 		}
 	}
-	for (const QChar character : normalizedBroadcastId) {
-		const ushort value = character.unicode();
-		const bool asciiAlphaNumeric = (value >= 'A' && value <= 'Z') ||
-					       (value >= 'a' && value <= 'z') ||
-					       (value >= '0' && value <= '9');
-		if (!asciiAlphaNumeric && character != QLatin1Char('_') &&
-		    character != QLatin1Char('-')) {
-			return {};
-		}
-	}
 	return QJsonDocument(QJsonObject{{QStringLiteral("sessionId"), normalizedSessionId},
 					 {QStringLiteral("broadcastId"), normalizedBroadcastId}})
 		.toJson(QJsonDocument::Compact);
+}
+
+inline std::optional<CommentViewerYouTubeBroadcastSelection>
+parseCommentViewerYouTubeBroadcastSelection(const QByteArray &payload)
+{
+	QJsonParseError error{};
+	const QJsonDocument document = QJsonDocument::fromJson(payload, &error);
+	if (error.error != QJsonParseError::NoError || !document.isObject())
+		return std::nullopt;
+	const QJsonObject root = document.object();
+	const QString broadcastId = root.value(QStringLiteral("broadcastId")).toString().trimmed();
+	if (!root.value(QStringLiteral("ok")).toBool() || !isCommentViewerYouTubeBroadcastId(broadcastId))
+		return std::nullopt;
+	return CommentViewerYouTubeBroadcastSelection{broadcastId};
 }
 
 inline bool isCommentViewerInstallDirectory(const QString &directory)

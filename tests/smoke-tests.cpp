@@ -20,6 +20,7 @@
 #include "ui/vertical-source-icon.hpp"
 #include "ui/visible-refresh-gate.hpp"
 #include "ui/vertical-layout-metrics.hpp"
+#include "ui/vertical-toolbar-layout.hpp"
 
 #include <QCoreApplication>
 #include <QDateTime>
@@ -45,6 +46,7 @@ static_assert(dsk::VerticalPreviewMinimumWidth == 110);
 static_assert(dsk::VerticalPreviewMinimumHeight == 195);
 static_assert(dsk::VerticalPreviewMinimumHeight * 9 == dsk::VerticalPreviewMinimumWidth * 16 - 5,
 	      "vertical preview minimum should remain approximately 9:16");
+static_assert(dsk::VerticalToolbarCompactWidth == 280);
 
 void check(bool condition, const char *message)
 {
@@ -1616,6 +1618,37 @@ void testCommentViewerObsIntegrationContract()
 	      "malformed Comment Viewer integration responses are rejected");
 }
 
+void testCommentViewerYouTubeBroadcastSelectionContract()
+{
+	using namespace dsk;
+	check(commentViewerYouTubeBroadcastSelectionUrl() ==
+		      QUrl(QStringLiteral("http://127.0.0.1:17321/api/integrations/obs/v2/youtube-broadcast-selection")),
+	      "Comment Viewer broadcast selection uses the fixed PC loopback endpoint");
+
+	const QByteArray valid = QByteArrayLiteral(
+		R"({"ok":true,"broadcastId":"abc123DEF45","scheduledStartTime":"2026-08-03T10:00:00.000Z"})");
+	const auto selection = parseCommentViewerYouTubeBroadcastSelection(valid);
+	check(selection && selection->broadcastId == QStringLiteral("abc123DEF45"),
+	      "Comment Viewer broadcast selection accepts an exact YouTube video ID");
+	check(!parseCommentViewerYouTubeBroadcastSelection(
+		       QByteArrayLiteral(R"({"ok":true,"broadcastId":"../invalid"})")),
+	      "Comment Viewer broadcast selection rejects unsafe IDs");
+	check(!parseCommentViewerYouTubeBroadcastSelection(
+		       QByteArrayLiteral(R"({"ok":false,"broadcastId":"abc123DEF45"})")),
+	      "Comment Viewer broadcast selection rejects inactive responses");
+}
+
+void testVerticalToolbarResponsivePolicy()
+{
+	using namespace dsk;
+	check(verticalToolbarUsesCompactMode(279),
+	      "vertical toolbar compacts before it can hold the dock open");
+	check(!verticalToolbarUsesCompactMode(280),
+	      "vertical toolbar restores labels at the normal-width boundary");
+	check(VerticalToolbarControlMinimumWidth * 4 + VerticalToolbarMaximumSpacing * 4 <= 160,
+	      "vertical toolbar controls permit an approximately half-width dock");
+}
+
 void testCommentViewerInstallDetection()
 {
 	QTemporaryDir temporary;
@@ -1708,8 +1741,10 @@ int main(int argc, char **argv)
 	testYouTubeArchiveRotationHelpers();
 	testYouTubeStreamOptions();
 	testCommentViewerObsIntegrationContract();
+	testCommentViewerYouTubeBroadcastSelectionContract();
 	testCommentViewerInstallDetection();
 	testCommentViewerIntegrationProbePolicy();
+	testVerticalToolbarResponsivePolicy();
 	testExperimentalSceneRoutingPolicy();
 	testDataFiles();
 

@@ -40,6 +40,7 @@ namespace dsk {
 namespace {
 
 constexpr int PlatformApiTimeoutMs = 20 * 1000;
+constexpr int CommentViewerSelectionTimeoutMs = 750;
 constexpr int YouTubeApiPageSize = 50;
 constexpr int YouTubeMaxBroadcastPagesPerStatus = 10;
 constexpr int YouTubeMaxTransientRetries = 5;
@@ -69,6 +70,7 @@ struct OutputManager::Session {
 	bool youtubeOperationInFlight = false;
 	bool youtubeAuthRefreshRetried = false;
 	bool youtubePreflight = false;
+	bool youtubeCommentViewerSelectionChecked = false;
 	bool youtubeAwaitingSelection = false;
 	QJsonObject youtubeRotationCurrentBroadcast;
 	QString youtubeRotationCurrentBroadcastId;
@@ -2065,8 +2067,44 @@ bool OutputManager::beginYouTubeStartPreflight(OutputTarget &target)
 			.arg(session->serial));
 	emit statusMessage(QStringLiteral("%1: Confirming the YouTube broadcast before sending video.")
 				   .arg(target.name));
-	maybeStartYouTubeBroadcast(target.id, session->serial);
+	resolveCommentViewerYouTubeBroadcastSelection(target.id, session->serial);
 	return true;
+}
+
+void OutputManager::resolveCommentViewerYouTubeBroadcastSelection(const QString &targetId,
+							  quint64 sessionSerial)
+{
+	Session *session = sessionForTarget(targetId);
+	if (!session || session->serial != sessionSerial || !session->youtubePreflight)
+		return;
+	TargetRuntimeStatus &runtime = ensureRuntimeStatus(targetId);
+	if (session->youtubeCommentViewerSelectionChecked || !runtime.broadcastId.trimmed().isEmpty()) {
+		maybeStartYouTubeBroadcast(targetId, sessionSerial);
+		return;
+	}
+	session->youtubeCommentViewerSelectionChecked = true;
+
+	HttpRequest request;
+	request.url = commentViewerYouTubeBroadcastSelectionUrl();
+	request.timeoutMs = CommentViewerSelectionTimeoutMs;
+	request.maxResponseBytes = 4096;
+	const quint64 requestId = http_->send(std::move(request), [this, targetId, sessionSerial](HttpResponse response) {
+		Session *currentSession = sessionForTarget(targetId);
+		if (!currentSession || currentSession->serial != sessionSerial || !currentSession->youtubePreflight)
+			return;
+		if (response.isSuccess()) {
+			const auto selection = parseCommentViewerYouTubeBroadcastSelection(response.body);
+			TargetRuntimeStatus &currentRuntime = ensureRuntimeStatus(targetId);
+			if (selection && currentRuntime.broadcastId.trimmed().isEmpty()) {
+				currentRuntime.broadcastId = selection->broadcastId;
+				logInfo(QStringLiteral("Using the YouTube broadcast prepared by DSK Comment Viewer for session %1.")
+						.arg(sessionSerial));
+			}
+		}
+		maybeStartYouTubeBroadcast(targetId, sessionSerial);
+	});
+	if (requestId == 0)
+		maybeStartYouTubeBroadcast(targetId, sessionSerial);
 }
 
 bool OutputManager::startIndependentTarget(OutputTarget &target, Session *existingSession)
