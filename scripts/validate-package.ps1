@@ -3,10 +3,15 @@ param(
     [string]$ObsPluginRoot = "$env:ProgramData\obs-studio\plugins\obs-dsk-multistream",
     [string]$ObsPluginScanRoot = "",
     [string]$ObsRuntimeDir = "$env:ProgramFiles\obs-studio\bin\64bit",
+    [string]$InstalledDllName = "obs-dsk-multistream.dll",
     [switch]$RequireValidSignature
 )
 
 $ErrorActionPreference = "Stop"
+
+if ($InstalledDllName -notmatch "^[A-Za-z0-9._-]+\.dll$") {
+    throw "InstalledDllName must be a plain DLL file name: $InstalledDllName"
+}
 
 function Require-File {
     param(
@@ -124,7 +129,7 @@ foreach ($platform in $platformsJson.platforms) {
     $platformIds[$platform.id] = $true
 }
 
-foreach ($required in @("twitch", "youtube", "kick", "tiktok", "custom")) {
+foreach ($required in @("twitch", "youtube", "kick", "custom")) {
     if (-not $platformIds.ContainsKey($required)) {
         throw "Missing required platform preset: $required"
     }
@@ -143,7 +148,7 @@ foreach ($key in $jaKeys.Keys) {
     }
 }
 
-$installedDll = Join-Path $ObsPluginRoot "bin\64bit\obs-dsk-multistream.dll"
+$installedDll = Join-Path (Join-Path $ObsPluginRoot "bin\64bit") $InstalledDllName
 $installedEn = Join-Path $ObsPluginRoot "data\locale\en-US.ini"
 $installedJa = Join-Path $ObsPluginRoot "data\locale\ja-JP.ini"
 $installedPresets = Join-Path $ObsPluginRoot "data\presets\platforms.json"
@@ -190,10 +195,10 @@ if ([string]::IsNullOrWhiteSpace($scanRoot)) {
 
 $duplicateDlls = @()
 if ($scanRoot -and (Test-Path -LiteralPath $scanRoot)) {
-    $duplicateDlls = @(Get-ChildItem -LiteralPath $scanRoot -Recurse -Filter "obs-dsk-multistream.dll" -ErrorAction SilentlyContinue)
+    $duplicateDlls = @(Get-ChildItem -LiteralPath $scanRoot -Recurse -Filter $InstalledDllName -ErrorAction SilentlyContinue)
     if ($duplicateDlls.Count -ne 1) {
         $paths = ($duplicateDlls | Select-Object -ExpandProperty FullName) -join [Environment]::NewLine
-        throw "Expected exactly one obs-dsk-multistream.dll under OBS plugin scan root '$scanRoot', found $($duplicateDlls.Count):$([Environment]::NewLine)$paths"
+        throw "Expected exactly one $InstalledDllName under OBS plugin scan root '$scanRoot', found $($duplicateDlls.Count):$([Environment]::NewLine)$paths"
     }
 
     $installedResolved = (Resolve-Path -LiteralPath $installedDll).Path

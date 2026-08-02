@@ -8,6 +8,8 @@ All notable user-facing changes are documented in this file.
 
 - Google and Twitch login now keep the local OAuth callback listener available
   for 15 minutes, allowing manual verification screens to complete safely.
+- Package validation now follows the public four-preset policy and can verify
+  a safely named development-slot DLL without mistaking it for the release DLL.
 
 ### Changed
 

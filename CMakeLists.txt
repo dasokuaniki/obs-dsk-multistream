@@ -367,6 +367,7 @@ if(DSK_BUILD_TESTS)
       "${CMAKE_COMMAND}"
       "-DINSTALL_SCRIPT=${CMAKE_CURRENT_SOURCE_DIR}/scripts/install-user-plugin.ps1"
       "-DINSTALLER_DEFINITION=${CMAKE_CURRENT_SOURCE_DIR}/installer/dsk-multistream.iss"
+      "-DVALIDATE_SCRIPT=${CMAKE_CURRENT_SOURCE_DIR}/scripts/validate-package.ps1"
       -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/install-user-plugin-test.cmake"
   )
   set_tests_properties(dsk-install-user-plugin-test PROPERTIES LABELS "unit;packaging;no-obs")
