@@ -4,6 +4,13 @@ All notable user-facing changes are documented in this file.
 
 ## [0.3.5] - Beta
 
+### Fixed
+
+- YouTube no longer shows a false selected-broadcast warning while the API is
+  still propagating the stream from ready to active immediately after RTMP connects.
+  The confirmed selection is retried for a bounded 10-second window before the
+  existing safe warning is shown.
+
 ### Changed
 
 - The Kick destination badge now uses Kick's unmodified official Green Icon from

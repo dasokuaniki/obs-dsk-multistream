@@ -1039,6 +1039,17 @@ void testOutputSignalPolicy()
 		check(!dsk::shouldIgnoreOutputSignalDuringPendingRelease(signal),
 		      qPrintable(QStringLiteral("pending output release preserves %1 cleanup signals").arg(signal)));
 	}
+
+	check(dsk::shouldRetryYouTubePreferredBroadcastAfterRtmp(false, true, 0),
+	      "a newly connected RTMP signal retries a transient missing preferred YouTube broadcast");
+	check(dsk::shouldRetryYouTubePreferredBroadcastAfterRtmp(false, true, 4),
+	      "the preferred YouTube broadcast remains retryable through the propagation window");
+	check(!dsk::shouldRetryYouTubePreferredBroadcastAfterRtmp(false, true, 5),
+	      "the preferred YouTube broadcast retry window is bounded");
+	check(!dsk::shouldRetryYouTubePreferredBroadcastAfterRtmp(true, true, 0),
+	      "preflight never retries an unavailable explicit YouTube broadcast");
+	check(!dsk::shouldRetryYouTubePreferredBroadcastAfterRtmp(false, false, 0),
+	      "a missing RTMP signal never hides an unavailable YouTube broadcast");
 }
 
 void testStreamControlsState()

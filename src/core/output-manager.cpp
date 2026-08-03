@@ -2826,6 +2826,18 @@ void OutputManager::processYouTubeBroadcastSelection(const QString &targetId, qu
 			return;
 		}
 		if (selection.state == YouTubeBroadcastSelectionState::PreferredBroadcastUnavailable) {
+			if (shouldRetryYouTubePreferredBroadcastAfterRtmp(
+				    session->youtubePreflight, session->youtubeSignalActiveAtMs > 0, attempt)) {
+				completeYouTubeOperation(targetId, sessionSerial, operationGeneration);
+				setRuntimePlatform(targetId, sessionSerial, PlatformLiveState::LiveStarting,
+						   QStringLiteral("YouTube is updating the selected broadcast - retrying"));
+				logWarning(QStringLiteral("%1: Selected YouTube broadcast is temporarily unavailable after RTMP connected; retrying in 2 seconds (%2/%3).")
+						   .arg(target->name)
+						   .arg(attempt + 1)
+						   .arg(YouTubePreferredBroadcastPropagationMaxRetries));
+				scheduleYouTubePoll(targetId, sessionSerial, operationGeneration, attempt + 1, 2000);
+				return;
+			}
 			resetTransientRetries();
 			completeYouTubeOperation(targetId, sessionSerial, operationGeneration);
 			session->youtubeAwaitingSelection = !selection.candidates.isEmpty();
