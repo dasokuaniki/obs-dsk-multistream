@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.28...3.30)
 
-project(obs-dsk-multistream VERSION 0.3.5 LANGUAGES CXX)
+project(obs-dsk-multistream VERSION 0.3.6 LANGUAGES CXX)
 
 # CMake 4.2 can mojibake the UTF-8 /showIncludes prefix from Japanese MSVC,
 # leaving Ninja with no header dependencies and stale incremental objects.

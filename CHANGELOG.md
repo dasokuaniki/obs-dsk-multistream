@@ -2,6 +2,18 @@
 
 All notable user-facing changes are documented in this file.
 
+## [0.3.6] - Beta
+
+### Fixed
+
+- YouTube now imports a broadcast just created by DSK Comment Viewer before
+  RTMP transmission while preserving manual selection and same-key Auto-start
+  conflict protection.
+- YouTube no longer shows a false selected-broadcast warning while the API is
+  still propagating the stream from ready to active immediately after RTMP connects.
+- The Vertical dock toolbar now compacts at narrow widths instead of forcing the
+  main OBS preview to shrink excessively.
+
 ## [0.3.5] - Beta
 
 ### Fixed
