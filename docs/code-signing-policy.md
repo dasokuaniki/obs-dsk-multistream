@@ -1,17 +1,24 @@
 # Code signing policy
 
-Free code signing provided by [SignPath.io](https://signpath.io/), certificate by [SignPath Foundation](https://signpath.org/).
+DSK Multistream publishes a Windows installer only after both executable layers
+carry a publicly trusted Authenticode signature. The earlier SignPath Foundation
+application was not approved, so the current unsigned candidate is withheld from
+the public download page while a trusted signing identity is arranged.
 
 ## Scope
 
-Only release artifacts built from the `dasokuaniki/obs-dsk-multistream` repository by the repository's GitHub Actions workflow may be submitted for release signing. The workflow builds from pinned OBS Studio and OBS dependency archives whose SHA-256 hashes are stored in `buildspec.json`.
+Only release artifacts built from the `dasokuaniki/obs-dsk-multistream` repository by the repository's GitHub Actions workflow or from the matching reviewed release commit may be submitted for release signing. The workflow builds from pinned OBS Studio and OBS dependency archives whose SHA-256 hashes are stored in `buildspec.json`.
 
 Both executable layers are signed:
 
 1. `obs-dsk-multistream.dll` is built, submitted to SignPath, and verified before packaging.
 2. The Inno Setup installer is built with that signed DLL, submitted separately, and verified before publication.
 
-Every release-signing request requires manual approval. Before SignPath approval, a version tag may create an explicitly named `unsigned-beta` artifact to establish the project's initial public release. Unsigned artifacts are never described as signed releases.
+Every release-signing request requires manual approval. A version tag may create
+an explicitly named `unsigned-beta` artifact for private verification, but an
+unsigned artifact is never described or published as a release. If a commercial
+certificate or cloud signing service replaces SignPath, the same two-layer
+signature verification and exact-source controls remain mandatory.
 
 ## Team roles
 

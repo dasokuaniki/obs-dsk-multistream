@@ -27,6 +27,7 @@ public:
 	void shutdown();
 	void setEnabled(bool enabled);
 	bool enabled() const;
+	bool registerDockShell();
 
 private:
 	static void openViewer(void *);
@@ -49,6 +50,7 @@ private:
 	std::unique_ptr<QCef> browserPanel_;
 	QPointer<QAction> openViewerMenuAction_;
 	QPointer<QWidget> dockContents_;
+	QPointer<QWidget> dockPlaceholder_;
 	QPointer<QCefWidget> browser_;
 	bool enabled_ = false;
 	bool shuttingDown_ = false;

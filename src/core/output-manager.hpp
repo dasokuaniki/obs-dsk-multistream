@@ -145,7 +145,7 @@ private:
 	void loadSettingsFromCurrentProfile();
 	bool finalizePendingRemoval(const QString &id);
 	bool finalizeTargetRemoval(const QString &id, bool runtimeTarget);
-	obs_service_t *createService(const OutputTarget &target);
+	obs_service_t *createService(const OutputTarget &target, const QString &streamKey);
 	obs_output_t *createOutput(const OutputTarget &target, obs_service_t *service, quint64 sessionSerial);
 	obs_encoder_t *createVideoEncoder(const OutputTarget &target, const EncoderProfile &profile);
 	obs_encoder_t *createAudioEncoder(const OutputTarget &target, const EncoderProfile &profile);
@@ -199,6 +199,21 @@ private:
 	void processYouTubeBroadcastSelection(const QString &targetId, quint64 sessionSerial, const QString &accessToken,
 					      int attempt, quint64 operationGeneration, const QJsonArray &broadcasts,
 					      const QJsonArray &streams);
+	void processYouTubeCompletedBroadcastReuse(const QString &targetId, quint64 sessionSerial,
+					   const QString &accessToken, quint64 operationGeneration,
+					   const QJsonArray &broadcasts, const QJsonArray &streams);
+	void createYouTubeBroadcastFromCompleted(const QString &targetId, quint64 sessionSerial,
+					 quint64 operationGeneration, const QString &accessToken,
+					 const QJsonObject &completedBroadcast, const QJsonObject &stream);
+	void bindYouTubeBroadcastFromCompleted(const QString &targetId, quint64 sessionSerial,
+					quint64 operationGeneration, const QString &accessToken,
+					const QJsonObject &createdBroadcast, const QJsonObject &stream);
+	void failYouTubeCompletedBroadcastReuseAfterCreation(const QString &targetId,
+						      quint64 sessionSerial,
+						      quint64 operationGeneration,
+						      const QString &accessToken,
+						      const QString &createdBroadcastId,
+						      const QString &message);
 	void transitionYouTubeBroadcast(const QString &targetId, const QString &accessToken, const QString &broadcastId,
 					const QString &broadcastStatus, quint64 sessionSerial, int attempt,
 					quint64 operationGeneration);

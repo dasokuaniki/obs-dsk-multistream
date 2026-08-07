@@ -2,6 +2,28 @@
 
 All notable user-facing changes are documented in this file.
 
+## [0.3.7] - Beta
+
+### Fixed
+
+- YouTube now resolves the selected broadcast and its bound stream key before
+  RTMP starts. A single ready broadcast is used automatically, while multiple
+  broadcasts require an explicit choice.
+- When no ready broadcast exists, YouTube can create a new broadcast from the
+  most recent compatible reusable completed broadcast without sending video to
+  an unconfirmed key.
+- The DSK Comments dock shell is registered before background Viewer discovery,
+  preventing reconnect timing from changing the OBS dock layout or preview fit.
+- Standard and Twitch-focused Comment Viewer installations keep their fixed,
+  isolated loopback ports throughout each probe.
+
+### Changed
+
+- Account setup uses one `Connect` / `Disconnect` button and keeps YouTube data
+  use and policy links visible without a redundant local consent checkbox.
+- The public beta guide now reflects the approved Google OAuth application,
+  current signing gate, and complete-removal behavior.
+
 ## [0.3.6] - Beta
 
 ### Fixed

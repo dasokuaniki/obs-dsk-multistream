@@ -1,6 +1,8 @@
 #pragma once
 
 #include <QJsonObject>
+#include <QJsonArray>
+#include <QHash>
 #include <QString>
 
 namespace dsk {
@@ -26,5 +28,10 @@ QString youtubeNextArchiveTitle(const QString &currentTitle, int nextPart);
 int youtubeNextArchivePart(const QString &currentTitle);
 QJsonObject youtubeArchiveBroadcastInsertBody(const QJsonObject &currentBroadcast, int nextPart,
 					      const QString &scheduledStartTimeUtc);
+QJsonObject youtubeMostRecentReusableCompletedBroadcast(
+	const QJsonArray &broadcasts, const QHash<QString, QJsonObject> &streamsById,
+	const QString &targetStreamKey = {});
+QJsonObject youtubeReusedBroadcastInsertBody(const QJsonObject &completedBroadcast,
+					     const QString &scheduledStartTimeUtc);
 
 } // namespace dsk

@@ -25,15 +25,15 @@ This repository targets the current OBS 32.x plugin stack on Windows x64. It pro
 
 ## Twitch Login
 
-Select `Login with Twitch` and press `Connect Twitch`. DSK opens Twitch in the system browser, requests only stream-key read access, retrieves the authorized channel's stream key, and stores it in Windows Credential Manager. Users do not provide a Twitch Client ID, Client Secret, or stream key.
+Select `Login with Twitch` and press `Connect`. DSK opens Twitch in the system browser, requests only stream-key read access, retrieves the authorized channel's stream key, and stores it in Windows Credential Manager. Users do not provide a Twitch Client ID, Client Secret, or stream key.
 
 The DSK publisher relay is used only while signing in. Once a target is saved, normal RTMP streaming uses the locally stored key and does not depend on the relay being online.
 
-Use `Reconnect Twitch` or `Reconnect Kick` to replace an account/key. Use `Disconnect`, then `Save`, to remove the local DSK connection; cancelling the editor keeps the previously saved connection. See `docs/account-connections.md` for the Twitch, YouTube, and Kick connection boundaries.
+The same button changes to `Disconnect` after login. Save the disconnected target, reopen it, and press `Connect` to choose another account. Cancelling the editor keeps the previously saved connection. See `docs/account-connections.md` for the Twitch, YouTube, and Kick connection boundaries.
 
 ## YouTube Login
 
-Distribution builds can bundle the publisher's Google desktop OAuth application. Users then select `Login with YouTube` and press `Connect YouTube` without entering a Client ID or Client Secret. The YouTube stream key is still configured on the target; OAuth is used to move the matching YouTube Live Broadcast to live after RTMP input becomes active. Existing targets that use a custom Google OAuth app remain supported through `Use custom Google OAuth app`.
+Distribution builds bundle the verified DSK Google desktop OAuth application. Users select `Login with YouTube` and press `Connect` without entering a Client ID or Client Secret. Before RTMP begins, DSK lists ready YouTube broadcasts, asks the user to choose when more than one exists, retrieves the selected broadcast's bound stream key, and starts only that target. If no ready broadcast exists, DSK can create one from the most recent reusable completed broadcast. Existing targets that use a custom Google OAuth app remain supported through `Use custom Google OAuth app`.
 
 For a read-only first-run and distribution diagnostic that does not launch or modify OBS:
 
@@ -77,9 +77,10 @@ DSK Multistream has no analytics or advertising. Network requests occur only for
 
 ## Code signing policy
 
-Release builds are intended to be built by GitHub Actions from this repository and submitted to SignPath with origin verification and manual approval. See the [code signing policy](docs/code-signing-policy.md).
-
-Free code signing provided by [SignPath.io](https://signpath.io/), certificate by [SignPath Foundation](https://signpath.org/).
+Release builds are produced from reviewed source and must have valid Authenticode
+signatures on both the plugin DLL and Windows installer before public download.
+The current unsigned candidate is withheld while a publicly trusted signing
+identity is arranged. See the [code signing policy](docs/code-signing-policy.md).
 
 ## Support the project
 

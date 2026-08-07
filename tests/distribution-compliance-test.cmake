@@ -18,7 +18,9 @@ foreach(required_inno_token IN ITEMS
     "remove-user-data.ps1"
     "DSKCOMPLETE"
     "CompleteRemovalPrompt"
-    "InitializeUninstall")
+    "InitializeUninstall"
+    "以降が見つかりません"
+    "完全削除")
   string(FIND "${inno}" "${required_inno_token}" position)
   if(position EQUAL -1)
     message(FATAL_ERROR "Installer is missing complete-removal behavior: ${required_inno_token}")
@@ -40,9 +42,9 @@ foreach(required_payload IN ITEMS
 endforeach()
 
 foreach(required_beta_text IN ITEMS
-    "up to 20 invited users"
+    "public beta"
     "currently unsigned"
-    "unverified-app warning"
+    "Google OAuth verification is approved"
     "Do not disable Microsoft Defender"
     "complete removal")
   string(FIND "${beta_guide}" "${required_beta_text}" position)

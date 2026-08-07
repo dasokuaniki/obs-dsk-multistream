@@ -2,8 +2,13 @@ if(NOT DEFINED COMMENT_VIEWER_INTEGRATION_CPP OR
    NOT EXISTS "${COMMENT_VIEWER_INTEGRATION_CPP}")
   message(FATAL_ERROR "COMMENT_VIEWER_INTEGRATION_CPP must point to the integration source")
 endif()
+if(NOT DEFINED COMMENT_VIEWER_CONTRACT_HPP OR
+   NOT EXISTS "${COMMENT_VIEWER_CONTRACT_HPP}")
+  message(FATAL_ERROR "COMMENT_VIEWER_CONTRACT_HPP must point to the Viewer contract")
+endif()
 
 file(READ "${COMMENT_VIEWER_INTEGRATION_CPP}" integration_source)
+file(READ "${COMMENT_VIEWER_CONTRACT_HPP}" contract_source)
 
 if(integration_source MATCHES "wait_for_browser_init\\(\\)")
   message(FATAL_ERROR
@@ -17,7 +22,7 @@ if(NOT integration_source MATCHES
 endif()
 
 string(FIND "${integration_source}"
-       "create_widget(dockHost, encodedUrl, nullptr)" host_parent_position)
+       "create_widget(dockContents_, encodedUrl, nullptr)" host_parent_position)
 if(host_parent_position EQUAL -1)
   message(FATAL_ERROR
           "The Comment Viewer browser must be created under the registered dock host")
@@ -37,16 +42,60 @@ if(normal_dock_position EQUAL -1)
           "The Comment Viewer must use OBS's normal plugin dock registration")
 endif()
 
-if(host_parent_position GREATER normal_dock_position)
+if(normal_dock_position GREATER host_parent_position)
   message(FATAL_ERROR
-          "The browser hierarchy must be complete before OBS shows the dock and triggers QCefWidget initialization")
+          "The stable Comment Viewer dock shell must be registered before its browser is attached")
+endif()
+
+if(integration_source MATCHES "showDock\\(dockContents_\\)" OR
+   integration_source MATCHES "showDock\\(dockHost\\)")
+  message(FATAL_ERROR
+          "Background Comment Viewer discovery must not raise the dock and disturb OBS preview fitting")
+endif()
+
+if(NOT integration_source MATCHES
+   "bool CommentViewerIntegration::registerDockShell\\(\\)")
+  message(FATAL_ERROR
+          "The Comment Viewer must expose a stable dock-shell registration phase")
 endif()
 
 string(FIND "${integration_source}"
-       "const QUrl dockUrl(QStringLiteral(\"http://localhost:17321/viewer?dock=chat&send=1\"))" isolated_url_position)
+       "case CommentViewerProbeAction::GiveUp:" give_up_position)
+string(FIND "${integration_source}"
+       "logWarning(\"DSK Comment Viewer is installed but its OBS integration API v1 is unavailable.\")" give_up_log_position)
+if(give_up_position EQUAL -1 OR give_up_log_position EQUAL -1)
+  message(FATAL_ERROR "The Comment Viewer give-up path could not be inspected")
+endif()
+string(SUBSTRING "${integration_source}" ${give_up_position}
+       220 give_up_source)
+if(give_up_source MATCHES "removeDock\\(\\)")
+  message(FATAL_ERROR
+          "A temporary Viewer connection failure must not remove the dock shell and resize the OBS preview")
+endif()
+
+string(FIND "${integration_source}"
+       "const QUrl dockUrl = commentViewerBrowserDockUrl(viewerUrl)" isolated_url_position)
 if(isolated_url_position EQUAL -1)
   message(FATAL_ERROR
+          "The Comment Viewer dock must derive its isolated URL from the verified Viewer endpoint")
+endif()
+
+if(NOT contract_source MATCHES
+   "browserUrl\\.setHost\\(QStringLiteral\\(\"localhost\"\\)\\)")
+  message(FATAL_ERROR
           "The Comment Viewer dock must use a separate Chromium connection pool")
+endif()
+
+if(NOT contract_source MATCHES "url\\.port\\(\\) == 17321" OR
+   NOT contract_source MATCHES "url\\.port\\(\\) == 17325")
+  message(FATAL_ERROR
+          "The dock URL contract must allow only the standard and Twitch-focused fixed ports")
+endif()
+
+if(NOT contract_source MATCHES
+   "/viewer\\?dock=chat&send=1")
+  message(FATAL_ERROR
+          "The verified Comment Viewer dock path must remain fixed")
 endif()
 
 if(NOT integration_source MATCHES

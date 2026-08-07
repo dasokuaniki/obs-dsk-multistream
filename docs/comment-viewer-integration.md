@@ -2,33 +2,40 @@
 
 DSK Multistream and DSK Comment Viewer are installed, updated, licensed, and removed independently. Multistream is usable without Comment Viewer and does not bundle or manage Viewer files, settings, accounts, or credentials.
 
-At OBS startup, the integration is automatically on when a complete Viewer installation is present in `%LOCALAPPDATA%\DSKCommentViewer`; otherwise it starts off. The **Comment Viewer integration** check in the `DSK Streaming` gear menu controls the integration for the current OBS session. When enabled, Multistream first requests:
+At OBS startup, Multistream looks first for the standard Viewer in `%LOCALAPPDATA%\DSKCommentViewer`. If it is absent, Multistream falls back to the Twitch-focused Viewer in `%LOCALAPPDATA%\DSKTwitchCommentViewer`. The standard Viewer remains preferred when both products are installed. Each installation must match its fixed runtime profile; arbitrary install folders, ports, and remote hosts are not accepted.
+
+The standard Viewer uses:
 
 ```http
 GET http://127.0.0.1:17321/api/integrations/obs/v1
 Accept: application/json
 ```
 
-If the first request fails, Multistream starts the independent Viewer server and retries the same endpoint for up to roughly 15 seconds. An already-running Viewer is not started again. The validated v1 response identifies `dsk-comment-viewer`, declares the `obs-browser-dock` integration, and exposes the fixed path `/viewer?dock=chat&send=1`. Multistream constructs and accepts only `http://127.0.0.1:17321/viewer?dock=chat&send=1`; it never follows a dock host or arbitrary URL supplied by the response.
+The Twitch-focused Viewer uses the same contract on its independent fixed port:
+
+```http
+GET http://127.0.0.1:17325/api/integrations/obs/v1
+Accept: application/json
+```
+
+If the first request fails, Multistream starts the detected independent Viewer server and retries the selected endpoint for up to roughly 15 seconds. An already-running Viewer is not started again. The validated v1 response identifies `dsk-comment-viewer`, declares the `obs-browser-dock` integration, and exposes the fixed path `/viewer?dock=chat&send=1`. Multistream constructs the URL from the detected fixed loopback endpoint only; it never follows a dock host or arbitrary URL supplied by the response.
 
 The integration endpoint contains no tokens, account details, comment content, or stream keys. Comment sending remains inside the Viewer and is protected by Viewer's loopback and request-origin checks.
 
-After validation, Multistream creates the plugin-owned `DSK Comments` browser dock with ID `dskcommentsviewer`. If Viewer is absent, incompatible, or unhealthy, no dead dock is created and all streaming features remain available. The optional **Open DSK Comment Viewer** Tools item appears when the independent Viewer installation is detected. Opening Viewer from that item also starts a fresh integration probe, so the dock can recover after an earlier startup timeout without restarting OBS.
+When Viewer is installed, Multistream registers the plugin-owned `DSK Comments` dock shell with ID `dskcommentsviewer` in the same startup phase as its other dock shells. After validation, the OBS Browser widget is attached inside that existing shell. Background discovery and reconnection must not register, remove, show, raise, or resize the dock. This keeps OBS's main-preview fit and scroll state consistent with the restored dock layout. If Viewer is incompatible or temporarily unhealthy, the stable empty shell remains and all streaming features remain available. The optional **Open DSK Comment Viewer** Tools item appears when the independent Viewer installation is detected. Opening Viewer from that item also starts a fresh integration probe, so the browser can recover after an earlier startup timeout without restarting OBS.
 
 ## Known regression guard: intermittent white Dock
 
 Do not make the API validation URL and the OBS Browser navigation URL use the same hostname.
 
-- Keep validating the Viewer contract against exactly `http://127.0.0.1:17321/viewer?dock=chat&send=1`.
-- Navigate the `DSK Comments` OBS Browser widget to the equivalent `http://localhost:17321/viewer?dock=chat&send=1`.
+- Keep validating the Viewer contract against exactly the detected fixed endpoint: port `17321` for the standard Viewer or `17325` for the Twitch-focused Viewer.
+- Navigate the `DSK Comments` OBS Browser widget to the equivalent `localhost` URL on the same selected port.
 - Do not replace the non-blocking browser initialization retry with `wait_for_browser_init()` on the OBS UI thread.
 - Do not add timed browser recreation or repeated reloads as a workaround.
 
 Comment Viewer and existing browser sources can hold six long-lived connections to `127.0.0.1:17321`. That exhausts the OBS Chromium HTTP/1.1 per-host connection pool, so a Dock created later can remain on a white page depending on startup order. Using `localhost` only for the Dock keeps the same loopback server and API contract while giving the Dock a separate Chromium host pool.
 
 This regressed intermittently before 2026-07-30 and can appear fixed after a restart merely because the startup order changed. A successful probe or HTTP 200 alone is therefore insufficient. Every change touching this path must pass `dsk-comment-viewer-dock-rendering-test` and the full CTest suite, then be verified with two OBS starts. Both starts must log a navigation to the `localhost` URL and a title change to `DSK Comment Viewer`; at least one must be visually checked for rendered controls rather than a white surface.
-
-Turning **Comment Viewer integration** off cancels pending checks and removes only the `dskcommentsviewer` dock for the current OBS session. It does not stop Viewer or remove Viewer files, settings, accounts, or credentials. If Viewer remains installed, the integration starts on again at the next OBS startup.
 
 When Comment Viewer has just created and bound a YouTube broadcast, Multistream checks the following loopback-only endpoint before it sends RTMP video:
 

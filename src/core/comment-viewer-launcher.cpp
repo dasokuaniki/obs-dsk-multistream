@@ -13,29 +13,21 @@ namespace {
 constexpr auto kDefaultBaseUrl = "http://127.0.0.1:17321";
 constexpr auto kViewerDirEnv = "DSK_COMMENT_VIEWER_DIR";
 
-QString commentViewerDir()
+std::optional<CommentViewerInstallation> commentViewerInstallation()
 {
 	const QString configured = qEnvironmentVariable(kViewerDirEnv).trimmed();
-	if (isCommentViewerInstallDirectory(configured))
-		return configured;
-
 	const QString localAppData = qEnvironmentVariable("LOCALAPPDATA").trimmed();
-	if (!localAppData.isEmpty()) {
-		const QString installed = QDir(localAppData).filePath(QStringLiteral("DSKCommentViewer"));
-		if (isCommentViewerInstallDirectory(installed))
-			return installed;
-	}
-
-	return {};
+	return detectCommentViewerInstallation(configured, localAppData);
 }
 
 bool runViewerScript(const QString &scriptName)
 {
-	const QString dir = commentViewerDir();
-	if (dir.isEmpty()) {
+	const auto installation = commentViewerInstallation();
+	if (!installation) {
 		logWarning(QString("DSK Comment Viewer directory not found. Set %1.").arg(QString::fromLatin1(kViewerDirEnv)));
 		return false;
 	}
+	const QString &dir = installation->directory;
 
 	const QString scriptPath = QDir(dir).filePath(scriptName);
 	if (!QFileInfo::exists(scriptPath)) {
@@ -61,22 +53,23 @@ bool runViewerScript(const QString &scriptName)
 
 QUrl commentViewerBaseUrl()
 {
-	return QUrl(QString::fromLatin1(kDefaultBaseUrl));
+	const auto installation = commentViewerInstallation();
+	return installation ? installation->baseUrl : QUrl(QString::fromLatin1(kDefaultBaseUrl));
 }
 
 QUrl commentViewerPageUrl()
 {
-	return QUrl(QStringLiteral("%1/viewer").arg(QString::fromLatin1(kDefaultBaseUrl)));
+	return commentViewerBaseUrl().resolved(QUrl(QStringLiteral("/viewer")));
 }
 
 QUrl commentViewerObsIntegrationUrl()
 {
-	return QUrl(QStringLiteral("%1/api/integrations/obs/v1").arg(QString::fromLatin1(kDefaultBaseUrl)));
+	return commentViewerObsIntegrationUrlForBase(commentViewerBaseUrl());
 }
 
 bool isCommentViewerInstalled()
 {
-	return !commentViewerDir().isEmpty();
+	return commentViewerInstallation().has_value();
 }
 
 bool startCommentViewerServer()

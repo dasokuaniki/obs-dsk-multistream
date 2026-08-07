@@ -299,6 +299,8 @@ void registerDskDocksDelayed()
 			return;
 
 		dsk::logInfo("Registering DSK dock shells for OBS restore/menu");
+		if (commentViewerIntegration && commentViewerIntegration->enabled())
+			commentViewerIntegration->registerDockShell();
 		ensureMainDockRegistered();
 		ensureVerticalDockRegistered();
 		dsk::logInfo("DSK dock shells registered for OBS restore/menu");

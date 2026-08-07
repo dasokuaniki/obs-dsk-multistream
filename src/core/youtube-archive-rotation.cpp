@@ -5,6 +5,63 @@
 
 namespace dsk {
 
+namespace {
+
+QJsonObject youtubeBroadcastInsertBody(const QJsonObject &sourceBroadcast,
+				       const QString &title,
+				       const QString &scheduledStartTimeUtc)
+{
+	const QJsonObject sourceSnippet = sourceBroadcast.value(QStringLiteral("snippet")).toObject();
+	QJsonObject snippet;
+	snippet.insert(QStringLiteral("title"), title);
+	snippet.insert(QStringLiteral("description"), sourceSnippet.value(QStringLiteral("description")).toString());
+	snippet.insert(QStringLiteral("scheduledStartTime"), scheduledStartTimeUtc);
+
+	const QJsonObject sourceStatus = sourceBroadcast.value(QStringLiteral("status")).toObject();
+	QJsonObject status;
+	status.insert(QStringLiteral("privacyStatus"),
+		      sourceStatus.value(QStringLiteral("privacyStatus")).toString(QStringLiteral("private")));
+	if (sourceStatus.value(QStringLiteral("selfDeclaredMadeForKids")).isBool())
+		status.insert(QStringLiteral("selfDeclaredMadeForKids"),
+			      sourceStatus.value(QStringLiteral("selfDeclaredMadeForKids")));
+
+	const QJsonObject sourceDetails = sourceBroadcast.value(QStringLiteral("contentDetails")).toObject();
+	QJsonObject details;
+	details.insert(QStringLiteral("enableAutoStart"), false);
+	details.insert(QStringLiteral("enableAutoStop"), true);
+	details.insert(QStringLiteral("monitorStream"),
+		       QJsonObject{{QStringLiteral("enableMonitorStream"), false}});
+	for (const QString &field : {QStringLiteral("enableDvr"), QStringLiteral("recordFromStart")}) {
+		if (sourceDetails.value(field).isBool())
+			details.insert(field, sourceDetails.value(field));
+	}
+	const QString latency = sourceDetails.value(QStringLiteral("latencyPreference")).toString();
+	if (latency == QStringLiteral("normal") || latency == QStringLiteral("low") ||
+	    latency == QStringLiteral("ultraLow"))
+		details.insert(QStringLiteral("latencyPreference"), latency);
+
+	return QJsonObject{
+		{QStringLiteral("snippet"), snippet},
+		{QStringLiteral("status"), status},
+		{QStringLiteral("contentDetails"), details},
+	};
+}
+
+qint64 youtubeCompletedBroadcastTimeMs(const QJsonObject &broadcast)
+{
+	const QJsonObject snippet = broadcast.value(QStringLiteral("snippet")).toObject();
+	for (const QString &field : {QStringLiteral("actualEndTime"),
+				     QStringLiteral("actualStartTime"),
+				     QStringLiteral("scheduledStartTime")}) {
+		const QDateTime parsed = QDateTime::fromString(snippet.value(field).toString(), Qt::ISODate);
+		if (parsed.isValid())
+			return parsed.toMSecsSinceEpoch();
+	}
+	return 0;
+}
+
+} // namespace
+
 qint64 youtubeArchiveRotationIntervalMs()
 {
 	bool parsed = false;
@@ -86,40 +143,76 @@ QJsonObject youtubeArchiveBroadcastInsertBody(const QJsonObject &currentBroadcas
 					      const QString &scheduledStartTimeUtc)
 {
 	const QJsonObject currentSnippet = currentBroadcast.value(QStringLiteral("snippet")).toObject();
-	QJsonObject snippet;
-	snippet.insert(QStringLiteral("title"),
-		       youtubeNextArchiveTitle(currentSnippet.value(QStringLiteral("title")).toString(), nextPart));
-	snippet.insert(QStringLiteral("description"), currentSnippet.value(QStringLiteral("description")).toString());
-	snippet.insert(QStringLiteral("scheduledStartTime"), scheduledStartTimeUtc);
+	return youtubeBroadcastInsertBody(
+		currentBroadcast,
+		youtubeNextArchiveTitle(currentSnippet.value(QStringLiteral("title")).toString(), nextPart),
+		scheduledStartTimeUtc);
+}
 
-	const QJsonObject currentStatus = currentBroadcast.value(QStringLiteral("status")).toObject();
-	QJsonObject status;
-	status.insert(QStringLiteral("privacyStatus"),
-		      currentStatus.value(QStringLiteral("privacyStatus")).toString(QStringLiteral("private")));
-	if (currentStatus.value(QStringLiteral("selfDeclaredMadeForKids")).isBool())
-		status.insert(QStringLiteral("selfDeclaredMadeForKids"),
-			      currentStatus.value(QStringLiteral("selfDeclaredMadeForKids")));
+QJsonObject youtubeMostRecentReusableCompletedBroadcast(
+	const QJsonArray &broadcasts, const QHash<QString, QJsonObject> &streamsById,
+	const QString &targetStreamKey)
+{
+	const QString cleanTargetKey = targetStreamKey.trimmed();
+	QJsonObject selected;
+	qint64 selectedTimeMs = -1;
+	QString selectedId;
+	for (const QJsonValue &value : broadcasts) {
+		const QJsonObject broadcast = value.toObject();
+		if (broadcast.value(QStringLiteral("status"))
+			    .toObject()
+			    .value(QStringLiteral("lifeCycleStatus"))
+			    .toString() != QStringLiteral("complete"))
+			continue;
+		const QString streamId = broadcast.value(QStringLiteral("contentDetails"))
+					 .toObject()
+					 .value(QStringLiteral("boundStreamId"))
+					 .toString()
+					 .trimmed();
+		const QJsonObject stream = streamsById.value(streamId);
+		if (streamId.isEmpty() || stream.isEmpty() ||
+		    !stream.value(QStringLiteral("contentDetails"))
+			    .toObject()
+			    .value(QStringLiteral("isReusable"))
+			    .toBool(false))
+			continue;
+		const QString streamKey = stream.value(QStringLiteral("cdn"))
+					  .toObject()
+					  .value(QStringLiteral("ingestionInfo"))
+					  .toObject()
+					  .value(QStringLiteral("streamName"))
+					  .toString()
+					  .trimmed();
+		if (streamKey.isEmpty() || (!cleanTargetKey.isEmpty() && streamKey != cleanTargetKey))
+			continue;
 
-	const QJsonObject currentDetails = currentBroadcast.value(QStringLiteral("contentDetails")).toObject();
-	QJsonObject details;
-	details.insert(QStringLiteral("enableAutoStart"), false);
-	details.insert(QStringLiteral("enableAutoStop"), true);
-	details.insert(QStringLiteral("monitorStream"),
-		       QJsonObject{{QStringLiteral("enableMonitorStream"), false}});
-	for (const QString &field : {QStringLiteral("enableDvr"), QStringLiteral("recordFromStart")}) {
-		if (currentDetails.value(field).isBool())
-			details.insert(field, currentDetails.value(field));
+		const qint64 candidateTimeMs = youtubeCompletedBroadcastTimeMs(broadcast);
+		const QString candidateId = broadcast.value(QStringLiteral("id")).toString().trimmed();
+		if (candidateId.isEmpty())
+			continue;
+		if (selected.isEmpty() || candidateTimeMs > selectedTimeMs ||
+		    (candidateTimeMs == selectedTimeMs && candidateId > selectedId)) {
+			selected = broadcast;
+			selectedTimeMs = candidateTimeMs;
+			selectedId = candidateId;
+		}
 	}
-	const QString latency = currentDetails.value(QStringLiteral("latencyPreference")).toString();
-	if (latency == QStringLiteral("normal") || latency == QStringLiteral("low") ||
-	    latency == QStringLiteral("ultraLow"))
-		details.insert(QStringLiteral("latencyPreference"), latency);
+	return selected;
+}
 
-	return QJsonObject{
-		{QStringLiteral("snippet"), snippet},
-		{QStringLiteral("status"), status},
-		{QStringLiteral("contentDetails"), details},
-	};
+QJsonObject youtubeReusedBroadcastInsertBody(const QJsonObject &completedBroadcast,
+					     const QString &scheduledStartTimeUtc)
+{
+	QString title = completedBroadcast.value(QStringLiteral("snippet"))
+				.toObject()
+				.value(QStringLiteral("title"))
+				.toString()
+				.trimmed();
+	if (title.isEmpty())
+		title = QStringLiteral("Live stream");
+	if (title.size() > 100)
+		title = title.left(100).trimmed();
+	return youtubeBroadcastInsertBody(completedBroadcast, title, scheduledStartTimeUtc);
 }
 
 } // namespace dsk

@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.28...3.30)
 
-project(obs-dsk-multistream VERSION 0.3.6 LANGUAGES CXX)
+project(obs-dsk-multistream VERSION 0.3.7 LANGUAGES CXX)
 
 # CMake 4.2 can mojibake the UTF-8 /showIncludes prefix from Japanese MSVC,
 # leaving Ninja with no header dependencies and stale incremental objects.
@@ -334,6 +334,7 @@ if(DSK_BUILD_TESTS)
     COMMAND
       "${CMAKE_COMMAND}"
       "-DCOMMENT_VIEWER_INTEGRATION_CPP=${CMAKE_CURRENT_SOURCE_DIR}/src/integration/comment-viewer-integration.cpp"
+      "-DCOMMENT_VIEWER_CONTRACT_HPP=${CMAKE_CURRENT_SOURCE_DIR}/src/core/comment-viewer-contract.hpp"
       -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/comment-viewer-dock-rendering-test.cmake"
   )
   set_tests_properties(dsk-comment-viewer-dock-rendering-test PROPERTIES LABELS "unit;ui;no-obs")

@@ -30,18 +30,6 @@ namespace {
 constexpr auto DockTitle = "DSK Comments";
 constexpr auto DockId = "dskcommentsviewer";
 
-void showDock(QWidget *contents)
-{
-	if (!contents)
-		return;
-	contents->show();
-	if (auto *dock = qobject_cast<QDockWidget *>(contents->parentWidget())) {
-		dock->setVisible(true);
-		dock->show();
-		dock->raise();
-	}
-}
-
 } // namespace
 
 CommentViewerIntegration::CommentViewerIntegration(QObject *parent) : QObject(parent) {}
@@ -98,6 +86,42 @@ void CommentViewerIntegration::setEnabled(bool enabled)
 bool CommentViewerIntegration::enabled() const
 {
 	return enabled_;
+}
+
+bool CommentViewerIntegration::registerDockShell()
+{
+	if (shuttingDown_ || !enabled_)
+		return false;
+	if (dockContents_)
+		return true;
+
+	hideLegacyDock();
+	removeLegacyDockConfig();
+	auto *mainWindow = static_cast<QWidget *>(obs_frontend_get_main_window());
+	if (!mainWindow) {
+		logWarning("OBS main window is unavailable; the DSK Comments dock shell was not registered.");
+		return false;
+	}
+
+	auto *dockHost = new QWidget(mainWindow);
+	dockHost->setObjectName(QStringLiteral("dskCommentsHost"));
+	auto *layout = new QVBoxLayout(dockHost);
+	layout->setContentsMargins(0, 0, 0, 0);
+	layout->setSpacing(0);
+	auto *placeholder = new QWidget(dockHost);
+	placeholder->setObjectName(QStringLiteral("dskCommentsPlaceholder"));
+	layout->addWidget(placeholder);
+
+	if (!obs_frontend_add_dock_by_id(DockId, DockTitle, dockHost)) {
+		delete dockHost;
+		logWarning("OBS refused to register the DSK Comments dock shell.");
+		return false;
+	}
+
+	dockContents_ = dockHost;
+	dockPlaceholder_ = placeholder;
+	logInfo("Registered the stable DSK Comments dock shell before browser discovery.");
+	return true;
 }
 
 void CommentViewerIntegration::onBrowserUrlChanged(const QString &url)
@@ -169,12 +193,13 @@ void CommentViewerIntegration::scheduleProbe(quint64 generation, bool launchAtte
 		http_ = std::make_unique<HttpClient>();
 
 	HttpRequest request;
-	request.url = commentViewerObsIntegrationUrl();
+	const QUrl baseUrl = commentViewerBaseUrl();
+	request.url = commentViewerObsIntegrationUrlForBase(baseUrl);
 	request.timeoutMs = 750;
 	request.maxResponseBytes = 16 * 1024;
 	request.headers.push_back({QByteArrayLiteral("Accept"), QByteArrayLiteral("application/json")});
-	http_->send(std::move(request), [this, generation, launchAttempted, attempt](HttpResponse response) {
-		const auto integration = response.isSuccess() ? parseCommentViewerObsIntegration(response.body)
+	http_->send(std::move(request), [this, generation, launchAttempted, attempt, baseUrl](HttpResponse response) {
+		const auto integration = response.isSuccess() ? parseCommentViewerObsIntegration(response.body, baseUrl)
 							      : std::nullopt;
 		const auto action = commentViewerProbeAction(enabled_, probeGeneration_, generation,
 							   integration.has_value(), launchAttempted,
@@ -200,7 +225,6 @@ void CommentViewerIntegration::scheduleProbe(quint64 generation, bool launchAtte
 			});
 			return;
 		case CommentViewerProbeAction::GiveUp:
-			removeDock();
 			logWarning("DSK Comment Viewer is installed but its OBS integration API v1 is unavailable.");
 			return;
 		}
@@ -209,23 +233,20 @@ void CommentViewerIntegration::scheduleProbe(quint64 generation, bool launchAtte
 
 bool CommentViewerIntegration::createDock(const QUrl &viewerUrl)
 {
-	const QUrl expectedUrl(QStringLiteral("http://127.0.0.1:17321/viewer?dock=chat&send=1"));
-	const QUrl dockUrl(QStringLiteral("http://localhost:17321/viewer?dock=chat&send=1"));
-	if (viewerUrl != expectedUrl) {
+	const QUrl dockUrl = commentViewerBrowserDockUrl(viewerUrl);
+	if (dockUrl.isEmpty()) {
 		logWarning("Refused an unexpected DSK Comment Viewer dock URL.");
 		return false;
 	}
-	if (dockContents_) {
-		showDock(dockContents_);
-		if (browser_)
-			browser_->setURL(dockUrl.toEncoded(QUrl::FullyEncoded).toStdString());
+	if (!dockContents_ && !registerDockShell())
+		return false;
+	if (browser_) {
+		browser_->setURL(dockUrl.toEncoded(QUrl::FullyEncoded).toStdString());
 		return true;
 	}
 
-	hideLegacyDock();
-	removeLegacyDockConfig();
 	if (dskObsBrowserPanelVersion() <= 0) {
-		logWarning("OBS Browser is unavailable; DSK Comments dock was not created.");
+		logWarning("OBS Browser is unavailable; the DSK Comments dock page was not created.");
 		return false;
 	}
 
@@ -245,12 +266,6 @@ bool CommentViewerIntegration::createDock(const QUrl &viewerUrl)
 		return true;
 	}
 
-	auto *mainWindow = static_cast<QWidget *>(obs_frontend_get_main_window());
-	if (!mainWindow) {
-		logWarning("OBS main window is unavailable; DSK Comments dock was not created.");
-		return false;
-	}
-
 	// REGRESSION GUARD: Do not change dockUrl back to 127.0.0.1.
 	// OBS Browser shares one Chromium connection pool for all panels and browser
 	// sources. The Comment Viewer has several long-lived 127.0.0.1 connections,
@@ -259,15 +274,14 @@ bool CommentViewerIntegration::createDock(const QUrl &viewerUrl)
 	// independent pool and removes the startup-order race. See
 	// docs/comment-viewer-integration.md.
 	const std::string encodedUrl = dockUrl.toEncoded(QUrl::FullyEncoded).toStdString();
-	auto *dockHost = new QWidget(mainWindow);
-	dockHost->setObjectName(QStringLiteral("dskCommentsHost"));
-	auto *layout = new QVBoxLayout(dockHost);
-	layout->setContentsMargins(0, 0, 0, 0);
-	layout->setSpacing(0);
+	auto *layout = qobject_cast<QVBoxLayout *>(dockContents_->layout());
+	if (!layout) {
+		logWarning("The DSK Comments dock shell has no compatible layout.");
+		return false;
+	}
 
-	QCefWidget *browser = browserPanel_->create_widget(dockHost, encodedUrl, nullptr);
+	QCefWidget *browser = browserPanel_->create_widget(dockContents_, encodedUrl, nullptr);
 	if (!browser) {
-		delete dockHost;
 		logWarning("OBS Browser could not create the DSK Comments page.");
 		return false;
 	}
@@ -276,19 +290,14 @@ bool CommentViewerIntegration::createDock(const QUrl &viewerUrl)
 	QObject::connect(browser, SIGNAL(titleChanged(QString)), this,
 			 SLOT(onBrowserTitleChanged(QString)));
 	browser->setObjectName(QStringLiteral("dskCommentsBrowser"));
-	layout->addWidget(browser);
-
-	if (!obs_frontend_add_dock_by_id(DockId, DockTitle, dockHost)) {
-		browser->closeBrowser();
-		delete dockHost;
-		logWarning("OBS refused to register the DSK Comments dock.");
-		return false;
+	if (dockPlaceholder_) {
+		layout->removeWidget(dockPlaceholder_);
+		dockPlaceholder_->deleteLater();
+		dockPlaceholder_ = nullptr;
 	}
-
-	dockContents_ = dockHost;
+	layout->addWidget(browser);
 	browser_ = browser;
-	showDock(dockHost);
-	logInfo(QStringLiteral("Created the DSK Comments dock using an isolated browser connection pool: %1")
+	logInfo(QStringLiteral("Attached the DSK Comments browser using an isolated connection pool: %1")
 			.arg(QString::fromStdString(encodedUrl)));
 	return true;
 }
@@ -301,6 +310,7 @@ void CommentViewerIntegration::removeDock()
 	if (dockContents_)
 		obs_frontend_remove_dock(DockId);
 	browser_ = nullptr;
+	dockPlaceholder_ = nullptr;
 	dockContents_ = nullptr;
 	browserPanel_.reset();
 

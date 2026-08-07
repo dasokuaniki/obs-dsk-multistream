@@ -26,6 +26,7 @@ struct YouTubeBroadcastSelection {
 	YouTubeBroadcastSelectionState state = YouTubeBroadcastSelectionState::NoActiveBroadcast;
 	QJsonObject broadcast;
 	QVector<QJsonObject> candidates;
+	QString streamKey;
 };
 
 YouTubeBroadcastSelection selectYouTubeBroadcast(const QJsonArray &broadcasts,

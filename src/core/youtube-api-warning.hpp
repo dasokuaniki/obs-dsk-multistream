@@ -16,6 +16,7 @@ inline bool isYouTubeApiWarningText(const QString &message)
 	       || message.startsWith(QStringLiteral("YouTube broadcast lookup "))
 	       || message.startsWith(QStringLiteral("YouTube stream status lookup "))
 	       || message.startsWith(QStringLiteral("YouTube broadcast start "))
+	       || message.startsWith(QStringLiteral("YouTube previous broadcast reuse "))
 	       || message.startsWith(QStringLiteral("YouTube broadcast testing "))
 	       || message.startsWith(QStringLiteral("YouTube broadcast live "))
 	       || message.startsWith(QStringLiteral("YouTube archive rotation "));
@@ -55,6 +56,10 @@ inline QString userFacingYouTubeApiWarningText(const QString &message)
 		return QStringLiteral("YouTube RTMP is connected. Too many scheduled broadcasts were returned; remove old scheduled broadcasts and retry.");
 	if (message.startsWith(QStringLiteral("YouTube broadcast lookup found no broadcasts")))
 		return QStringLiteral("YouTube RTMP is connected. No active YouTube broadcast was found for API start.");
+	if (message.startsWith(QStringLiteral("YouTube broadcast lookup found no reusable completed broadcast")))
+		return QStringLiteral("YouTube RTMP is connected. No reusable previous YouTube broadcast was found.");
+	if (message.startsWith(QStringLiteral("YouTube previous broadcast reuse failed")))
+		return QStringLiteral("YouTube RTMP is connected. DSK could not create a new broadcast from the previous settings.");
 	if (message.startsWith(QStringLiteral("YouTube broadcast lookup found no bound stream")))
 		return QStringLiteral("YouTube RTMP is connected. No bound YouTube stream was found for API start.");
 	if (message.startsWith(QStringLiteral("YouTube broadcast start blocked: no active broadcast matched")))
@@ -82,6 +87,10 @@ inline QString userFacingYouTubePreflightWarningText(const QString &message)
 		return QStringLiteral("No YouTube broadcast matched this stream key. Video was not sent.");
 	if (message.startsWith(QStringLiteral("YouTube broadcast lookup found no broadcasts")))
 		return QStringLiteral("No YouTube broadcast was available. Video was not sent.");
+	if (message.startsWith(QStringLiteral("YouTube broadcast lookup found no reusable completed broadcast")))
+		return QStringLiteral("No reusable previous YouTube broadcast was available. Video was not sent.");
+	if (message.startsWith(QStringLiteral("YouTube previous broadcast reuse failed")))
+		return QStringLiteral("A new YouTube broadcast could not be created from the previous settings. Video was not sent.");
 	if (message.startsWith(QStringLiteral("YouTube broadcast lookup found no bound stream")))
 		return QStringLiteral("No bound YouTube stream was available. Video was not sent.");
 	return QStringLiteral("The YouTube broadcast could not be confirmed. Video was not sent.");
@@ -104,6 +113,10 @@ inline QString liveYouTubeApiWarningRowText(const QString &message)
 		return QStringLiteral("Live signal - broadcast list too large");
 	if (message.startsWith(QStringLiteral("YouTube broadcast lookup found no broadcasts")))
 		return QStringLiteral("Live signal - no broadcast found");
+	if (message.startsWith(QStringLiteral("YouTube broadcast lookup found no reusable completed broadcast")))
+		return QStringLiteral("No reusable previous broadcast");
+	if (message.startsWith(QStringLiteral("YouTube previous broadcast reuse failed")))
+		return QStringLiteral("Previous broadcast reuse failed");
 	if (message.startsWith(QStringLiteral("YouTube broadcast lookup found no bound stream")))
 		return QStringLiteral("Live signal - no bound stream");
 	if (message.startsWith(QStringLiteral("YouTube broadcast start blocked: no active broadcast matched")))

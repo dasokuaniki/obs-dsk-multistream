@@ -1,67 +1,84 @@
-# DSK Multistream 0.3.4 limited beta guide
+# DSK Multistream 0.3.7 public beta guide
 
-This build is for a limited beta of up to 20 invited users. Do not mirror or
-redistribute the installer. DSK Multistream is free and open-source software;
-the matching source is provided from the tagged public repository.
+DSK Multistream is free and open-source software. This public beta is intended
+for evaluation before a stable release. Download it only from
+<https://dsk.dasoku.org/download> and compare the published SHA-256 value before
+running the installer.
+
+## Release status
+
+- Google OAuth verification is approved for the bundled DSK Multistream desktop
+  application and its YouTube Live scope.
+- Development candidates are currently unsigned. They are not public release
+  artifacts. Public downloads remain withheld until both the plugin DLL and the
+  installer have valid Authenticode signatures from the DSK publisher.
+- Do not disable Microsoft Defender, SmartScreen, Smart App Control, browser
+  download protection, or other security software to install a candidate.
 
 ## Before installing
 
 - Requires 64-bit OBS Studio 32 or later on Windows 10 version 1809 or later.
 - Exit OBS Studio before installing, updating, or uninstalling the plugin.
-- The installer and plugin are currently unsigned. Verify the published
-  SHA-256 before running the installer. Do not disable Microsoft Defender,
-  SmartScreen, the browser's download protection, or other security software.
-- Google OAuth verification is still pending. Invited testers may see Google's
-  unverified-app warning and must review the requested YouTube permission before
-  continuing. If you do not accept it, YouTube login is unavailable; Twitch,
-  Kick, and Manual RTMP can still be configured separately.
-- TikTok is not a public login destination. Only use Manual RTMP when a service
-  has issued an RTMP/RTMPS URL and stream key directly to your account.
+- Twitch, YouTube, and Kick account connections are optional. Manual RTMP is
+  available only when the destination has issued an RTMP/RTMPS URL and stream
+  key directly to the user.
+- TikTok login is not included in the public product. Do not publish or share a
+  private TikTok RTMP URL or stream key.
 
-## Uninstalling
+## Updating and uninstalling
 
-Windows Settings > Apps > Installed apps can remove DSK Multistream. Normal
-uninstall keeps destinations and credentials for reinstall. Choose complete removal
-in the uninstaller to remove only DSK Multistream settings and Windows Credential
-Manager entries. It does not remove DSK Comment Viewer or other DSK products.
+Run the newer installer to update the existing installation. Windows Settings >
+Apps > Installed apps can uninstall DSK Multistream. Normal uninstall removes
+the plugin and its installed files while preserving destinations and credentials
+for reinstall. Choose complete removal in the uninstaller to remove only DSK
+Multistream settings and `DSK Multistream/` Windows Credential Manager entries.
+It does not remove DSK Comment Viewer or another DSK product.
 
-## Reporting beta issues
+## Reporting a beta issue
 
-Send the OBS version, Windows version, the action that failed, and relevant OBS
-log lines to `support@dasoku.org`. Remove stream keys, OAuth codes, tokens,
-client secrets, and personal information before sending a log.
+Send the OBS version, Windows version, the failed action, and relevant OBS log
+lines to `support@dasoku.org`. Remove stream keys, OAuth codes, access or refresh
+tokens, client secrets, and personal information before sending a log.
 
 ---
 
-# DSK Multistream 0.3.4 限定ベータ案内
+# DSK Multistream 0.3.7 公開ベータ案内
 
-このビルドは招待した最大20人向けの限定ベータです。インストーラーを転載・再配布
-しないでください。DSK Multistreamは無料のオープンソースソフトウェアで、対応する
-ソースはタグを固定した公開リポジトリから確認できます。
+DSK Multistreamは無料のオープンソースソフトウェアです。この公開ベータは、
+安定版公開前の評価を目的としています。インストーラーは
+<https://dsk.dasoku.org/download> からのみ取得し、実行前に掲載されている
+SHA-256と一致することを確認してください。
 
-## インストール前
+## 公開状態
 
-- 64-bit版OBS Studio 32以降とWindows 10 version 1809以降が必要です。
+- 同梱するDSK MultistreamデスクトップアプリとYouTube Liveスコープについて、
+  Google OAuth verification is approved（GoogleのOAuth確認は承認済み）です。
+- 現在の開発候補は未署名です。一般公開用の成果物ではありません。プラグインDLLと
+  インストーラーの両方にDSK発行者の有効なAuthenticode署名が付くまで、公開
+  ダウンロードは停止します。
+- インストールのためにMicrosoft Defender、SmartScreen、Smart App Control、
+  ブラウザーのダウンロード保護、その他のセキュリティ機能を無効にしないでください。
+
+## インストール前の確認
+
+- 64-bit版OBS Studio 32以降と、Windows 10 version 1809以降が必要です。
 - インストール、更新、アンインストールの前にOBS Studioを終了してください。
-- 現在のインストーラーとプラグインは未署名です。実行前に公開SHA-256を確認して
-  ください。Microsoft Defender、SmartScreen、ブラウザのダウンロード保護などを
-  無効にしないでください。
-- Google OAuth審査は進行前です。招待テスターにはGoogleの未確認アプリ警告が表示
-  される場合があります。YouTube権限の内容を確認し、同意できる場合だけ続行して
-  ください。同意しない場合はYouTubeログインを使えませんが、Twitch、Kick、Manual
-  RTMPは個別に設定できます。
-- TikTokは公開ログイン先ではありません。サービスから自分のアカウント用の
-  RTMP/RTMPS URLとストリームキーが発行された場合だけManual RTMPを使用してください。
+- Twitch、YouTube、Kickのアカウント接続は任意です。Manual RTMPは、配信先から
+  利用者本人へRTMP/RTMPS URLとストリームキーが発行されている場合だけ使えます。
+- 公開版にTikTokログインは含みません。個人用のTikTok RTMP URLやストリームキーを
+  公開・共有しないでください。
 
-## アンインストール
+## 更新とアンインストール
 
-Windowsの「設定 > アプリ > インストールされているアプリ」から削除できます。通常
-削除は再インストール用に配信先と認証情報を保持します。アンインストーラーで完全削除
-を選ぶと、DSK Multistreamの設定とWindows資格情報だけを削除します。DSK Comment
-Viewerや他のDSK製品は削除しません。
+新しいインストーラーを実行すると既存版を更新できます。Windowsの「設定 > アプリ >
+インストールされているアプリ」からDSK Multistreamをアンインストールできます。
+通常削除では、再インストールに備えて配信先設定と認証情報を保持します。
+アンインストーラーで「完全削除」を選ぶと、DSK Multistream自身の設定と
+Windows資格情報マネージャー内の `DSK Multistream/` 項目だけを削除します。
+DSK Comment Viewerや他のDSK製品は削除しません。
 
-## ベータ不具合の報告
+## 不具合の報告
 
-OBSバージョン、Windowsバージョン、失敗した操作、関連するOBSログ行を
-`support@dasoku.org`へ送ってください。送信前にストリームキー、OAuthコード、
-トークン、Client Secret、個人情報を削除してください。
+OBSとWindowsのバージョン、失敗した操作、関連するOBSログを
+`support@dasoku.org` へ送ってください。送信前に、ストリームキー、OAuthコード、
+アクセストークン、更新トークン、Client Secret、個人情報を削除してください。

@@ -60,6 +60,7 @@ struct OutputManager::Session {
 	obs_service_t *service = nullptr;
 	qint64 startedAtMs = 0;
 	QString sharedEncoderKey;
+	QString youtubeResolvedStreamKey;
 	QString youtubeAccessToken;
 	qint64 youtubeAccessTokenExpiresAtMs = 0;
 	qint64 youtubeSignalActiveAtMs = 0;
@@ -72,6 +73,8 @@ struct OutputManager::Session {
 	bool youtubePreflight = false;
 	bool youtubeCommentViewerSelectionChecked = false;
 	bool youtubeAwaitingSelection = false;
+	bool youtubeBroadcastSelectionConfirmed = false;
+	bool youtubeCompletedReuseLookup = false;
 	QJsonObject youtubeRotationCurrentBroadcast;
 	QString youtubeRotationCurrentBroadcastId;
 	QString youtubeRotationStreamId;
@@ -2010,7 +2013,10 @@ bool OutputManager::hydrateTargetSecrets(OutputTarget &target)
 {
 	SecretStore secrets;
 	QString error;
-	if (target.streamKey.trimmed().isEmpty() && !target.authCredentialRef.trimmed().isEmpty()) {
+	const bool resolvesYouTubeStreamKeyAtStart =
+		isYouTubeTarget(target) && target.authMode == TargetAuthMode::YouTubeOAuth;
+	if (!resolvesYouTubeStreamKeyAtStart && target.streamKey.trimmed().isEmpty() &&
+	    !target.authCredentialRef.trimmed().isEmpty()) {
 		if (!SecretStore::isOwnedCredentialRef(target.authCredentialRef))
 			return setTargetError(target, QStringLiteral("Saved stream key reference is outside the DSK credential namespace."));
 		QString secret;
@@ -2110,6 +2116,10 @@ void OutputManager::resolveCommentViewerYouTubeBroadcastSelection(const QString 
 bool OutputManager::startIndependentTarget(OutputTarget &target, Session *existingSession)
 {
 	const quint64 sessionSerial = existingSession ? existingSession->serial : nextSessionSerial_++;
+	const QString effectiveStreamKey =
+		existingSession && !existingSession->youtubeResolvedStreamKey.isEmpty()
+			? existingSession->youtubeResolvedStreamKey
+			: target.streamKey;
 	const EncoderProfile profile = effectiveProfileForTarget(target);
 	QString videoError;
 	video_t *video = videoForTarget(target, profile, &videoError);
@@ -2132,7 +2142,7 @@ bool OutputManager::startIndependentTarget(OutputTarget &target, Session *existi
 		}
 	}
 
-	obs_service_t *service = createService(target);
+	obs_service_t *service = createService(target, effectiveStreamKey);
 	if (!service)
 		return setTargetError(target, "Failed to create RTMP service.");
 
@@ -2205,7 +2215,7 @@ bool OutputManager::startIndependentTarget(OutputTarget &target, Session *existi
 			.arg(profile.width)
 			.arg(profile.height)
 			.arg(profile.videoEncoderId.isEmpty() ? QStringLiteral("obs_x264") : profile.videoEncoderId)
-			.arg(maskedKey(target.streamKey)));
+			.arg(maskedKey(effectiveStreamKey)));
 	if (!runtimeTargetIds_.contains(target.id))
 		emit statusMessage(QString("Starting %1").arg(target.name));
 	return true;
@@ -2398,6 +2408,7 @@ void OutputManager::applyYouTubeBroadcastSelection(const QString &targetId, quin
 	TargetRuntimeStatus &runtime = ensureRuntimeStatus(targetId);
 	runtime.broadcastId = cleanBroadcastId;
 	session->youtubeAwaitingSelection = false;
+	session->youtubeBroadcastSelectionConfirmed = true;
 	++session->youtubeOperationGeneration;
 	session->youtubeAutoStartWaitingSinceMs = 0;
 	if (!session->youtubePreflight)
@@ -2625,11 +2636,29 @@ void OutputManager::listYouTubeBroadcastPage(const QString &targetId, quint64 se
 						 accumulated);
 			return;
 		}
+		if (broadcastStatus == QStringLiteral("active") && accumulated.isEmpty()) {
+			logInfo(QStringLiteral("%1: No ready YouTube broadcast was found; checking completed broadcasts for a reusable stream.")
+					.arg(target->name));
+			listYouTubeBroadcastPage(targetId,
+						 sessionSerial,
+						 accessToken,
+						 attempt,
+						 operationGeneration,
+						 QStringLiteral("completed"),
+						 QString(),
+						 0,
+						 QJsonArray());
+			return;
+		}
 
 		if (accumulated.isEmpty()) {
 			completeYouTubeOperation(targetId, sessionSerial, operationGeneration);
-			setTargetApiWarning(targetId, QStringLiteral("YouTube broadcast lookup found no broadcasts."), sessionSerial);
+			setTargetApiWarning(targetId, QStringLiteral("YouTube broadcast lookup found no reusable completed broadcast."), sessionSerial);
 			return;
+		}
+		if (broadcastStatus == QStringLiteral("completed")) {
+			if (Session *session = sessionForTarget(targetId))
+				session->youtubeCompletedReuseLookup = true;
 		}
 		listYouTubeStreams(targetId, sessionSerial, accessToken, attempt, operationGeneration, accumulated);
 	});
@@ -2685,6 +2714,12 @@ void OutputManager::listYouTubeStreamBatch(const QString &targetId, quint64 sess
 
 	const QStringList batchIds = streamIds.mid(offset, YouTubeApiPageSize);
 	if (batchIds.isEmpty()) {
+		Session *session = sessionForTarget(targetId);
+		if (session && session->youtubeCompletedReuseLookup) {
+			processYouTubeCompletedBroadcastReuse(targetId, sessionSerial, accessToken,
+							 operationGeneration, broadcasts, streams);
+			return;
+		}
 		processYouTubeBroadcastSelection(targetId, sessionSerial, accessToken, attempt,
 						 operationGeneration, broadcasts, streams);
 		return;
@@ -2692,7 +2727,7 @@ void OutputManager::listYouTubeStreamBatch(const QString &targetId, quint64 sess
 
 	QUrl url(QStringLiteral("https://www.googleapis.com/youtube/v3/liveStreams"));
 	QUrlQuery query;
-	query.addQueryItem(QStringLiteral("part"), QStringLiteral("id,cdn,status"));
+	query.addQueryItem(QStringLiteral("part"), QStringLiteral("id,cdn,status,contentDetails"));
 	query.addQueryItem(QStringLiteral("id"), batchIds.join(','));
 	query.addQueryItem(QStringLiteral("maxResults"), QString::number(YouTubeApiPageSize));
 	url.setQuery(query);
@@ -2741,6 +2776,13 @@ void OutputManager::listYouTubeStreamBatch(const QString &targetId, quint64 sess
 					       accumulatedStreams);
 			return;
 		}
+		Session *session = sessionForTarget(targetId);
+		if (session && session->youtubeCompletedReuseLookup) {
+			processYouTubeCompletedBroadcastReuse(targetId, sessionSerial, accessToken,
+							 operationGeneration, broadcasts,
+							 accumulatedStreams);
+			return;
+		}
 		processYouTubeBroadcastSelection(targetId,
 						 sessionSerial,
 						 accessToken,
@@ -2748,6 +2790,225 @@ void OutputManager::listYouTubeStreamBatch(const QString &targetId, quint64 sess
 						 operationGeneration,
 						 broadcasts,
 						 accumulatedStreams);
+	});
+}
+
+void OutputManager::processYouTubeCompletedBroadcastReuse(const QString &targetId,
+						   quint64 sessionSerial,
+						   const QString &accessToken,
+						   quint64 operationGeneration,
+						   const QJsonArray &broadcasts,
+						   const QJsonArray &streams)
+{
+	OutputTarget *target = findTarget(targetId);
+	Session *session = sessionForTarget(targetId);
+	if (!target || !session || session->serial != sessionSerial || !session->youtubePreflight ||
+	    !youtubeOperationMatches(targetId, sessionSerial, operationGeneration) ||
+	    !canContinuePlatformStart(*target, runtimeStatusForTarget(targetId)))
+		return;
+	session->youtubeCompletedReuseLookup = false;
+
+	QHash<QString, QJsonObject> streamsById;
+	for (const QJsonValue &value : streams) {
+		const QJsonObject stream = value.toObject();
+		const QString streamId = stream.value(QStringLiteral("id")).toString().trimmed();
+		if (!streamId.isEmpty())
+			streamsById.insert(streamId, stream);
+	}
+	const QString savedStreamKey = session->youtubeResolvedStreamKey.isEmpty()
+					       ? target->streamKey
+					       : session->youtubeResolvedStreamKey;
+	const QJsonObject completed = youtubeMostRecentReusableCompletedBroadcast(
+		broadcasts, streamsById, savedStreamKey);
+	if (completed.isEmpty()) {
+		completeYouTubeOperation(targetId, sessionSerial, operationGeneration);
+		setTargetApiWarning(
+			targetId,
+			QStringLiteral("YouTube broadcast lookup found no reusable completed broadcast matching this target's stream key."),
+			sessionSerial);
+		return;
+	}
+	const QString streamId = completed.value(QStringLiteral("contentDetails"))
+					 .toObject()
+					 .value(QStringLiteral("boundStreamId"))
+					 .toString()
+					 .trimmed();
+	const QJsonObject stream = streamsById.value(streamId);
+	const QString streamKey = stream.value(QStringLiteral("cdn"))
+					.toObject()
+					.value(QStringLiteral("ingestionInfo"))
+					.toObject()
+					.value(QStringLiteral("streamName"))
+					.toString()
+					.trimmed();
+	if (streamId.isEmpty() || streamKey.isEmpty()) {
+		completeYouTubeOperation(targetId, sessionSerial, operationGeneration);
+		setTargetApiWarning(targetId,
+				    QStringLiteral("YouTube previous broadcast reuse failed: the reusable stream was incomplete."),
+				    sessionSerial);
+		return;
+	}
+	session->youtubeResolvedStreamKey = streamKey;
+	setRuntimePlatform(targetId, sessionSerial, PlatformLiveState::Unknown,
+			   QStringLiteral("Creating a new YouTube broadcast from the previous settings"));
+	logInfo(QStringLiteral("%1: Creating a new YouTube broadcast from the most recent reusable completed broadcast before RTMP starts.")
+			.arg(target->name));
+	createYouTubeBroadcastFromCompleted(targetId, sessionSerial, operationGeneration,
+					    accessToken, completed, stream);
+}
+
+void OutputManager::createYouTubeBroadcastFromCompleted(const QString &targetId,
+						 quint64 sessionSerial,
+						 quint64 operationGeneration,
+						 const QString &accessToken,
+						 const QJsonObject &completedBroadcast,
+						 const QJsonObject &stream)
+{
+	OutputTarget *target = findTarget(targetId);
+	if (!target || !youtubeOperationMatches(targetId, sessionSerial, operationGeneration))
+		return;
+	QUrl url(QStringLiteral("https://www.googleapis.com/youtube/v3/liveBroadcasts"));
+	QUrlQuery query;
+	query.addQueryItem(QStringLiteral("part"), QStringLiteral("snippet,status,contentDetails"));
+	url.setQuery(query);
+	const QString scheduledStart = QDateTime::currentDateTimeUtc().addSecs(5).toString(Qt::ISODate);
+	HttpRequest request;
+	request.url = url;
+	request.method = QByteArrayLiteral("POST");
+	request.timeoutMs = PlatformApiTimeoutMs;
+	request.headers.push_back({QByteArrayLiteral("Authorization"),
+				   QByteArrayLiteral("Bearer ") + accessToken.toUtf8()});
+	request.headers.push_back({QByteArrayLiteral("Content-Type"), QByteArrayLiteral("application/json")});
+	request.body = QJsonDocument(youtubeReusedBroadcastInsertBody(completedBroadcast, scheduledStart))
+			       .toJson(QJsonDocument::Compact);
+	http_->send(std::move(request),
+		    [this, targetId, sessionSerial, operationGeneration, accessToken,
+		     stream](HttpResponse response) {
+		if (!youtubeOperationMatches(targetId, sessionSerial, operationGeneration))
+			return;
+		const QString error = platformHttpError(response);
+		if (!error.isEmpty()) {
+			completeYouTubeOperation(targetId, sessionSerial, operationGeneration);
+			setTargetApiWarning(targetId,
+					    QStringLiteral("YouTube previous broadcast reuse failed while creating a new broadcast: %1")
+						    .arg(error),
+					    sessionSerial);
+			return;
+		}
+		const QJsonObject created = QJsonDocument::fromJson(response.body).object();
+		if (created.value(QStringLiteral("id")).toString().trimmed().isEmpty()) {
+			completeYouTubeOperation(targetId, sessionSerial, operationGeneration);
+			setTargetApiWarning(targetId,
+					    QStringLiteral("YouTube previous broadcast reuse failed: broadcast creation returned no ID."),
+					    sessionSerial);
+			return;
+		}
+		bindYouTubeBroadcastFromCompleted(targetId, sessionSerial, operationGeneration,
+						 accessToken, created, stream);
+	});
+}
+
+void OutputManager::bindYouTubeBroadcastFromCompleted(const QString &targetId,
+					      quint64 sessionSerial,
+					      quint64 operationGeneration,
+					      const QString &accessToken,
+					      const QJsonObject &createdBroadcast,
+					      const QJsonObject &stream)
+{
+	const QString broadcastId = createdBroadcast.value(QStringLiteral("id")).toString().trimmed();
+	const QString streamId = stream.value(QStringLiteral("id")).toString().trimmed();
+	if (!youtubeOperationMatches(targetId, sessionSerial, operationGeneration) ||
+	    broadcastId.isEmpty() || streamId.isEmpty())
+		return;
+	QUrl url(QStringLiteral("https://www.googleapis.com/youtube/v3/liveBroadcasts/bind"));
+	QUrlQuery query;
+	query.addQueryItem(QStringLiteral("part"), QStringLiteral("id,snippet,contentDetails,status"));
+	query.addQueryItem(QStringLiteral("id"), broadcastId);
+	query.addQueryItem(QStringLiteral("streamId"), streamId);
+	url.setQuery(query);
+	HttpRequest request;
+	request.url = url;
+	request.method = QByteArrayLiteral("POST");
+	request.timeoutMs = PlatformApiTimeoutMs;
+	request.headers.push_back({QByteArrayLiteral("Authorization"),
+				   QByteArrayLiteral("Bearer ") + accessToken.toUtf8()});
+	http_->send(std::move(request),
+		    [this, targetId, sessionSerial, operationGeneration, accessToken,
+		     createdBroadcast, stream](HttpResponse response) {
+		if (!youtubeOperationMatches(targetId, sessionSerial, operationGeneration))
+			return;
+		const QString error = platformHttpError(response);
+		if (!error.isEmpty()) {
+			failYouTubeCompletedBroadcastReuseAfterCreation(
+				targetId, sessionSerial, operationGeneration, accessToken,
+				createdBroadcast.value(QStringLiteral("id")).toString(),
+				QStringLiteral("YouTube previous broadcast reuse failed while binding the reusable stream: %1")
+					.arg(error));
+			return;
+		}
+		QJsonObject bound = QJsonDocument::fromJson(response.body).object();
+		if (bound.isEmpty())
+			bound = createdBroadcast;
+		const QString boundStreamId = bound.value(QStringLiteral("contentDetails"))
+						      .toObject()
+						      .value(QStringLiteral("boundStreamId"))
+						      .toString()
+						      .trimmed();
+		if (bound.value(QStringLiteral("id")).toString().trimmed().isEmpty() ||
+		    boundStreamId != stream.value(QStringLiteral("id")).toString().trimmed()) {
+			failYouTubeCompletedBroadcastReuseAfterCreation(
+				targetId, sessionSerial, operationGeneration, accessToken,
+				createdBroadcast.value(QStringLiteral("id")).toString(),
+				QStringLiteral("YouTube previous broadcast reuse failed: the new broadcast binding could not be confirmed."));
+			return;
+		}
+		QJsonArray broadcasts;
+		broadcasts.push_back(bound);
+		QJsonArray streams;
+		streams.push_back(stream);
+		processYouTubeBroadcastSelection(targetId, sessionSerial, accessToken, 0,
+						 operationGeneration, broadcasts, streams);
+	});
+}
+
+void OutputManager::failYouTubeCompletedBroadcastReuseAfterCreation(
+	const QString &targetId, quint64 sessionSerial, quint64 operationGeneration,
+	const QString &accessToken, const QString &createdBroadcastId, const QString &message)
+{
+	const QString cleanBroadcastId = createdBroadcastId.trimmed();
+	if (!youtubeOperationMatches(targetId, sessionSerial, operationGeneration))
+		return;
+	if (cleanBroadcastId.isEmpty()) {
+		completeYouTubeOperation(targetId, sessionSerial, operationGeneration);
+		setTargetApiWarning(targetId, message, sessionSerial);
+		return;
+	}
+	QUrl url(QStringLiteral("https://www.googleapis.com/youtube/v3/liveBroadcasts"));
+	QUrlQuery query;
+	query.addQueryItem(QStringLiteral("id"), cleanBroadcastId);
+	url.setQuery(query);
+	HttpRequest request;
+	request.url = url;
+	request.method = QByteArrayLiteral("DELETE");
+	request.timeoutMs = PlatformApiTimeoutMs;
+	request.headers.push_back({QByteArrayLiteral("Authorization"),
+				   QByteArrayLiteral("Bearer ") + accessToken.toUtf8()});
+	logWarning(QStringLiteral("YouTube previous broadcast reuse failed after creating a broadcast; removing the unused broadcast before reporting the error."));
+	http_->send(std::move(request),
+		    [this, targetId, sessionSerial, operationGeneration, message](HttpResponse response) {
+		if (!youtubeOperationMatches(targetId, sessionSerial, operationGeneration))
+			return;
+		const QString cleanupError = platformHttpError(response);
+		completeYouTubeOperation(targetId, sessionSerial, operationGeneration);
+		if (cleanupError.isEmpty()) {
+			setTargetApiWarning(targetId, message, sessionSerial);
+			return;
+		}
+		setTargetApiWarning(
+			targetId,
+			QStringLiteral("%1 Cleanup of the unused broadcast also failed: %2")
+				.arg(message, cleanupError),
+			sessionSerial);
 	});
 }
 
@@ -2776,17 +3037,22 @@ void OutputManager::processYouTubeBroadcastSelection(const QString &targetId, qu
 		streamsById.insert(stream.value(QStringLiteral("id")).toString(), stream);
 	}
 
+	const QString selectionStreamKey = session->youtubeResolvedStreamKey.isEmpty()
+					       ? target->streamKey
+					       : session->youtubeResolvedStreamKey;
+	QString preferredBroadcastId = runtimeStatusForTarget(targetId).broadcastId;
+	if (session->youtubePreflight && !session->youtubeBroadcastSelectionConfirmed)
+		preferredBroadcastId.clear();
 	const YouTubeBroadcastSelection selection =
-		selectYouTubeBroadcast(broadcasts, streamsById, target->streamKey,
-				       runtimeStatusForTarget(targetId).broadcastId,
+		selectYouTubeBroadcast(broadcasts, streamsById, selectionStreamKey,
+				       preferredBroadcastId,
 				       session->youtubePreflight ? YouTubeBroadcastSelectionMode::Preflight
 								 : YouTubeBroadcastSelectionMode::ActiveSignal);
 	logInfo(QStringLiteral("%1: YouTube selection result=%2, candidates=%3, preferred=%4.")
 				.arg(target->name,
 				     youtubeSelectionStateName(selection.state),
 				     QString::number(selection.candidates.size()),
-				     runtimeStatusForTarget(targetId).broadcastId.isEmpty() ? QStringLiteral("no")
-										     : QStringLiteral("yes")));
+				     preferredBroadcastId.isEmpty() ? QStringLiteral("no") : QStringLiteral("yes")));
 	if (selection.state == YouTubeBroadcastSelectionState::MultipleActiveBroadcasts) {
 			resetTransientRetries();
 			completeYouTubeOperation(targetId, sessionSerial, operationGeneration);
@@ -2862,6 +3128,15 @@ void OutputManager::processYouTubeBroadcastSelection(const QString &targetId, qu
 			}
 			ensureRuntimeStatus(targetId).broadcastId = broadcastId;
 			if (session->youtubePreflight) {
+				if (selection.streamKey.isEmpty()) {
+					resetTransientRetries();
+					completeYouTubeOperation(targetId, sessionSerial, operationGeneration);
+					setTargetApiWarning(
+						targetId,
+						QStringLiteral("YouTube broadcast start blocked: the selected broadcast has no usable RTMP stream key."),
+						sessionSerial);
+					return;
+				}
 				if (youtubeHasConflictingAutoStart(selection.candidates, broadcastId)) {
 					resetTransientRetries();
 					completeYouTubeOperation(targetId, sessionSerial, operationGeneration);
@@ -2874,6 +3149,7 @@ void OutputManager::processYouTubeBroadcastSelection(const QString &targetId, qu
 
 				resetTransientRetries();
 				completeYouTubeOperation(targetId, sessionSerial, operationGeneration);
+				session->youtubeResolvedStreamKey = selection.streamKey;
 				session->youtubePreflight = false;
 				session->youtubeAwaitingSelection = false;
 				clearTargetApiWarning(targetId);
@@ -3823,11 +4099,11 @@ void OutputManager::releaseAllSessionsNow()
 	}
 }
 
-obs_service_t *OutputManager::createService(const OutputTarget &target)
+obs_service_t *OutputManager::createService(const OutputTarget &target, const QString &streamKey)
 {
 	obs_data_t *serviceSettings = obs_data_create();
 	obs_data_set_string(serviceSettings, "server", target.serverUrl.toUtf8().constData());
-	obs_data_set_string(serviceSettings, "key", target.streamKey.toUtf8().constData());
+	obs_data_set_string(serviceSettings, "key", streamKey.toUtf8().constData());
 
 	const QByteArray serviceName = QString("dsk_service_%1").arg(target.id).toUtf8();
 	obs_service_t *service = obs_service_create("rtmp_custom", serviceName.constData(), serviceSettings, nullptr);

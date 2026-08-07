@@ -24,6 +24,7 @@
 
 #include <QCoreApplication>
 #include <QDateTime>
+#include <QDir>
 #include <QFile>
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -191,6 +192,13 @@ void testOutputTargetHelpers()
 	emptyKey.streamKey = " ";
 	check(!validateOutputTargetConfig(emptyKey, &error), "empty stream key fails validation");
 	check(error == "Stream key is empty.", "empty stream key error");
+
+	OutputTarget youtubeOAuthWithoutSavedKey = emptyKey;
+	youtubeOAuthWithoutSavedKey.platformId = QStringLiteral("youtube");
+	youtubeOAuthWithoutSavedKey.authMode = TargetAuthMode::YouTubeOAuth;
+	check(validateOutputTargetConfig(youtubeOAuthWithoutSavedKey, &error),
+	      "YouTube OAuth target can resolve its selected broadcast key at start time");
+	check(error.isEmpty(), "YouTube OAuth target without a saved key has no validation error");
 
 	OutputTarget savedKey = emptyKey;
 	savedKey.authCredentialRef = "DSK Multistream/stream-key/saved";
@@ -948,6 +956,13 @@ void testYouTubeApiWarningHelpers()
 	check(userFacingYouTubePreflightWarningText(youtube.lastError).contains("before video is sent"),
 	      "preflight multiple-broadcast text does not claim RTMP is already connected");
 
+	youtube.lastError = "YouTube previous broadcast reuse failed while binding the reusable stream";
+	check(targetHasYouTubeApiWarning(youtube), "previous broadcast reuse failure is an API warning");
+	check(userFacingYouTubePreflightWarningText(youtube.lastError).contains("previous settings"),
+	      "previous broadcast reuse failure has a specific preflight explanation");
+	check(liveYouTubeApiWarningRowText(youtube.lastError).contains("reuse failed"),
+	      "previous broadcast reuse failure has a specific row status");
+
 	youtube.lastError =
 		"YouTube broadcast start blocked: another broadcast using this stream key has Auto-start enabled";
 	check(userFacingYouTubePreflightWarningText(youtube.lastError).contains("Video was not sent"),
@@ -1276,6 +1291,16 @@ void testYouTubeBroadcastSelection()
 	      "one active YouTube broadcast is selected without a stream key");
 	check(selection.broadcast.value(QStringLiteral("id")).toString() == QStringLiteral("broadcast-a"),
 	      "YouTube selection returns the matching broadcast object");
+	selection = selectYouTubeBroadcast(one,
+				   streams,
+				   QStringLiteral("stale-saved-key"),
+				   {},
+				   YouTubeBroadcastSelectionMode::Preflight);
+	check(selection.state == YouTubeBroadcastSelectionState::Selected &&
+		      selection.broadcast.value(QStringLiteral("id")).toString() == QStringLiteral("broadcast-a"),
+	      "YouTube preflight selects the only eligible broadcast even when the saved key is stale");
+	check(selection.streamKey == QStringLiteral("key-a"),
+	      "YouTube preflight returns the selected broadcast's stream key for the RTMP session");
 
 	QJsonArray two = one;
 	two.push_back(youtubeTestBroadcast(QStringLiteral("broadcast-b"), QStringLiteral("stream-b")));
@@ -1288,9 +1313,35 @@ void testYouTubeBroadcastSelection()
 	      "stream key selects exactly one active YouTube broadcast");
 	check(selection.candidates.size() == 1,
 	      "YouTube selection exposes the matching broadcast candidate");
+	selection = selectYouTubeBroadcast(two,
+				   streams,
+				   QStringLiteral("key-b"),
+				   {},
+				   YouTubeBroadcastSelectionMode::Preflight);
+	check(selection.state == YouTubeBroadcastSelectionState::MultipleActiveBroadcasts &&
+		      selection.candidates.size() == 2,
+	      "YouTube preflight always asks for a choice when more than one broadcast is eligible");
 	selection = selectYouTubeBroadcast(two, streams, QStringLiteral("missing-key"));
 	check(selection.state == YouTubeBroadcastSelectionState::NoStreamKeyMatch,
 	      "active YouTube broadcasts with a different key are rejected");
+	selection = selectYouTubeBroadcast(two,
+				   streams,
+				   QStringLiteral("missing-key"),
+				   {},
+				   YouTubeBroadcastSelectionMode::Preflight);
+	check(selection.state == YouTubeBroadcastSelectionState::MultipleActiveBroadcasts &&
+		      selection.candidates.size() == 2,
+	      "YouTube preflight asks for a broadcast choice when no saved key matches multiple broadcasts");
+	selection = selectYouTubeBroadcast(two,
+				   streams,
+				   QStringLiteral("stale-saved-key"),
+				   QStringLiteral("broadcast-b"),
+				   YouTubeBroadcastSelectionMode::Preflight);
+	check(selection.state == YouTubeBroadcastSelectionState::Selected &&
+		      selection.broadcast.value(QStringLiteral("id")).toString() == QStringLiteral("broadcast-b"),
+	      "YouTube preflight honors an explicit broadcast choice independently of the saved key");
+	check(selection.streamKey == QStringLiteral("key-b"),
+	      "YouTube preflight returns the explicitly selected broadcast's stream key");
 
 	QHash<QString, QJsonObject> duplicateKeyStreams = streams;
 	duplicateKeyStreams[QStringLiteral("stream-b")] =
@@ -1503,6 +1554,102 @@ void testYouTubeArchiveRotationHelpers()
 	check(!details.value(QStringLiteral("enableAutoStart")).toBool(true) &&
 		      details.value(QStringLiteral("enableAutoStop")).toBool(false),
 	      "DSK controls archive transitions and lets YouTube end the final archive after RTMP stops");
+
+	QJsonObject olderCompleted = current;
+	olderCompleted.insert(QStringLiteral("id"), QStringLiteral("older-broadcast"));
+	olderCompleted[QStringLiteral("snippet")] = QJsonObject{
+		{QStringLiteral("title"), QStringLiteral("Previous live")},
+		{QStringLiteral("description"), QStringLiteral("Keep this description")},
+		{QStringLiteral("actualEndTime"), QStringLiteral("2026-08-01T10:00:00Z")},
+	};
+	olderCompleted[QStringLiteral("status")] = QJsonObject{
+		{QStringLiteral("lifeCycleStatus"), QStringLiteral("complete")},
+		{QStringLiteral("privacyStatus"), QStringLiteral("unlisted")},
+		{QStringLiteral("selfDeclaredMadeForKids"), false},
+		{QStringLiteral("madeForKids"), true},
+	};
+	olderCompleted[QStringLiteral("contentDetails")] = QJsonObject{
+		{QStringLiteral("boundStreamId"), QStringLiteral("reusable-stream")},
+		{QStringLiteral("enableDvr"), true},
+		{QStringLiteral("recordFromStart"), true},
+		{QStringLiteral("latencyPreference"), QStringLiteral("low")},
+	};
+	QJsonObject latestCompleted = olderCompleted;
+	latestCompleted.insert(QStringLiteral("id"), QStringLiteral("latest-broadcast"));
+	QJsonObject latestSnippet = latestCompleted.value(QStringLiteral("snippet")).toObject();
+	latestSnippet.insert(QStringLiteral("actualEndTime"), QStringLiteral("2026-08-02T10:00:00Z"));
+	latestCompleted.insert(QStringLiteral("snippet"), latestSnippet);
+	QJsonObject otherKeyCompleted = latestCompleted;
+	otherKeyCompleted.insert(QStringLiteral("id"), QStringLiteral("other-key-broadcast"));
+	QJsonObject otherKeyDetails = otherKeyCompleted.value(QStringLiteral("contentDetails")).toObject();
+	otherKeyDetails.insert(QStringLiteral("boundStreamId"), QStringLiteral("other-stream"));
+	otherKeyCompleted.insert(QStringLiteral("contentDetails"), otherKeyDetails);
+	QJsonObject activeBroadcast = latestCompleted;
+	activeBroadcast.insert(QStringLiteral("id"), QStringLiteral("still-active"));
+	activeBroadcast[QStringLiteral("status")] = QJsonObject{
+		{QStringLiteral("lifeCycleStatus"), QStringLiteral("live")},
+	};
+
+	QHash<QString, QJsonObject> reusableStreams;
+	reusableStreams.insert(QStringLiteral("reusable-stream"), QJsonObject{
+		{QStringLiteral("id"), QStringLiteral("reusable-stream")},
+		{QStringLiteral("cdn"), QJsonObject{
+			{QStringLiteral("ingestionInfo"), QJsonObject{
+				{QStringLiteral("streamName"), QStringLiteral("saved-key")},
+			}},
+		}},
+		{QStringLiteral("contentDetails"), QJsonObject{
+			{QStringLiteral("isReusable"), true},
+		}},
+	});
+	reusableStreams.insert(QStringLiteral("other-stream"), QJsonObject{
+		{QStringLiteral("id"), QStringLiteral("other-stream")},
+		{QStringLiteral("cdn"), QJsonObject{
+			{QStringLiteral("ingestionInfo"), QJsonObject{
+				{QStringLiteral("streamName"), QStringLiteral("different-key")},
+			}},
+		}},
+		{QStringLiteral("contentDetails"), QJsonObject{
+			{QStringLiteral("isReusable"), true},
+		}},
+	});
+	const QJsonArray completedCandidates{
+		activeBroadcast, latestCompleted, olderCompleted, otherKeyCompleted,
+	};
+	const QJsonObject reusableCompleted = youtubeMostRecentReusableCompletedBroadcast(
+		completedCandidates, reusableStreams, QStringLiteral("saved-key"));
+	check(reusableCompleted.value(QStringLiteral("id")).toString() == QStringLiteral("latest-broadcast"),
+	      "YouTube zero-broadcast recovery selects the newest completed broadcast for the saved key");
+	check(youtubeMostRecentReusableCompletedBroadcast(
+		      completedCandidates, reusableStreams, QStringLiteral("missing-key")).isEmpty(),
+	      "YouTube zero-broadcast recovery never reuses a different saved stream key");
+
+	QJsonObject nonReusableStream = reusableStreams.value(QStringLiteral("reusable-stream"));
+	nonReusableStream[QStringLiteral("contentDetails")] = QJsonObject{
+		{QStringLiteral("isReusable"), false},
+	};
+	reusableStreams.insert(QStringLiteral("reusable-stream"), nonReusableStream);
+	check(youtubeMostRecentReusableCompletedBroadcast(
+		      completedCandidates, reusableStreams, QStringLiteral("saved-key")).isEmpty(),
+	      "YouTube zero-broadcast recovery rejects a non-reusable stream");
+
+	const QJsonObject reusedBody = youtubeReusedBroadcastInsertBody(
+		latestCompleted, QStringLiteral("2026-08-06T12:00:05Z"));
+	check(reusedBody.value(QStringLiteral("snippet")).toObject().value(QStringLiteral("title")).toString() ==
+		      QStringLiteral("Previous live"),
+	      "YouTube zero-broadcast recovery preserves the previous title without adding a part suffix");
+	check(reusedBody.value(QStringLiteral("snippet")).toObject().value(QStringLiteral("description")).toString() ==
+		      QStringLiteral("Keep this description"),
+	      "YouTube zero-broadcast recovery preserves the previous description");
+	check(reusedBody.value(QStringLiteral("status")).toObject().value(QStringLiteral("privacyStatus")).toString() ==
+		      QStringLiteral("unlisted"),
+	      "YouTube zero-broadcast recovery preserves the previous privacy status");
+	check(!reusedBody.value(QStringLiteral("status")).toObject().contains(QStringLiteral("madeForKids")),
+	      "YouTube zero-broadcast recovery omits read-only audience state");
+	const QJsonObject reusedDetails = reusedBody.value(QStringLiteral("contentDetails")).toObject();
+	check(!reusedDetails.value(QStringLiteral("enableAutoStart")).toBool(true) &&
+		      reusedDetails.value(QStringLiteral("enableAutoStop")).toBool(false),
+	      "YouTube zero-broadcast recovery keeps DSK in control of start and enables stop on RTMP end");
 }
 
 void testYouTubeStreamOptions()
@@ -1684,6 +1831,68 @@ void testCommentViewerInstallDetection()
 	appLauncher.close();
 	check(dsk::isCommentViewerInstallDirectory(temporary.path()),
 	      "a complete independent Comment Viewer installation is detected");
+
+	QTemporaryDir installations;
+	check(installations.isValid(), "Comment Viewer candidate detection has a temporary root");
+	auto createViewer = [](const QString &directory, const QByteArray &runtimeProfile) {
+		check(QDir().mkpath(directory), "create Comment Viewer candidate directory");
+		for (const auto &[name, contents] : {
+			     std::pair{QStringLiteral("package.json"),
+				       QByteArrayLiteral(R"({"name":"dsk-comment-viewer","version":"0.2.0-beta.142"})")},
+			     std::pair{QStringLiteral("start-server-hidden.vbs"), QByteArrayLiteral("fixture")},
+			     std::pair{QStringLiteral("start-hidden.vbs"), QByteArrayLiteral("fixture")},
+			     std::pair{QStringLiteral("runtime-profile.json"), runtimeProfile},
+		     }) {
+			QFile file(QDir(directory).filePath(name));
+			check(file.open(QIODevice::WriteOnly), "create Comment Viewer candidate file");
+			file.write(contents);
+		}
+	};
+
+	const QString twitchDirectory =
+		QDir(installations.path()).filePath(QStringLiteral("DSKTwitchCommentViewer"));
+	createViewer(twitchDirectory,
+		     QByteArrayLiteral(R"({"schemaVersion":1,"edition":"public","instance":"twitch-focused","port":17325})"));
+	const auto twitchOnly = dsk::detectCommentViewerInstallation({}, installations.path());
+	check(twitchOnly.has_value(), "a Twitch-focused Viewer is detected when the standard Viewer is absent");
+	check(twitchOnly && twitchOnly->directory == twitchDirectory,
+	      "the Twitch-focused Viewer uses its independent install directory");
+	check(twitchOnly && twitchOnly->baseUrl == QUrl(QStringLiteral("http://127.0.0.1:17325")),
+	      "the Twitch-focused Viewer uses its fixed isolated port");
+	check(dsk::commentViewerObsIntegrationUrlForBase(twitchOnly->baseUrl) ==
+		      QUrl(QStringLiteral("http://127.0.0.1:17325/api/integrations/obs/v1")),
+	      "the OBS probe endpoint is derived from the same detected Viewer base URL");
+
+	const QString standardDirectory =
+		QDir(installations.path()).filePath(QStringLiteral("DSKCommentViewer"));
+	createViewer(standardDirectory,
+		     QByteArrayLiteral(R"({"schemaVersion":1,"edition":"public","instance":"public","port":17321})"));
+	const auto standardPreferred = dsk::detectCommentViewerInstallation({}, installations.path());
+	check(standardPreferred && standardPreferred->directory == standardDirectory,
+	      "the standard Viewer remains preferred when both products are installed");
+	check(standardPreferred && standardPreferred->baseUrl == QUrl(QStringLiteral("http://127.0.0.1:17321")),
+	      "the standard Viewer keeps the existing loopback contract");
+
+	const QString invalidStandardDirectory =
+		QDir(installations.path()).filePath(QStringLiteral("InvalidStandardViewer"));
+	createViewer(invalidStandardDirectory,
+		     QByteArrayLiteral(R"({"schemaVersion":2,"edition":"public","instance":"public","port":17321})"));
+	check(!dsk::commentViewerInstallationAt(invalidStandardDirectory, true),
+	      "a standard Viewer with an unsupported runtime-profile schema is rejected");
+
+	const auto twitchIntegration = dsk::parseCommentViewerObsIntegration(
+		QByteArrayLiteral(R"({"ok":true,"service":"dsk-comment-viewer","schemaVersion":1,"appVersion":"0.2.0-beta.142","integration":"obs-browser-dock","obsDock":{"viewerPath":"/viewer?dock=chat&send=1","capabilities":["comments.read","comments.send"]}})"),
+		QUrl(QStringLiteral("http://127.0.0.1:17325")));
+	check(twitchIntegration &&
+		      twitchIntegration->viewerUrl ==
+			      QUrl(QStringLiteral("http://127.0.0.1:17325/viewer?dock=chat&send=1")),
+	      "the OBS integration contract stays pinned to the detected Twitch-focused loopback port");
+	check(dsk::commentViewerBrowserDockUrl(twitchIntegration->viewerUrl) ==
+		      QUrl(QStringLiteral("http://localhost:17325/viewer?dock=chat&send=1")),
+	      "the Twitch-focused Dock keeps the isolated localhost browser pool");
+	check(dsk::commentViewerBrowserDockUrl(
+		      QUrl(QStringLiteral("https://example.invalid/viewer?dock=chat&send=1"))).isEmpty(),
+	      "the Comment Viewer Dock rejects non-loopback origins");
 }
 
 void testCommentViewerIntegrationProbePolicy()

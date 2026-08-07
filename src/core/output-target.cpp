@@ -235,7 +235,10 @@ bool validateOutputTargetConfig(const OutputTarget &target, QString *errorMessag
 		return false;
 	}
 
-	if (target.streamKey.trimmed().isEmpty() && target.authCredentialRef.trimmed().isEmpty()) {
+	const bool resolvesStreamKeyAtStart =
+		target.platformId == QStringLiteral("youtube") && target.authMode == TargetAuthMode::YouTubeOAuth;
+	if (!resolvesStreamKeyAtStart && target.streamKey.trimmed().isEmpty() &&
+	    target.authCredentialRef.trimmed().isEmpty()) {
 		if (errorMessage)
 			*errorMessage = "Stream key is empty.";
 		return false;

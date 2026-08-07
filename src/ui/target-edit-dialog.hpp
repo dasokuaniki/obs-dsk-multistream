@@ -37,6 +37,7 @@ private slots:
 	void updateAuthModes();
 	void updatePlatformHint();
 	void updateStreamKeyVisibility(bool show);
+	void toggleOAuthConnection();
 	void connectOAuthAccount();
 	void disconnectOAuthAccount();
 	void handleOAuthFinished(const dsk::OAuthConnectionResult &result);
@@ -96,7 +97,6 @@ private:
 	QComboBox *youtubeStream_ = nullptr;
 	QWidget *youtubeStreamLabel_ = nullptr;
 	QLabel *authStatus_ = nullptr;
-	QCheckBox *youtubeDataConsent_ = nullptr;
 	QLabel *youtubeLegalLinks_ = nullptr;
 	QCheckBox *useCustomOAuthApp_ = nullptr;
 	QLineEdit *oauthClientId_ = nullptr;
@@ -104,7 +104,6 @@ private:
 	QLineEdit *oauthClientSecret_ = nullptr;
 	QWidget *oauthClientSecretLabel_ = nullptr;
 	QPushButton *connectOAuthButton_ = nullptr;
-	QPushButton *disconnectOAuthButton_ = nullptr;
 	QLabel *platformHint_ = nullptr;
 	QLineEdit *server_ = nullptr;
 	QPushButton *presetServerButton_ = nullptr;

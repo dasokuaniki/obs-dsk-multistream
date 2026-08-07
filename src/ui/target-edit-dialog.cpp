@@ -301,16 +301,10 @@ TargetEditDialog::TargetEditDialog(const PlatformPresetRegistry &platforms, QWid
 	authStatus_->setWordWrap(true);
 	authStatus_->setAlignment(Qt::AlignLeft | Qt::AlignTop);
 	authStatus_->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Minimum);
-	youtubeDataConsent_ = new QCheckBox(
-		text("TargetEdit.YouTubeDataConsent",
-		     "Allow DSK to read and manage YouTube Live broadcasts and streams for this account."),
-		this);
-	youtubeDataConsent_->setObjectName(QStringLiteral("dskYouTubeDataConsent"));
-	youtubeDataConsent_->setChecked(false);
-	youtubeDataConsent_->setVisible(false);
 	youtubeLegalLinks_ = new QLabel(
 		text("TargetEdit.YouTubeLegalLinks",
-		     "Before connecting, review the <a href=\"https://dsk.dasoku.org/privacy\">DSK Privacy Policy</a>, "
+		     "DSK reads and manages YouTube Live broadcasts and streams for this account. Before connecting, "
+		     "review the <a href=\"https://dsk.dasoku.org/privacy\">DSK Privacy Policy</a>, "
 		     "<a href=\"https://www.youtube.com/t/terms\">YouTube Terms of Service</a>, "
 		     "<a href=\"https://policies.google.com/privacy\">Google Privacy Policy</a>, and "
 		     "<a href=\"https://security.google.com/settings/security/permissions\">Google permissions</a>."),
@@ -338,11 +332,7 @@ TargetEditDialog::TargetEditDialog(const PlatformPresetRegistry &platforms, QWid
 						    "Optional client secret"));
 	connectOAuthButton_ = new QPushButton(text("TargetEdit.Connect", "Connect"), this);
 	connectOAuthButton_->setObjectName(QStringLiteral("dskConnectOAuth"));
-	connect(connectOAuthButton_, &QPushButton::clicked, this, &TargetEditDialog::connectOAuthAccount);
-	disconnectOAuthButton_ = new QPushButton(text("TargetEdit.Disconnect", "Disconnect"), this);
-	disconnectOAuthButton_->setObjectName(QStringLiteral("dskDisconnectOAuth"));
-	disconnectOAuthButton_->setVisible(false);
-	connect(disconnectOAuthButton_, &QPushButton::clicked, this, &TargetEditDialog::disconnectOAuthAccount);
+	connect(connectOAuthButton_, &QPushButton::clicked, this, &TargetEditDialog::toggleOAuthConnection);
 	oauthConnector_ = new OAuthConnector(this);
 	connect(oauthConnector_, &OAuthConnector::finished, this, &TargetEditDialog::handleOAuthFinished);
 	platformHint_ = new QLabel(this);
@@ -470,7 +460,6 @@ TargetEditDialog::TargetEditDialog(const PlatformPresetRegistry &platforms, QWid
 	});
 	connect(youtubeStream_, &QComboBox::currentIndexChanged, this, &TargetEditDialog::applySelectedYouTubeStream);
 	connect(useCustomOAuthApp_, &QCheckBox::toggled, this, &TargetEditDialog::updatePlatformHint);
-	connect(youtubeDataConsent_, &QCheckBox::toggled, this, &TargetEditDialog::updatePlatformHint);
 	connect(useCustomOAuthApp_, &QCheckBox::toggled, this, [this](bool checked) {
 		if (checked && advancedSettingsToggle_)
 			advancedSettingsToggle_->setChecked(true);
@@ -534,7 +523,6 @@ TargetEditDialog::TargetEditDialog(const PlatformPresetRegistry &platforms, QWid
 	connectionRow->setContentsMargins(0, 0, 0, 0);
 	connectionRow->addWidget(authMode_, 1);
 	connectionRow->addWidget(connectOAuthButton_);
-	connectionRow->addWidget(disconnectOAuthButton_);
 
 	basicForm->addRow(text("TargetEdit.Name", "Destination name"), name_);
 	basicForm->addRow(text("TargetEdit.Platform", "Platform"), platform_);
@@ -545,7 +533,6 @@ TargetEditDialog::TargetEditDialog(const PlatformPresetRegistry &platforms, QWid
 	basicForm->addRow(text("TargetEdit.YouTubeStream", "YouTube stream"), youtubeStream_);
 	youtubeStreamLabel_ = basicForm->labelForField(youtubeStream_);
 	basicForm->addRow(authStatus_);
-	basicForm->addRow(youtubeDataConsent_);
 	basicForm->addRow(youtubeLegalLinks_);
 	basicForm->addRow(platformHint_);
 	basicForm->addRow(text("TargetEdit.Server", "Server"), serverRow);
@@ -641,7 +628,6 @@ void TargetEditDialog::setTarget(const OutputTarget &target)
 	oauthClientIdValue_ = target.oauthClientId.trimmed();
 	loadedOAuthClientId_ = target.oauthClientId.trimmed();
 	oauthClientSecretValue_ = target.oauthClientSecret;
-	youtubeDataConsent_->setChecked(false);
 	useCustomOAuthApp_->setChecked(!target.oauthClientId.trimmed().isEmpty() ||
 				      !target.oauthClientSecret.trimmed().isEmpty() ||
 				      !target.oauthClientSecretRef.trimmed().isEmpty());
@@ -738,7 +724,6 @@ void TargetEditDialog::setNewTargetDefaults(const QString &targetId)
 	oauthClientIdValue_.clear();
 	loadedOAuthClientId_.clear();
 	oauthClientSecretValue_.clear();
-	youtubeDataConsent_->setChecked(false);
 	useCustomOAuthApp_->setChecked(false);
 	if (advancedSettingsToggle_)
 		advancedSettingsToggle_->setChecked(false);
@@ -1073,36 +1058,36 @@ void TargetEditDialog::updatePlatformHint()
 		if (connected)
 			authStatus_->setText(text(
 						     "TargetEdit.AuthConnectedTwitch",
-						     "Connected as %1. Reconnect refreshes the saved Twitch stream key.")
+						     "Connected as %1. Use Disconnect to remove this connection.")
 					     .arg(authAccountName_.isEmpty() ? QStringLiteral("Twitch") : authAccountName_));
 		else
 			authStatus_->setText(text(
 				"TargetEdit.AuthConnectTwitchHelp",
-				"Press Connect Twitch. DSK signs in through its publisher service and retrieves this account's stream key automatically."));
+				"Press Connect. DSK signs in to Twitch through its publisher service and retrieves this account's stream key automatically."));
 	} else if (authMode == TargetAuthMode::YouTubeOAuth) {
 		if (connected)
 			authStatus_->setText(text(
 						     "TargetEdit.AuthConnectedYouTube",
-						     "Connected as %1. Reconnect refreshes the authorization and reusable stream list.")
+						     "Connected as %1. Use Disconnect to remove this connection.")
 					     .arg(authAccountName_.isEmpty() ? QStringLiteral("YouTube") : authAccountName_));
 		else if (!useCustomYouTubeOAuth)
 			authStatus_->setText(text(
 				"TargetEdit.AuthConnectYouTubeHelp",
-				"Press Connect YouTube. DSK retrieves reusable saved streams for selection. Single-use streams can still be entered manually."));
+				"Press Connect. DSK signs in to YouTube and retrieves reusable saved streams for selection. Single-use streams can still be entered manually."));
 		else
 			authStatus_->setText(text(
 				"TargetEdit.AuthCustomYouTubeHelp",
-				"Enter a Google OAuth Client ID and Client Secret, then press Connect YouTube. DSK retrieves reusable saved streams and uses this login to start YouTube Live. Redirect URI: http://localhost:17371/callback"));
+				"Enter a Google OAuth Client ID and Client Secret, then press Connect. DSK retrieves reusable saved streams and uses this login to start YouTube Live. Redirect URI: http://localhost:17371/callback"));
 	} else if (authMode == TargetAuthMode::KickOAuth) {
 		if (connected)
 			authStatus_->setText(text(
 						     "TargetEdit.AuthConnectedKick",
-						     "Connected as %1. Reconnect refreshes the saved Kick stream URL and key.")
+						     "Connected as %1. Use Disconnect to remove this connection.")
 					     .arg(authAccountName_.isEmpty() ? QStringLiteral("Kick") : authAccountName_));
 		else
 			authStatus_->setText(text(
 				"TargetEdit.AuthConnectKickHelp",
-				"Press Connect Kick. DSK signs in through its publisher service and retrieves this account's stream URL and key automatically."));
+				"Press Connect. DSK signs in to Kick through its publisher service and retrieves this account's stream URL and key automatically."));
 	} else
 		authStatus_->setText(text(
 			"TargetEdit.AuthManualHelp",
@@ -1110,13 +1095,9 @@ void TargetEditDialog::updatePlatformHint()
 
 	const bool oauthMode = authMode == TargetAuthMode::TwitchOAuth || authMode == TargetAuthMode::YouTubeOAuth ||
 			       authMode == TargetAuthMode::KickOAuth;
-	const bool showYouTubeConsent = authMode == TargetAuthMode::YouTubeOAuth;
-	if (youtubeDataConsent_) {
-		youtubeDataConsent_->setVisible(showYouTubeConsent);
-		youtubeDataConsent_->setEnabled(showYouTubeConsent && !loginRunning);
-	}
+	const bool showYouTubeDisclosure = authMode == TargetAuthMode::YouTubeOAuth;
 	if (youtubeLegalLinks_)
-		youtubeLegalLinks_->setVisible(showYouTubeConsent);
+		youtubeLegalLinks_->setVisible(showYouTubeDisclosure);
 	if (platform_)
 		platform_->setEnabled(!loginRunning);
 	if (authMode_)
@@ -1141,38 +1122,30 @@ void TargetEditDialog::updatePlatformHint()
 	if (oauthClientSecretLabel_)
 		oauthClientSecretLabel_->setVisible(showDeveloperCredentials);
 	if (connectOAuthButton_) {
-		const bool consentReady = authMode != TargetAuthMode::YouTubeOAuth ||
-					  checkedOr(youtubeDataConsent_, false);
-		connectOAuthButton_->setEnabled(oauthMode && !loginRunning && consentReady);
+		connectOAuthButton_->setEnabled(oauthMode && !loginRunning);
 		if (loginRunning)
 			connectOAuthButton_->setText(text("TargetEdit.Waiting", "Waiting..."));
-		else if (authMode == TargetAuthMode::TwitchOAuth)
-			connectOAuthButton_->setText(
-				connected
-					? text("TargetEdit.ReconnectTwitch", "Reconnect Twitch")
-					: text("TargetEdit.ConnectTwitch", "Connect Twitch"));
-		else if (authMode == TargetAuthMode::YouTubeOAuth)
-			connectOAuthButton_->setText(
-				connected
-					? text("TargetEdit.ReconnectYouTube", "Reconnect YouTube")
-					: text("TargetEdit.ConnectYouTube", "Connect YouTube"));
-		else if (authMode == TargetAuthMode::KickOAuth)
-			connectOAuthButton_->setText(
-				connected
-					? text("TargetEdit.ReconnectKick", "Reconnect Kick")
-					: text("TargetEdit.ConnectKick", "Connect Kick"));
 		else
-			connectOAuthButton_->setText(text("TargetEdit.Connect", "Connect"));
-	}
-	if (disconnectOAuthButton_) {
-		disconnectOAuthButton_->setVisible(oauthMode && connected);
-		disconnectOAuthButton_->setEnabled(!loginRunning);
+			connectOAuthButton_->setText(connected ? text("TargetEdit.Disconnect", "Disconnect")
+							       : text("TargetEdit.Connect", "Connect"));
 	}
 }
 
 void TargetEditDialog::updateStreamKeyVisibility(bool show)
 {
 	streamKey_->setEchoMode(show ? QLineEdit::Normal : QLineEdit::Password);
+}
+
+void TargetEditDialog::toggleOAuthConnection()
+{
+	if (oauthConnector_->isRunning())
+		return;
+
+	const TargetAuthMode authMode = targetAuthModeFromString(authMode_->currentData().toString());
+	if (hasConnectedOAuthAccount(authMode))
+		disconnectOAuthAccount();
+	else
+		connectOAuthAccount();
 }
 
 void TargetEditDialog::connectOAuthAccount()
@@ -1182,13 +1155,6 @@ void TargetEditDialog::connectOAuthAccount()
 	    authMode != TargetAuthMode::KickOAuth) {
 		authStatus_->setText(text("TargetEdit.AuthSelectSupported",
 					  "Select a supported account login first."));
-		return;
-	}
-	if (authMode == TargetAuthMode::YouTubeOAuth && !checkedOr(youtubeDataConsent_, false)) {
-		authStatus_->setText(text(
-			"TargetEdit.YouTubeConsentRequired",
-			"Review the policies and allow YouTube Live data access before connecting."));
-		youtubeDataConsent_->setFocus(Qt::OtherFocusReason);
 		return;
 	}
 	if (isPublisherManagedAuth(authMode)) {

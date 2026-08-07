@@ -779,13 +779,12 @@ void testTwitchPublisherOAuthUiAndMigration()
 	auto *clientId = dialog.findChild<QLineEdit *>(QStringLiteral("dskOAuthClientId"));
 	auto *clientSecret = dialog.findChild<QLineEdit *>(QStringLiteral("dskOAuthClientSecret"));
 	auto *connectButton = dialog.findChild<QPushButton *>(QStringLiteral("dskConnectOAuth"));
-	auto *disconnectButton = dialog.findChild<QPushButton *>(QStringLiteral("dskDisconnectOAuth"));
 	check(clientId && clientId->isHidden(), "Twitch publisher login hides the user Client ID field");
 	check(clientSecret && clientSecret->isHidden(), "Twitch publisher login hides the user Client Secret field");
-	check(connectButton && connectButton->isEnabled() && connectButton->text() == "Reconnect Twitch",
-	      "connected Twitch publisher login exposes one clear Reconnect Twitch action");
-	check(disconnectButton && !disconnectButton->isHidden() && disconnectButton->isEnabled(),
-	      "connected Twitch publisher login exposes a Disconnect action");
+	check(connectButton && connectButton->isEnabled() && connectButton->text() == "Disconnect",
+	      "connected Twitch login turns the single connection button into Disconnect");
+	check(dialog.findChild<QPushButton *>(QStringLiteral("dskDisconnectOAuth")) == nullptr,
+	      "Twitch login does not add a second connection button");
 
 	dsk::OutputTarget accepted;
 	dialog.fillTarget(accepted);
@@ -796,14 +795,12 @@ void testTwitchPublisherOAuthUiAndMigration()
 	check(accepted.oauthClientSecretRef.isEmpty(), "Twitch publisher login removes legacy Client Secret references");
 	check(accepted.streamKey == input.streamKey, "Twitch publisher login preserves the automatically retrieved stream key");
 
-	check(QMetaObject::invokeMethod(&dialog, "disconnectOAuthAccount", Qt::DirectConnection),
-	      "Twitch Disconnect action is invokable");
+	connectButton->click();
 	dialog.fillTarget(accepted);
 	check(accepted.authAccountName.isEmpty(), "Twitch Disconnect clears the saved account label in the edited target");
 	check(accepted.authCredentialRef.isEmpty(), "Twitch Disconnect clears the saved stream key reference in the edited target");
 	check(accepted.streamKey.isEmpty(), "Twitch Disconnect clears the stream key in the edited target");
-	check(disconnectButton->isHidden(), "Twitch Disconnect action hides after local disconnection");
-	check(connectButton->text() == "Connect Twitch", "Twitch Disconnect returns the primary action to Connect Twitch");
+	check(connectButton->text() == "Connect", "Twitch Disconnect returns the same button to Connect");
 }
 
 void testYouTubeBundledOAuthUi()
@@ -883,7 +880,7 @@ void testYouTubeBundledOAuthUi()
 	      "custom Google OAuth mode persists explicitly entered credentials");
 }
 
-void testYouTubeOAuthRequiresLegalConsent()
+void testYouTubeOAuthExplainsDataUseWithoutExtraConsentGate()
 {
 	dsk::PlatformPresetRegistry platforms;
 	dsk::TargetEditDialog dialog(platforms);
@@ -915,31 +912,27 @@ void testYouTubeOAuthRequiresLegalConsent()
 
 	authMode->setCurrentIndex(authMode->findData(QStringLiteral("youtube-oauth")));
 
-	auto *consent = dialog.findChild<QCheckBox *>(QStringLiteral("dskYouTubeDataConsent"));
 	auto *links = dialog.findChild<QLabel *>(QStringLiteral("dskYouTubeLegalLinks"));
 	auto *connectButton = dialog.findChild<QPushButton *>(QStringLiteral("dskConnectOAuth"));
-	check(consent != nullptr && !consent->isHidden(),
-	      "YouTube OAuth shows an explicit data-use consent control");
-	check(consent && !consent->isChecked(),
-	      "YouTube data-use consent is opt-in rather than preselected");
+	check(dialog.findChild<QCheckBox *>(QStringLiteral("dskYouTubeDataConsent")) == nullptr,
+	      "YouTube OAuth does not add a redundant consent checkbox before Google's consent screen");
 	check(links != nullptr && links->openExternalLinks(),
 	      "YouTube OAuth shows externally openable policy links");
+	check(links && links->text().contains(QStringLiteral("YouTube Live")),
+	      "YouTube OAuth keeps a visible explanation of the Google data it accesses");
 	check(links && links->text().contains(QStringLiteral("https://dsk.dasoku.org/privacy")) &&
 		      links->text().contains(QStringLiteral("https://www.youtube.com/t/terms")) &&
 		      links->text().contains(QStringLiteral("https://policies.google.com/privacy")) &&
 		      links->text().contains(QStringLiteral("https://security.google.com/settings/security/permissions")),
 	      "YouTube OAuth exposes DSK privacy, YouTube terms, Google privacy, and permission controls");
-	check(connectButton && !connectButton->isEnabled(),
-	      "YouTube OAuth cannot start before informed consent");
-
-	if (consent)
-		consent->setChecked(true);
-	check(connectButton && connectButton->isEnabled(),
-	      "accepting the data-use terms enables YouTube OAuth");
+	check(connectButton && connectButton->isEnabled() && connectButton->text() == "Connect",
+	      "disconnected YouTube OAuth exposes one Connect button without a redundant consent gate");
+	check(dialog.findChild<QPushButton *>(QStringLiteral("dskDisconnectOAuth")) == nullptr,
+	      "YouTube OAuth does not add a second connection button");
 
 	authMode->setCurrentIndex(authMode->findData(QStringLiteral("manual-rtmp")));
-	check(consent && consent->isHidden(),
-	      "YouTube-specific consent stays out of Manual RTMP mode");
+	check(links && links->isHidden(),
+	      "YouTube-specific policy links stay out of Manual RTMP mode");
 }
 
 void testYouTubeStreamSelectionAfterLogin()
@@ -974,6 +967,9 @@ void testYouTubeStreamSelectionAfterLogin()
 	check(QMetaObject::invokeMethod(connector, "finished", Qt::DirectConnection,
 					Q_ARG(dsk::OAuthConnectionResult, result)),
 	      "YouTube OAuth result reaches the target editor");
+	auto *connectButton = dialog.findChild<QPushButton *>(QStringLiteral("dskConnectOAuth"));
+	check(connectButton && connectButton->text() == "Disconnect",
+	      "connected YouTube login turns the single connection button into Disconnect");
 
 	auto *streamSelector = dialog.findChild<QComboBox *>(QStringLiteral("dskYouTubeStream"));
 	check(streamSelector != nullptr, "YouTube login exposes a named stream selector");
@@ -1030,13 +1026,12 @@ void testKickPublisherOAuthUiAndMigration()
 	auto *clientId = dialog.findChild<QLineEdit *>(QStringLiteral("dskOAuthClientId"));
 	auto *clientSecret = dialog.findChild<QLineEdit *>(QStringLiteral("dskOAuthClientSecret"));
 	auto *connectButton = dialog.findChild<QPushButton *>(QStringLiteral("dskConnectOAuth"));
-	auto *disconnectButton = dialog.findChild<QPushButton *>(QStringLiteral("dskDisconnectOAuth"));
 	check(clientId && clientId->isHidden(), "Kick publisher login hides the user Client ID field");
 	check(clientSecret && clientSecret->isHidden(), "Kick publisher login hides the user Client Secret field");
-	check(connectButton && connectButton->isEnabled() && connectButton->text() == "Reconnect Kick",
-	      "connected Kick publisher login exposes one clear Reconnect Kick action");
-	check(disconnectButton && !disconnectButton->isHidden() && disconnectButton->isEnabled(),
-	      "connected Kick publisher login exposes a Disconnect action");
+	check(connectButton && connectButton->isEnabled() && connectButton->text() == "Disconnect",
+	      "connected Kick login turns the single connection button into Disconnect");
+	check(dialog.findChild<QPushButton *>(QStringLiteral("dskDisconnectOAuth")) == nullptr,
+	      "Kick login does not add a second connection button");
 
 	dsk::OutputTarget accepted;
 	dialog.fillTarget(accepted);
@@ -1047,14 +1042,12 @@ void testKickPublisherOAuthUiAndMigration()
 	      "Kick publisher login removes obsolete desktop OAuth credentials");
 	check(accepted.streamKey == input.streamKey, "Kick publisher login preserves the retrieved stream key");
 
-	check(QMetaObject::invokeMethod(&dialog, "disconnectOAuthAccount", Qt::DirectConnection),
-	      "Kick Disconnect action is invokable");
+	connectButton->click();
 	dialog.fillTarget(accepted);
 	check(accepted.authAccountName.isEmpty(), "Kick Disconnect clears the saved account label");
 	check(accepted.authCredentialRef.isEmpty(), "Kick Disconnect clears the stream key reference");
 	check(accepted.streamKey.isEmpty(), "Kick Disconnect clears the stream key");
-	check(disconnectButton->isHidden(), "Kick Disconnect action hides after local disconnection");
-	check(connectButton->text() == "Connect Kick", "Kick Disconnect returns the action to Connect Kick");
+	check(connectButton->text() == "Connect", "Kick Disconnect returns the same button to Connect");
 }
 
 void testOfficialKickBadgeAsset()
@@ -1118,7 +1111,7 @@ int main(int argc, char **argv)
 	run("Kick publisher OAuth UI", testKickPublisherOAuthUiAndMigration);
 	run("official Kick badge asset", testOfficialKickBadgeAsset);
 	run("YouTube bundled OAuth UI", testYouTubeBundledOAuthUi);
-	run("YouTube OAuth legal consent", testYouTubeOAuthRequiresLegalConsent);
+	run("YouTube OAuth data-use disclosure", testYouTubeOAuthExplainsDataUseWithoutExtraConsentGate);
 	run("YouTube stream selection", testYouTubeStreamSelectionAfterLogin);
 
 	if (failures > 0) {

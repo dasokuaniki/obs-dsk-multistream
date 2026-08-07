@@ -6,8 +6,8 @@ DSK keeps account login separate from output start/stop. Editing a target does n
 
 `Login with Twitch` uses the DSK publisher OAuth relay at `https://auth.dasoku.org` with the dedicated `multistream` application profile. The desktop plugin opens the system browser, uses a loopback callback with PKCE, requests only `channel:read:stream_key`, and retrieves the authorized channel's stream key.
 
-- `Connect Twitch` creates a connection for a target that has no saved account.
-- `Reconnect Twitch` repeats login and replaces the saved account/key only after the new login succeeds and the target is saved.
+- `Connect` creates a connection for a target that has no saved account.
+- The same button changes to `Disconnect` after login. Save the disconnected target, reopen it, and press `Connect` to choose another account.
 - `Disconnect` clears the account/key in the editor. `Save` commits the removal; `Cancel` keeps the previous saved connection.
 - Disconnecting in DSK does not revoke the DSK application's authorization on Twitch. Review or revoke connected applications in the Twitch account's Connections settings, then use DSK Disconnect or complete removal to delete the local key.
 - The relay is needed only during login. RTMP streaming uses the stream key stored in Windows Credential Manager.
@@ -16,17 +16,17 @@ Legacy Twitch Client ID, Client Secret, and refresh-token fields are removed whe
 
 ## YouTube
 
-Distribution builds use the DSK publisher's bundled Google desktop OAuth application by default. A user selects `Login with YouTube` and presses `Connect YouTube`; no Google developer Client ID or Client Secret is entered on that machine. OAuth is direct between the desktop plugin and Google with PKCE and a loopback callback.
+Distribution builds use the verified DSK publisher Google desktop OAuth application by default. A user selects `Login with YouTube` and presses `Connect`; no Google developer Client ID or Client Secret is entered on that machine. OAuth is direct between the desktop plugin and Google with PKCE and a loopback callback.
 
-- The publisher must configure and build with a Google desktop OAuth application, publish the consent screen, and complete verification where Google requires it. Apps left in testing mode only accept configured test users.
+- The bundled DSK application has a published consent screen and completed Google's verification for its requested YouTube Live scope.
 - Google treats installed applications as unable to keep a client secret confidential. The bundled desktop credential identifies the publisher app; user authorization remains protected by PKCE and the local callback.
 - DSK stores the user's refresh token in Windows Credential Manager. Bundled publisher credentials are not copied into target settings or the settings JSON.
 - `Use custom Google OAuth app` preserves the legacy path for advanced users and existing targets. Custom Client IDs and Client Secrets continue to be stored through the target's DSK credential references.
-- The target still needs its YouTube stream key. After RTMP input is active, DSK uses the authorized YouTube API connection to find the stream-key-matched broadcast and request its live transition.
+- Before RTMP starts, DSK lists ready YouTube broadcasts. One ready broadcast is selected automatically; multiple broadcasts require an explicit choice. DSK retrieves the selected broadcast's bound stream key and sends video only after that choice is confirmed. If no ready broadcast exists, DSK can create a new broadcast from the most recent compatible reusable completed broadcast.
 
 Before DSK starts YouTube OAuth, the editor displays the DSK privacy policy,
-YouTube Terms of Service, Google Privacy Policy, and Google permissions page and
-requires an unchecked, explicit data-access confirmation. Disconnecting YouTube
+YouTube Terms of Service, Google Privacy Policy, and Google permissions page.
+Google's own OAuth consent screen requests the actual account authorization. Disconnecting YouTube
 removes the saved account and refresh token after `Save`. The RTMP stream key
 remains available for reconnecting. Cancelling the editor keeps the previous
 saved connection. Access can also be revoked from
