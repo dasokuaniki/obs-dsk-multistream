@@ -184,6 +184,10 @@ if(WIN32)
   target_sources(obs-dsk-multistream PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/obs-dsk-multistream-version.rc")
   target_compile_definitions(obs-dsk-multistream PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN)
   target_link_libraries(obs-dsk-multistream PRIVATE Advapi32)
+  if(MSVC)
+    target_compile_options(obs-dsk-multistream PRIVATE /guard:cf)
+    target_link_options(obs-dsk-multistream PRIVATE /guard:cf)
+  endif()
 endif()
 
 if(DSK_ENABLE_OBS_CANVAS_API)
@@ -417,11 +421,22 @@ if(DSK_BUILD_TESTS)
       "-DPRIVACY=${CMAKE_CURRENT_SOURCE_DIR}/docs/privacy.md"
       "-DNOTICE=${CMAKE_CURRENT_SOURCE_DIR}/docs/third-party-notices.md"
       "-DREMOVAL_SCRIPT=${CMAKE_CURRENT_SOURCE_DIR}/scripts/remove-user-data.ps1"
+      "-DSIGNING_SCRIPT=${CMAKE_CURRENT_SOURCE_DIR}/scripts/sign-windows-release.ps1"
       -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/distribution-compliance-test.cmake"
   )
   set_tests_properties(dsk-distribution-compliance-test PROPERTIES LABELS "unit;packaging;compliance;no-obs")
 
   if(WIN32)
+    add_test(
+      NAME dsk-windows-pe-hardening-test
+      COMMAND
+        "$ENV{SystemRoot}/System32/WindowsPowerShell/v1.0/powershell.exe"
+        -NoProfile -ExecutionPolicy Bypass
+        -File "${CMAKE_CURRENT_SOURCE_DIR}/tests/windows-pe-hardening-test.ps1"
+        -PluginDll "$<TARGET_FILE:obs-dsk-multistream>"
+    )
+    set_tests_properties(dsk-windows-pe-hardening-test PROPERTIES LABELS "unit;security;packaging;no-obs")
+
     add_test(
       NAME dsk-remove-user-data-test
       COMMAND

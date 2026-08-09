@@ -228,6 +228,21 @@ Upload `signing/signpath-plugin.xml` and `signing/signpath-installer.xml` as the
 
 The optional `DSK_OAUTH_APP_CONFIG_JSON` repository secret supplies the publisher-managed YouTube OAuth desktop application to release builds. Pull-request builds do not require it and produce a compatible build without bundled publisher credentials.
 
+SignPath Foundation was not approved for this project, so it is not the current
+release route. For the SSL.com eSigner CKA route, first verify the unsigned clean
+build without changing it:
+
+```powershell
+powershell.exe -ExecutionPolicy Bypass -File scripts\sign-windows-release.ps1 -PlanOnly
+```
+
+After the reviewed code-signing certificate is enrolled and loaded into
+`Cert:\CurrentUser\My` by eSigner CKA, run the same helper with its certificate
+thumbprint. It signs and validates the plugin DLL, packages that signed DLL,
+signs and validates the installer, then regenerates the final SHA-256 file. Do
+not store the eSigner password, OTP seed, or signing credential in this
+repository or command history.
+
 After signing both the built DLL and staged package DLL, enforce the local release gate with:
 
 ```powershell

@@ -1,4 +1,4 @@
-foreach(required_input IN ITEMS INNO_SCRIPT BUILD_SCRIPT VALIDATOR BETA_GUIDE PRIVACY NOTICE REMOVAL_SCRIPT)
+foreach(required_input IN ITEMS INNO_SCRIPT BUILD_SCRIPT VALIDATOR BETA_GUIDE PRIVACY NOTICE REMOVAL_SCRIPT SIGNING_SCRIPT)
   if(NOT DEFINED ${required_input} OR NOT EXISTS "${${required_input}}")
     message(FATAL_ERROR "Missing distribution compliance test input: ${required_input}")
   endif()
@@ -11,6 +11,7 @@ file(READ "${BETA_GUIDE}" beta_guide)
 file(READ "${PRIVACY}" privacy)
 file(READ "${NOTICE}" notice)
 file(READ "${REMOVAL_SCRIPT}" removal_script)
+file(READ "${SIGNING_SCRIPT}" signing_script)
 string(REPLACE "\\" "/" build_script_paths "${build_script}")
 string(REPLACE "\\" "/" validator_paths "${validator}")
 
@@ -87,6 +88,25 @@ foreach(required_removal_guard IN ITEMS
   string(FIND "${removal_script}" "${required_removal_guard}" position)
   if(position EQUAL -1)
     message(FATAL_ERROR "Complete-removal helper is missing ownership guard: ${required_removal_guard}")
+  endif()
+endforeach()
+
+foreach(required_signing_control IN ITEMS
+    "DSK_INCLUDE_E2E_HOOKS:BOOL=OFF"
+    "Get-CodeSigningCertificate"
+    "Invoke-AuthenticodeSigning"
+    "Test-IsChildPath"
+    "The clean release DLL must be unsigned"
+    "A signing output already exists"
+    "/fd SHA256"
+    "/tr"
+    "/td SHA256"
+    "RequireValidPluginSignature"
+    "TimeStamperCertificate"
+    "Get-FileHash")
+  string(FIND "${signing_script}" "${required_signing_control}" position)
+  if(position EQUAL -1)
+    message(FATAL_ERROR "Release signing helper is missing: ${required_signing_control}")
   endif()
 endforeach()
 

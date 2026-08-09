@@ -11,8 +11,8 @@ Only release artifacts built from the `dasokuaniki/obs-dsk-multistream` reposito
 
 Both executable layers are signed:
 
-1. `obs-dsk-multistream.dll` is built, submitted to SignPath, and verified before packaging.
-2. The Inno Setup installer is built with that signed DLL, submitted separately, and verified before publication.
+1. `obs-dsk-multistream.dll` is built from the reviewed release commit, signed, and verified before packaging.
+2. The Inno Setup installer is built with that signed DLL, signed separately, and verified before publication.
 
 Every release-signing request requires manual approval. A version tag may create
 an explicitly named `unsigned-beta` artifact for private verification, but an
@@ -25,7 +25,24 @@ signature verification and exact-source controls remain mandatory.
 - Committer and reviewer: [@dasokuaniki](https://github.com/dasokuaniki)
 - Approver: [@dasokuaniki](https://github.com/dasokuaniki)
 
-Repository and SignPath accounts used for release work must have multi-factor authentication enabled.
+Repository and signing-provider accounts used for release work must have multi-factor authentication enabled.
+
+## Current signing route
+
+The SignPath Foundation application was not approved. The current planned route
+is a publicly trusted individual code-signing certificate enrolled in SSL.com
+eSigner and loaded through eSigner CKA. The private key remains in the provider's
+cloud HSM. `scripts/sign-windows-release.ps1` uses Windows SignTool to sign the
+plugin DLL first, verifies the signer and RFC 3161 timestamp, builds the installer
+from that signed DLL, signs the installer, verifies it again, and only then writes
+the public SHA-256 file.
+
+The script's `-PlanOnly` mode validates the clean DLL, disabled E2E hooks,
+Windows SDK signing tool, version, and intended order without using a certificate
+or changing an artifact. A real signing run requires the reviewed certificate to
+be present in the current user's Windows certificate store through eSigner CKA.
+Passwords, OTP seeds, and signing-provider credentials must never be passed to
+this script, stored in the repository, or written to release logs.
 
 ## Privacy
 
