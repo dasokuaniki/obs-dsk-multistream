@@ -12,6 +12,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot "signing-certificate-utils.ps1")
 
 function Get-AbsolutePath {
     param([Parameter(Mandatory = $true)][string]$Path, [Parameter(Mandatory = $true)][string]$BasePath)
@@ -79,7 +80,7 @@ function Get-CodeSigningCertificate {
         throw "The requested code-signing certificate is not currently valid."
     }
     $codeSigningOid = "1.3.6.1.5.5.7.3.3"
-    if (-not @($certificate.EnhancedKeyUsageList | Where-Object { $_.ObjectId.Value -eq $codeSigningOid })) {
+    if (-not (Test-CertificateHasEnhancedKeyUsage -Certificate $certificate -Oid $codeSigningOid)) {
         throw "The requested certificate is not valid for code signing."
     }
     return $certificate

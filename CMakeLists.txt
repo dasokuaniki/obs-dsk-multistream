@@ -447,6 +447,16 @@ if(DSK_BUILD_TESTS)
         -TestRoot "${CMAKE_CURRENT_BINARY_DIR}/remove-user-data-test"
     )
     set_tests_properties(dsk-remove-user-data-test PROPERTIES LABELS "unit;packaging;security;no-obs")
+
+    add_test(
+      NAME dsk-signing-certificate-eku-test
+      COMMAND
+        "$ENV{SystemRoot}/System32/WindowsPowerShell/v1.0/powershell.exe"
+        -NoProfile -ExecutionPolicy Bypass
+        -File "${CMAKE_CURRENT_SOURCE_DIR}/tests/signing-certificate-eku-test.ps1"
+        -SigningCertificateUtils "${CMAKE_CURRENT_SOURCE_DIR}/scripts/signing-certificate-utils.ps1"
+    )
+    set_tests_properties(dsk-signing-certificate-eku-test PROPERTIES LABELS "unit;security;packaging;no-obs")
   endif()
 
   add_executable(
