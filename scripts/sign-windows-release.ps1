@@ -171,7 +171,7 @@ if ($PlanOnly) {
         CleanDllSha256 = (Get-FileHash -LiteralPath $sourceDll -Algorithm SHA256).Hash
         SignTool = $signTool
         TimestampUrl = $TimestampUrl
-        RequiredOrder = "plugin DLL, installer EXE"
+        RequiredOrder = "plugin DLL, generated uninstaller, installer EXE"
     } | ConvertTo-Json -Depth 3
     return
 }
@@ -192,9 +192,13 @@ Copy-Item -LiteralPath $sourceDll -Destination $signedDll -Force
 $pluginSignature = Invoke-AuthenticodeSigning -FilePath $signedDll -Thumbprint $thumbprint `
     -ToolPath $signTool -Rfc3161TimestampUrl $TimestampUrl
 
+$innoSignToolCommand = '"{0}" sign /fd SHA256 /tr "{1}" /td SHA256 /sha1 {2} $f' -f `
+    $signTool, $TimestampUrl, $thumbprint
+
 & (Join-Path $repoRoot "scripts\build-windows-installer.ps1") `
     -BuildDir $signedBuildRoot -Configuration $Configuration -OutputDir $outputRoot `
-    -RequireValidPluginSignature
+    -RequireValidPluginSignature -RequireValidInstallerSignature `
+    -RequireValidUninstallerSignature -InnoSignToolCommand $innoSignToolCommand
 if ($LASTEXITCODE -ne 0) {
     throw "Installer packaging failed after the plugin was signed."
 }
@@ -202,8 +206,17 @@ if ($LASTEXITCODE -ne 0) {
 if (-not (Test-Path -LiteralPath $installer -PathType Leaf)) {
     throw "The expected installer was not created: $installer"
 }
-$installerSignature = Invoke-AuthenticodeSigning -FilePath $installer -Thumbprint $thumbprint `
-    -ToolPath $signTool -Rfc3161TimestampUrl $TimestampUrl
+$installerSignature = Get-AuthenticodeSignature -LiteralPath $installer
+if ($installerSignature.Status -ne [Management.Automation.SignatureStatus]::Valid) {
+    throw "Authenticode verification failed for $installer. Status=$($installerSignature.Status)"
+}
+if (-not $installerSignature.SignerCertificate -or
+    $installerSignature.SignerCertificate.Thumbprint -ne $thumbprint) {
+    throw "The installer was not signed by the requested certificate."
+}
+if (-not $installerSignature.TimeStamperCertificate) {
+    throw "The installer does not contain a trusted timestamp."
+}
 
 $hash = (Get-FileHash -LiteralPath $installer -Algorithm SHA256).Hash
 [IO.File]::WriteAllText($hashPath, "$hash *$([IO.Path]::GetFileName($installer))`r`n", [Text.ASCIIEncoding]::new())

@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.28...3.30)
 
-project(obs-dsk-multistream VERSION 0.3.7 LANGUAGES CXX)
+project(obs-dsk-multistream VERSION 0.3.8 LANGUAGES CXX)
 
 # CMake 4.2 can mojibake the UTF-8 /showIncludes prefix from Japanese MSVC,
 # leaving Ninja with no header dependencies and stale incremental objects.
@@ -416,6 +416,7 @@ if(DSK_BUILD_TESTS)
       "${CMAKE_COMMAND}"
       "-DINNO_SCRIPT=${CMAKE_CURRENT_SOURCE_DIR}/installer/dsk-multistream.iss"
       "-DBUILD_SCRIPT=${CMAKE_CURRENT_SOURCE_DIR}/scripts/build-windows-installer.ps1"
+      "-DINSTALLER_E2E_SCRIPT=${CMAKE_CURRENT_SOURCE_DIR}/scripts/test-windows-installer.ps1"
       "-DVALIDATOR=${CMAKE_CURRENT_SOURCE_DIR}/scripts/validate-installer-layout.ps1"
       "-DBETA_GUIDE=${CMAKE_CURRENT_SOURCE_DIR}/docs/beta-distribution.md"
       "-DPRIVACY=${CMAKE_CURRENT_SOURCE_DIR}/docs/privacy.md"

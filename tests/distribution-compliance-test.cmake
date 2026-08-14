@@ -1,4 +1,13 @@
-foreach(required_input IN ITEMS INNO_SCRIPT BUILD_SCRIPT VALIDATOR BETA_GUIDE PRIVACY NOTICE REMOVAL_SCRIPT SIGNING_SCRIPT)
+foreach(required_input IN ITEMS
+    INNO_SCRIPT
+    BUILD_SCRIPT
+    INSTALLER_E2E_SCRIPT
+    VALIDATOR
+    BETA_GUIDE
+    PRIVACY
+    NOTICE
+    REMOVAL_SCRIPT
+    SIGNING_SCRIPT)
   if(NOT DEFINED ${required_input} OR NOT EXISTS "${${required_input}}")
     message(FATAL_ERROR "Missing distribution compliance test input: ${required_input}")
   endif()
@@ -6,6 +15,7 @@ endforeach()
 
 file(READ "${INNO_SCRIPT}" inno)
 file(READ "${BUILD_SCRIPT}" build_script)
+file(READ "${INSTALLER_E2E_SCRIPT}" installer_e2e_script)
 file(READ "${VALIDATOR}" validator)
 file(READ "${BETA_GUIDE}" beta_guide)
 file(READ "${PRIVACY}" privacy)
@@ -28,6 +38,35 @@ foreach(required_inno_token IN ITEMS
   endif()
 endforeach()
 
+foreach(required_inno_signing_token IN ITEMS
+    "SignedUninstaller=yes"
+    "SignTool=dsk_release")
+  string(FIND "${inno}" "${required_inno_signing_token}" position)
+  if(position EQUAL -1)
+    message(FATAL_ERROR "Installer must Authenticode-sign its generated uninstaller: ${required_inno_signing_token}")
+  endif()
+endforeach()
+
+foreach(required_build_signing_token IN ITEMS
+    "InnoSignToolCommand"
+    "/Sdsk_release="
+    "RequireValidUninstallerSignature")
+  string(FIND "${build_script}" "${required_build_signing_token}" position)
+  if(position EQUAL -1)
+    message(FATAL_ERROR "Installer build must wire and enforce generated-uninstaller signing: ${required_build_signing_token}")
+  endif()
+endforeach()
+
+foreach(required_e2e_signing_token IN ITEMS
+    "Get-AuthenticodeSignature -LiteralPath $uninstaller"
+    "TimeStamperCertificate"
+    "The generated uninstaller must have a valid Authenticode signature")
+  string(FIND "${installer_e2e_script}" "${required_e2e_signing_token}" position)
+  if(position EQUAL -1)
+    message(FATAL_ERROR "Installer E2E must verify the installed uninstaller signature: ${required_e2e_signing_token}")
+  endif()
+endforeach()
+
 foreach(required_payload IN ITEMS
     "docs/beta-distribution.md"
     "docs/privacy.md"
@@ -44,7 +83,8 @@ endforeach()
 
 foreach(required_beta_text IN ITEMS
     "public beta"
-    "currently unsigned"
+    "generated uninstaller"
+    "valid, timestamped Authenticode signatures"
     "Google OAuth verification is approved"
     "Do not disable Microsoft Defender"
     "complete removal")
@@ -102,6 +142,7 @@ foreach(required_signing_control IN ITEMS
     "/tr"
     "/td SHA256"
     "RequireValidPluginSignature"
+    "RequireValidUninstallerSignature"
     "TimeStamperCertificate"
     "Get-FileHash")
   string(FIND "${signing_script}" "${required_signing_control}" position)

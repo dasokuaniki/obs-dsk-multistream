@@ -1,4 +1,4 @@
-# DSK Multistream 0.3.7 public beta guide
+# DSK Multistream 0.3.8 public beta guide
 
 DSK Multistream is free and open-source software. This public beta is intended
 for evaluation before a stable release. Download it only from
@@ -9,9 +9,10 @@ running the installer.
 
 - Google OAuth verification is approved for the bundled DSK Multistream desktop
   application and its YouTube Live scope.
-- Development candidates are currently unsigned. They are not public release
-  artifacts. Public downloads remain withheld until both the plugin DLL and the
-  installer have valid Authenticode signatures from the DSK publisher.
+- Development candidates are not public release artifacts. Public downloads
+  remain withheld until the plugin DLL, generated uninstaller, and installer
+  have valid, timestamped Authenticode signatures from the DSK publisher and
+  the installation lifecycle has passed release verification.
 - Do not disable Microsoft Defender, SmartScreen, Smart App Control, browser
   download protection, or other security software to install a candidate.
 
@@ -42,7 +43,7 @@ tokens, client secrets, and personal information before sending a log.
 
 ---
 
-# DSK Multistream 0.3.7 公開ベータ案内
+# DSK Multistream 0.3.8 公開ベータ案内
 
 DSK Multistreamは無料のオープンソースソフトウェアです。この公開ベータは、
 安定版公開前の評価を目的としています。インストーラーは
@@ -53,9 +54,9 @@ SHA-256と一致することを確認してください。
 
 - 同梱するDSK MultistreamデスクトップアプリとYouTube Liveスコープについて、
   Google OAuth verification is approved（GoogleのOAuth確認は承認済み）です。
-- 現在の開発候補は未署名です。一般公開用の成果物ではありません。プラグインDLLと
-  インストーラーの両方にDSK発行者の有効なAuthenticode署名が付くまで、公開
-  ダウンロードは停止します。
+- 開発候補は一般公開用の成果物ではありません。プラグインDLL、生成される
+  アンインストーラー、インストーラーのすべてにDSK発行者の有効なタイムスタンプ付き
+  Authenticode署名があり、導入から削除までの検証を通過するまで公開しません。
 - インストールのためにMicrosoft Defender、SmartScreen、Smart App Control、
   ブラウザーのダウンロード保護、その他のセキュリティ機能を無効にしないでください。
 

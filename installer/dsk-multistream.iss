@@ -61,6 +61,11 @@ Uninstallable=yes
 CreateUninstallRegKey=yes
 UninstallDisplayName={#AppName}
 UninstallDisplayIcon={uninstallexe}
+#ifdef ReleaseSignTool
+SignTool=dsk_release
+SignedUninstaller=yes
+SignToolRetryCount=0
+#endif
 VersionInfoVersion={#AppVersion}
 VersionInfoCompany={#AppPublisher}
 VersionInfoCopyright=Copyright (C) 2026 DSK

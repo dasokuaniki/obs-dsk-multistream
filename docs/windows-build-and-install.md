@@ -238,8 +238,12 @@ powershell.exe -ExecutionPolicy Bypass -File scripts\sign-windows-release.ps1 -P
 
 After the reviewed code-signing certificate is enrolled and loaded into
 `Cert:\CurrentUser\My` by eSigner CKA, run the same helper with its certificate
-thumbprint. It signs and validates the plugin DLL, packages that signed DLL,
-signs and validates the installer, then regenerates the final SHA-256 file. Do
+thumbprint. It signs and validates the plugin DLL, then supplies Windows
+SignTool to Inno Setup so the generated uninstaller and final installer are
+signed and timestamped during compilation. It validates the final installer and
+regenerates the SHA-256 file. The installer E2E check with
+`-RequireValidSignatures` verifies the installed uninstaller has the same signer
+and a trusted timestamp. Do
 not store the eSigner password, OTP seed, or signing credential in this
 repository or command history.
 

@@ -2,6 +2,16 @@
 
 All notable user-facing changes are documented in this file.
 
+## [0.3.8] - Beta
+
+### Fixed
+
+- Windows release builds now Authenticode-sign and timestamp the generated
+  uninstaller with the same publisher certificate as the plugin DLL and setup
+  executable.
+- Release and installer E2E checks now reject a missing, unsigned, differently
+  signed, or untimestamped generated uninstaller.
+
 ## [0.3.7] - Beta
 
 ### Fixed

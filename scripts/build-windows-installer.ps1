@@ -6,6 +6,8 @@ param(
     [switch]$RequireValidSignature,
     [switch]$RequireValidPluginSignature,
     [switch]$RequireValidInstallerSignature,
+    [switch]$RequireValidUninstallerSignature,
+    [string]$InnoSignToolCommand = "",
     [switch]$InstallerE2E,
     [switch]$KeepStage
 )
@@ -13,7 +15,21 @@ param(
 $ErrorActionPreference = "Stop"
 $requirePluginSignature = $RequireValidSignature -or $RequireValidPluginSignature
 $requireInstallerSignature = $RequireValidSignature -or $RequireValidInstallerSignature
+$requireUninstallerSignature = $RequireValidSignature -or $RequireValidUninstallerSignature
+$signInstallerWithInno = -not [string]::IsNullOrWhiteSpace($InnoSignToolCommand)
 $ExpectedIsccVersion = "6.7.3"
+
+if ($requireUninstallerSignature -and -not $signInstallerWithInno) {
+    throw "RequireValidUninstallerSignature requires an InnoSignToolCommand so Inno Setup can sign the generated uninstaller."
+}
+if ($signInstallerWithInno) {
+    if ($InnoSignToolCommand.IndexOf([char]0) -ge 0 -or $InnoSignToolCommand -match '[\r\n]') {
+        throw "InnoSignToolCommand must be a single command line without control characters."
+    }
+    if (-not $InnoSignToolCommand.Contains('$f')) {
+        throw 'InnoSignToolCommand must contain Inno Setup''s required $f file placeholder.'
+    }
+}
 
 function Get-AbsolutePath {
     param([string]$Path, [string]$BasePath)
@@ -206,6 +222,12 @@ try {
     if ($InstallerE2E) {
         $isccArguments = @("/DTestMode=1") + $isccArguments
     }
+    if ($signInstallerWithInno) {
+        $isccArguments = @(
+            "/DReleaseSignTool=1",
+            "/Sdsk_release=$InnoSignToolCommand"
+        ) + $isccArguments
+    }
     $isccOutput = @(& $iscc @isccArguments 2>&1)
     $isccExitCode = $LASTEXITCODE
     $isccOutput | ForEach-Object { Write-Host $_ }
@@ -220,6 +242,10 @@ try {
     $isccVersion = $isccVersionMatch.Groups[1].Value
     if (($isccOutput | Out-String) -match '(?m)^Warning:') {
         throw "Inno Setup emitted a compiler warning. Release packaging requires a warning-free compile."
+    }
+    if ($requireUninstallerSignature -and
+        ($isccOutput | Out-String) -notmatch '(?i)sign(?:ing|ed).{0,80}uninstall') {
+        throw "Inno Setup did not report signing its generated uninstaller."
     }
 
     $installerPath = Join-Path $outputRoot "$outputName.exe"
@@ -245,6 +271,7 @@ try {
         Sha256 = $installerHash
         InstallerSignature = [string]$installerSignature.Status
         PluginSignature = [string]$dllSignature.Status
+        GeneratedUninstallerSignatureRequired = $requireUninstallerSignature
         InstallerCompilerVersion = $isccVersion
         HashFile = $hashFile
     } | Format-List

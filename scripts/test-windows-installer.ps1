@@ -2,7 +2,8 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$InstallerPath,
     [string]$TestRoot = "build\installer-e2e",
-    [string]$DisplayName = "DSK Multistream for OBS (Installer E2E)"
+    [string]$DisplayName = "DSK Multistream for OBS (Installer E2E)",
+    [switch]$RequireValidSignatures
 )
 
 $ErrorActionPreference = "Stop"
@@ -46,6 +47,16 @@ if (-not $testBase.StartsWith($buildParent, [StringComparison]::OrdinalIgnoreCas
 }
 if (-not (Test-Path -LiteralPath $installer -PathType Leaf)) {
     throw "Installer was not found: $installer"
+}
+$expectedSignerThumbprint = $null
+if ($RequireValidSignatures) {
+    $installerSignature = Get-AuthenticodeSignature -LiteralPath $installer
+    if ($installerSignature.Status -ne [Management.Automation.SignatureStatus]::Valid -or
+        -not $installerSignature.SignerCertificate -or
+        -not $installerSignature.TimeStamperCertificate) {
+        throw "The installer must have a valid Authenticode signature and trusted timestamp."
+    }
+    $expectedSignerThumbprint = $installerSignature.SignerCertificate.Thumbprint
 }
 
 $installRoot = Join-Path $testBase "obs-dsk-multistream"
@@ -110,6 +121,15 @@ try {
     $uninstaller = Join-Path $installRoot "unins000.exe"
     if (-not (Test-Path -LiteralPath $uninstaller -PathType Leaf)) {
         throw "Inno Setup uninstaller was not created: $uninstaller"
+    }
+    if ($RequireValidSignatures) {
+        $uninstallerSignature = Get-AuthenticodeSignature -LiteralPath $uninstaller
+        if ($uninstallerSignature.Status -ne [Management.Automation.SignatureStatus]::Valid -or
+            -not $uninstallerSignature.SignerCertificate -or
+            $uninstallerSignature.SignerCertificate.Thumbprint -ne $expectedSignerThumbprint -or
+            -not $uninstallerSignature.TimeStamperCertificate) {
+            throw "The generated uninstaller must have a valid Authenticode signature from the installer signer and a trusted timestamp."
+        }
     }
     Invoke-CheckedProcess -FilePath $uninstaller -ArgumentList @(
         "/VERYSILENT",
