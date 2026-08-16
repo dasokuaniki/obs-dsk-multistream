@@ -55,6 +55,8 @@ foreach(required_build_signing_token IN ITEMS
     "InnoSignToolCommand"
     "ExternalSignedUninstallerDir"
     "PrepareExternalSignedUninstaller"
+    "Invoke-InnoCompiler"
+    "previousErrorActionPreference"
     "/Sdsk_release="
     "RequireValidUninstallerSignature"
     "Creating new signed uninstaller file"

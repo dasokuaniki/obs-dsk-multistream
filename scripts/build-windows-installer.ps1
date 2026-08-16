@@ -84,6 +84,30 @@ function Resolve-IsccPath {
     return [IO.Path]::GetFullPath($found)
 }
 
+function Invoke-InnoCompiler {
+    param(
+        [Parameter(Mandatory = $true)][string]$CompilerPath,
+        [Parameter(Mandatory = $true)][string[]]$Arguments
+    )
+
+    $previousErrorActionPreference = $ErrorActionPreference
+    try {
+        # The first external SignedUninstaller pass intentionally writes its
+        # handoff message to stderr and exits nonzero after creating the .e32.
+        # Capture that result for explicit validation instead of allowing the
+        # global Stop preference to terminate the script at process invocation.
+        $ErrorActionPreference = "Continue"
+        $output = @(& $CompilerPath @Arguments 2>&1)
+        $exitCode = $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = $previousErrorActionPreference
+    }
+    return [PSCustomObject]@{
+        Output = $output
+        ExitCode = $exitCode
+    }
+}
+
 $repoRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot ".."))
 $buildRoot = Get-AbsolutePath -Path $BuildDir -BasePath $repoRoot
 $outputRoot = Get-AbsolutePath -Path $OutputDir -BasePath $repoRoot
@@ -284,8 +308,9 @@ try {
             "/DExternalSignedUninstallerDir=$externalUninstallerRoot"
         ) + $isccArguments
     }
-    $isccOutput = @(& $iscc @isccArguments 2>&1)
-    $isccExitCode = $LASTEXITCODE
+    $isccResult = Invoke-InnoCompiler -CompilerPath $iscc -Arguments $isccArguments
+    $isccOutput = @($isccResult.Output)
+    $isccExitCode = $isccResult.ExitCode
     $isccOutput | ForEach-Object { Write-Host $_ }
     $isccText = $isccOutput | Out-String
     $isccVersionMatch = [regex]::Match($isccText, 'Compiler engine version: Inno Setup (\d+\.\d+\.\d+)')
