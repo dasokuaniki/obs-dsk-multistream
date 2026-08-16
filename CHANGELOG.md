@@ -12,6 +12,12 @@ All notable user-facing changes are documented in this file.
 - Release and installer E2E checks now reject a missing, unsigned, differently
   signed, or untimestamped generated uninstaller.
 
+### Changed
+
+- Release signing supports Inno Setup's external two-pass signed-uninstaller
+  workflow so the plugin DLL, generated uninstaller, and final setup can all be
+  signed on the private SSL.com signing host without depending on Windows CKA.
+
 ## [0.3.7] - Beta
 
 ### Fixed

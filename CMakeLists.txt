@@ -423,6 +423,7 @@ if(DSK_BUILD_TESTS)
       "-DNOTICE=${CMAKE_CURRENT_SOURCE_DIR}/docs/third-party-notices.md"
       "-DREMOVAL_SCRIPT=${CMAKE_CURRENT_SOURCE_DIR}/scripts/remove-user-data.ps1"
       "-DSIGNING_SCRIPT=${CMAKE_CURRENT_SOURCE_DIR}/scripts/sign-windows-release.ps1"
+      "-DEXTERNAL_SIGNING_SCRIPT=${CMAKE_CURRENT_SOURCE_DIR}/scripts/external-windows-signing.ps1"
       -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/distribution-compliance-test.cmake"
   )
   set_tests_properties(dsk-distribution-compliance-test PROPERTIES LABELS "unit;packaging;compliance;no-obs")

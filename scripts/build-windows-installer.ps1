@@ -8,6 +8,8 @@ param(
     [switch]$RequireValidInstallerSignature,
     [switch]$RequireValidUninstallerSignature,
     [string]$InnoSignToolCommand = "",
+    [string]$ExternalSignedUninstallerDir = "",
+    [switch]$PrepareExternalSignedUninstaller,
     [switch]$InstallerE2E,
     [switch]$KeepStage
 )
@@ -17,10 +19,20 @@ $requirePluginSignature = $RequireValidSignature -or $RequireValidPluginSignatur
 $requireInstallerSignature = $RequireValidSignature -or $RequireValidInstallerSignature
 $requireUninstallerSignature = $RequireValidSignature -or $RequireValidUninstallerSignature
 $signInstallerWithInno = -not [string]::IsNullOrWhiteSpace($InnoSignToolCommand)
+$useExternalSignedUninstaller = -not [string]::IsNullOrWhiteSpace($ExternalSignedUninstallerDir)
 $ExpectedIsccVersion = "6.7.3"
 
-if ($requireUninstallerSignature -and -not $signInstallerWithInno) {
-    throw "RequireValidUninstallerSignature requires an InnoSignToolCommand so Inno Setup can sign the generated uninstaller."
+if ($signInstallerWithInno -and $useExternalSignedUninstaller) {
+    throw "InnoSignToolCommand and ExternalSignedUninstallerDir are mutually exclusive."
+}
+if ($PrepareExternalSignedUninstaller -and -not $useExternalSignedUninstaller) {
+    throw "PrepareExternalSignedUninstaller requires ExternalSignedUninstallerDir."
+}
+if ($PrepareExternalSignedUninstaller -and $requireInstallerSignature) {
+    throw "PrepareExternalSignedUninstaller cannot require a final installer signature because the first pass intentionally stops before creating the installer."
+}
+if ($requireUninstallerSignature -and -not $signInstallerWithInno -and -not $useExternalSignedUninstaller) {
+    throw "RequireValidUninstallerSignature requires InnoSignToolCommand or ExternalSignedUninstallerDir."
 }
 if ($signInstallerWithInno) {
     if ($InnoSignToolCommand.IndexOf([char]0) -ge 0 -or $InnoSignToolCommand -match '[\r\n]') {
@@ -75,6 +87,18 @@ function Resolve-IsccPath {
 $repoRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot ".."))
 $buildRoot = Get-AbsolutePath -Path $BuildDir -BasePath $repoRoot
 $outputRoot = Get-AbsolutePath -Path $OutputDir -BasePath $repoRoot
+$externalUninstallerRoot = if ($useExternalSignedUninstaller) {
+    Get-AbsolutePath -Path $ExternalSignedUninstallerDir -BasePath $repoRoot
+} else {
+    ""
+}
+$allowedBuildParent = [IO.Path]::GetFullPath((Join-Path $repoRoot "build")).TrimEnd('\') + '\'
+$allowedReleaseParent = [IO.Path]::GetFullPath((Join-Path $repoRoot "release")).TrimEnd('\') + '\'
+if ($useExternalSignedUninstaller -and
+    -not $externalUninstallerRoot.StartsWith($allowedBuildParent, [StringComparison]::OrdinalIgnoreCase) -and
+    -not $externalUninstallerRoot.StartsWith($allowedReleaseParent, [StringComparison]::OrdinalIgnoreCase)) {
+    throw "ExternalSignedUninstallerDir must remain under the repository build or release directory."
+}
 $buildSpecPath = Join-Path $repoRoot "buildspec.json"
 $cmakePath = Join-Path $repoRoot "CMakeLists.txt"
 $installerDefinition = Join-Path $repoRoot "installer\dsk-multistream.iss"
@@ -172,6 +196,33 @@ foreach ($source in $payloadSources.Values) {
 
 $iscc = Resolve-IsccPath -RequestedPath $IsccPath
 New-Item -ItemType Directory -Force -Path $outputRoot | Out-Null
+if ($useExternalSignedUninstaller) {
+    New-Item -ItemType Directory -Force -Path $externalUninstallerRoot | Out-Null
+}
+$externalUninstallersBeforeCompile = if ($useExternalSignedUninstaller) {
+    @(Get-ChildItem -LiteralPath $externalUninstallerRoot -File -Filter '*.e32')
+} else {
+    @()
+}
+if ($PrepareExternalSignedUninstaller -and $externalUninstallersBeforeCompile.Count -ne 0) {
+    throw "The external signed-uninstaller directory must be empty for the preparation pass. Use a new fixed work directory."
+}
+if ($useExternalSignedUninstaller -and -not $PrepareExternalSignedUninstaller) {
+    if ($externalUninstallersBeforeCompile.Count -ne 1) {
+        throw "Expected exactly one externally signed Inno uninstaller artifact, found $($externalUninstallersBeforeCompile.Count)."
+    }
+    $externalUninstallerSignature = Get-AuthenticodeSignature -LiteralPath $externalUninstallersBeforeCompile[0].FullName
+    if ($externalUninstallerSignature.Status -ne [Management.Automation.SignatureStatus]::Valid -or
+        -not $externalUninstallerSignature.SignerCertificate -or
+        -not $externalUninstallerSignature.TimeStamperCertificate) {
+        throw "The external Inno uninstaller artifact must have a valid Authenticode signature and trusted timestamp."
+    }
+    if ($requirePluginSignature -and
+        (-not $dllSignature.SignerCertificate -or
+         $externalUninstallerSignature.SignerCertificate.Thumbprint -ne $dllSignature.SignerCertificate.Thumbprint)) {
+        throw "The external Inno uninstaller artifact and plugin DLL must have the same signer."
+    }
+}
 $stageRoot = Join-Path (Join-Path $repoRoot "build") ("installer-stage-" + [Guid]::NewGuid().ToString("N"))
 New-Item -ItemType Directory -Force -Path $stageRoot | Out-Null
 
@@ -228,23 +279,59 @@ try {
             "/Sdsk_release=$InnoSignToolCommand"
         ) + $isccArguments
     }
+    if ($useExternalSignedUninstaller) {
+        $isccArguments = @(
+            "/DExternalSignedUninstallerDir=$externalUninstallerRoot"
+        ) + $isccArguments
+    }
     $isccOutput = @(& $iscc @isccArguments 2>&1)
     $isccExitCode = $LASTEXITCODE
     $isccOutput | ForEach-Object { Write-Host $_ }
-    if ($isccExitCode -ne 0) {
-        throw "Inno Setup compiler failed with exit code $isccExitCode."
-    }
-    $isccVersionMatch = [regex]::Match(($isccOutput | Out-String), 'Compiler engine version: Inno Setup (\d+\.\d+\.\d+)')
+    $isccText = $isccOutput | Out-String
+    $isccVersionMatch = [regex]::Match($isccText, 'Compiler engine version: Inno Setup (\d+\.\d+\.\d+)')
     if (-not $isccVersionMatch.Success -or $isccVersionMatch.Groups[1].Value -ne $ExpectedIsccVersion) {
         $actualVersion = if ($isccVersionMatch.Success) { $isccVersionMatch.Groups[1].Value } else { "unknown" }
         throw "Unexpected Inno Setup compiler version: $actualVersion. Release packaging requires $ExpectedIsccVersion."
     }
     $isccVersion = $isccVersionMatch.Groups[1].Value
-    if (($isccOutput | Out-String) -match '(?m)^Warning:') {
+    if ($PrepareExternalSignedUninstaller) {
+        $externalUninstallersAfterCompile = @(Get-ChildItem -LiteralPath $externalUninstallerRoot -File -Filter '*.e32')
+        $expectedPreparationFailure = $isccExitCode -ne 0 -and
+            $isccText -match 'Creating new signed uninstaller file:' -and
+            $isccText -match 'external code-signing tool'
+        if (-not $expectedPreparationFailure -or $externalUninstallersAfterCompile.Count -ne 1) {
+            throw "Inno Setup did not create exactly one external signed-uninstaller artifact in the expected first-pass state."
+        }
+        $preparedUninstaller = $externalUninstallersAfterCompile[0]
+        $preparedSignature = Get-AuthenticodeSignature -LiteralPath $preparedUninstaller.FullName
+        if ($preparedSignature.Status -ne [Management.Automation.SignatureStatus]::NotSigned) {
+            throw "The first-pass Inno uninstaller artifact must be unsigned before external signing. Status=$($preparedSignature.Status)"
+        }
+        $unexpectedInstaller = Join-Path $outputRoot "$outputName.exe"
+        if (Test-Path -LiteralPath $unexpectedInstaller -PathType Leaf) {
+            throw "The external uninstaller preparation pass unexpectedly produced a final installer."
+        }
+        [PSCustomObject]@{
+            PreparedExternalUninstaller = $preparedUninstaller.FullName
+            Sha256 = (Get-FileHash -LiteralPath $preparedUninstaller.FullName -Algorithm SHA256).Hash
+            Signature = [string]$preparedSignature.Status
+            InstallerCompilerVersion = $isccVersion
+            ReadyForExternalSigning = $true
+        } | Format-List
+        return
+    }
+    if ($isccExitCode -ne 0) {
+        throw "Inno Setup compiler failed with exit code $isccExitCode."
+    }
+    if ($isccText -match '(?m)^Warning:') {
         throw "Inno Setup emitted a compiler warning. Release packaging requires a warning-free compile."
     }
-    if ($requireUninstallerSignature -and
-        ($isccOutput | Out-String) -notmatch '(?i)sign(?:ing|ed).{0,80}uninstall') {
+    $uninstallerWasAccepted = if ($useExternalSignedUninstaller) {
+        $isccText -match 'Using existing signed uninstaller file:'
+    } else {
+        $isccText -match '(?i)sign(?:ing|ed).{0,80}uninstall'
+    }
+    if ($requireUninstallerSignature -and -not $uninstallerWasAccepted) {
         throw "Inno Setup did not report signing its generated uninstaller."
     }
 
@@ -272,6 +359,7 @@ try {
         InstallerSignature = [string]$installerSignature.Status
         PluginSignature = [string]$dllSignature.Status
         GeneratedUninstallerSignatureRequired = $requireUninstallerSignature
+        ExternalSignedUninstaller = $useExternalSignedUninstaller
         InstallerCompilerVersion = $isccVersion
         HashFile = $hashFile
     } | Format-List

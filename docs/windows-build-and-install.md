@@ -229,23 +229,29 @@ Upload `signing/signpath-plugin.xml` and `signing/signpath-installer.xml` as the
 The optional `DSK_OAUTH_APP_CONFIG_JSON` repository secret supplies the publisher-managed YouTube OAuth desktop application to release builds. Pull-request builds do not require it and produce a compatible build without bundled publisher credentials.
 
 SignPath Foundation was not approved for this project, so it is not the current
-release route. For the SSL.com eSigner CKA route, first verify the unsigned clean
-build without changing it:
+release route. The active SSL.com route signs interactively on the private home
+server and uses Inno Setup's external signed-uninstaller flow. Start by staging
+the reviewed unsigned plugin DLL:
 
 ```powershell
-powershell.exe -ExecutionPolicy Bypass -File scripts\sign-windows-release.ps1 -PlanOnly
+powershell.exe -ExecutionPolicy Bypass -File scripts\external-windows-signing.ps1 -Phase StagePlugin -BuildDir build\windows-x64-sdk3 -WorkDir build\windows-external-signing-<commit>
 ```
 
-After the reviewed code-signing certificate is enrolled and loaded into
-`Cert:\CurrentUser\My` by eSigner CKA, run the same helper with its certificate
-thumbprint. It signs and validates the plugin DLL, then supplies Windows
-SignTool to Inno Setup so the generated uninstaller and final installer are
-signed and timestamped during compilation. It validates the final installer and
-regenerates the SHA-256 file. The installer E2E check with
-`-RequireValidSignatures` verifies the installed uninstaller has the same signer
-and a trusted timestamp. Do
-not store the eSigner password, OTP seed, or signing credential in this
-repository or command history.
+Sign the reported DLL on the private server, return it to the same path, and run
+`-Phase PrepareUninstaller`. Sign the reported `.e32` file on the private server,
+return it, and run `-Phase BuildInstaller`. Sign the reported setup EXE on the
+private server, return it, then run `-Phase VerifyRelease`. The verifier rejects
+a missing signature, missing trusted timestamp, signer mismatch, E2E-enabled
+build, unexpected version, or pre-existing output. It writes the public SHA-256
+file only after every layer passes.
+
+The Windows CKA helper `scripts\sign-windows-release.ps1 -PlanOnly` remains
+available for diagnostics and for environments where the provider works, but a
+CKA failure is not a reason to omit any signature. Never put an eSigner password,
+OTP value, credential identifier, or private-key material in this repository,
+command history, build log, or support message. The installer E2E check with
+`-RequireValidSignatures` must still confirm that the installed uninstaller has
+the same signer and a trusted timestamp.
 
 After signing both the built DLL and staged package DLL, enforce the local release gate with:
 

@@ -30,22 +30,28 @@ Repository and signing-provider accounts used for release work must have multi-f
 
 ## Current signing route
 
-The SignPath Foundation application was not approved. The current planned route
-is a publicly trusted individual code-signing certificate enrolled in SSL.com
-eSigner and loaded through eSigner CKA. The private key remains in the provider's
-cloud HSM. `scripts/sign-windows-release.ps1` uses Windows SignTool to sign the
-plugin DLL first and verifies its signer and RFC 3161 timestamp. It then gives
-Inno Setup a fixed SignTool command so the generated uninstaller and final setup
-executable are signed during compilation. The helper verifies the final setup
-signature before writing the public SHA-256 file; installer E2E verifies the
-installed uninstaller has the same signer and a trusted timestamp.
+The SignPath Foundation application was not approved. The current route uses a
+publicly trusted individual code-signing certificate in SSL.com eSigner. The
+private key remains in the provider's cloud HSM. Signing runs interactively on
+the private home server with SSL.com's CodeSignTool; passwords, OTP values,
+credential identifiers, and private-key material are not stored in the source
+tree, process arguments, release artifacts, or persistent logs.
 
-The script's `-PlanOnly` mode validates the clean DLL, disabled E2E hooks,
-Windows SDK signing tool, version, and intended order without using a certificate
-or changing an artifact. A real signing run requires the reviewed certificate to
-be present in the current user's Windows certificate store through eSigner CKA.
-Passwords, OTP seeds, and signing-provider credentials must never be passed to
-this script, stored in the repository, or written to release logs.
+`scripts/external-windows-signing.ps1` controls four Windows-side phases. It
+stages the reviewed unsigned plugin DLL, asks Inno Setup to create its stable
+external `.e32` uninstaller artifact, builds the installer after both embedded
+executables have been signed, and finally verifies all three signatures and
+RFC 3161 timestamps before writing the release SHA-256 file. Inno Setup's
+official `SignedUninstallerDir` two-pass flow preserves the external uninstaller
+signature when it is embedded. Each of the plugin DLL, `.e32` uninstaller, and
+final installer is transferred to the private server and signed only after the
+preceding phase passes. Installer E2E then verifies that the installed
+`unins000.exe` has the same signer and a trusted timestamp.
+
+The older `scripts/sign-windows-release.ps1` Windows SignTool route remains an
+optional compatibility path for a working CKA installation, but it is not the
+active release route. A CKA provider failure must never be bypassed by publishing
+an unsigned layer.
 
 ## Privacy
 

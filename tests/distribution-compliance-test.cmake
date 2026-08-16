@@ -7,7 +7,8 @@ foreach(required_input IN ITEMS
     PRIVACY
     NOTICE
     REMOVAL_SCRIPT
-    SIGNING_SCRIPT)
+    SIGNING_SCRIPT
+    EXTERNAL_SIGNING_SCRIPT)
   if(NOT DEFINED ${required_input} OR NOT EXISTS "${${required_input}}")
     message(FATAL_ERROR "Missing distribution compliance test input: ${required_input}")
   endif()
@@ -22,6 +23,7 @@ file(READ "${PRIVACY}" privacy)
 file(READ "${NOTICE}" notice)
 file(READ "${REMOVAL_SCRIPT}" removal_script)
 file(READ "${SIGNING_SCRIPT}" signing_script)
+file(READ "${EXTERNAL_SIGNING_SCRIPT}" external_signing_script)
 string(REPLACE "\\" "/" build_script_paths "${build_script}")
 string(REPLACE "\\" "/" validator_paths "${validator}")
 
@@ -40,7 +42,9 @@ endforeach()
 
 foreach(required_inno_signing_token IN ITEMS
     "SignedUninstaller=yes"
-    "SignTool=dsk_release")
+    "SignTool=dsk_release"
+    "ExternalSignedUninstallerDir"
+    "SignedUninstallerDir={#ExternalSignedUninstallerDir}")
   string(FIND "${inno}" "${required_inno_signing_token}" position)
   if(position EQUAL -1)
     message(FATAL_ERROR "Installer must Authenticode-sign its generated uninstaller: ${required_inno_signing_token}")
@@ -49,8 +53,13 @@ endforeach()
 
 foreach(required_build_signing_token IN ITEMS
     "InnoSignToolCommand"
+    "ExternalSignedUninstallerDir"
+    "PrepareExternalSignedUninstaller"
     "/Sdsk_release="
-    "RequireValidUninstallerSignature")
+    "RequireValidUninstallerSignature"
+    "Creating new signed uninstaller file"
+    "Using existing signed uninstaller file"
+    "TimeStamperCertificate")
   string(FIND "${build_script}" "${required_build_signing_token}" position)
   if(position EQUAL -1)
     message(FATAL_ERROR "Installer build must wire and enforce generated-uninstaller signing: ${required_build_signing_token}")
@@ -148,6 +157,23 @@ foreach(required_signing_control IN ITEMS
   string(FIND "${signing_script}" "${required_signing_control}" position)
   if(position EQUAL -1)
     message(FATAL_ERROR "Release signing helper is missing: ${required_signing_control}")
+  endif()
+endforeach()
+
+foreach(required_external_signing_control IN ITEMS
+    "StagePlugin"
+    "PrepareUninstaller"
+    "BuildInstaller"
+    "VerifyRelease"
+    "Get-AuthenticodeSignature"
+    "TimeStamperCertificate"
+    "SignerCertificate.Thumbprint"
+    "RequireValidUninstallerSignature"
+    "ExternalSignedUninstallerDir"
+    "Get-FileHash")
+  string(FIND "${external_signing_script}" "${required_external_signing_control}" position)
+  if(position EQUAL -1)
+    message(FATAL_ERROR "External signing workflow is missing: ${required_external_signing_control}")
   endif()
 endforeach()
 
