@@ -247,6 +247,7 @@ private:
 					bool discardPreparedBroadcast = true);
 	void setTargetApiWarning(const QString &targetId, const QString &message, quint64 sessionSerial = 0);
 	void clearTargetApiWarning(const QString &targetId);
+	void recoverDeferredObsContext();
 
 	SettingsStore store_;
 	QString loadedSettingsPath_;
@@ -275,6 +276,8 @@ private:
 	bool suppressNextObsAutoStart_ = false;
 	bool suppressNextObsAutoStop_ = false;
 	bool unloadPrepared_ = false;
+	bool obsNativeUsingVerticalCanvas_ = false;
+	bool obsContextReloadPending_ = false;
 	quint64 nextSessionSerial_ = 1;
 	qint64 suppressObsAutoStartUntilMs_ = 0;
 	qint64 suppressObsAutoStopUntilMs_ = 0;

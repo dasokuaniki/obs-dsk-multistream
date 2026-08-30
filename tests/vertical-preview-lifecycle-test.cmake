@@ -16,6 +16,15 @@ foreach(required_text IN ITEMS
   endif()
 endforeach()
 
+foreach(required_startup_selection_text IN ITEMS
+    "void VerticalLayoutEditor::clearSourceSelection()"
+    "setSetupVisible(setupToggle_->isChecked(), false);\n\tclearSourceSelection();")
+  string(FIND "${vertical_editor_source}" "${required_startup_selection_text}" required_position)
+  if(required_position EQUAL -1)
+    message(FATAL_ERROR "Vertical preview must start without a selected source: ${required_startup_selection_text}")
+  endif()
+endforeach()
+
 string(FIND
   "${vertical_editor_source}"
   "prepareForUnload();\n\t\tQWidget::hideEvent(event);"

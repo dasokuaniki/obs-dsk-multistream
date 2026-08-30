@@ -1402,8 +1402,7 @@ VerticalLayoutEditor::VerticalLayoutEditor(OutputManager *manager, QWidget *pare
 	connect(snapping_, &QCheckBox::toggled, preview_, &VerticalPreviewWidget::setSnappingEnabled);
 	preview_->setSelectionChanged([this](int row) {
 		if (row < 0) {
-			clearListWidgetSelection(items_);
-			selectItem(-1);
+			clearSourceSelection();
 			return;
 		}
 		if (items_->currentRow() != row)
@@ -1688,6 +1687,7 @@ VerticalLayoutEditor::VerticalLayoutEditor(OutputManager *manager, QWidget *pare
 	refreshSourceList();
 	refreshItems();
 	setSetupVisible(setupToggle_->isChecked(), false);
+	clearSourceSelection();
 }
 
 void VerticalLayoutEditor::prepareForUnload()
@@ -2229,10 +2229,7 @@ void VerticalLayoutEditor::refreshItems()
 		selectSceneLinkForObsScene(sceneLinkScene_->currentText());
 	}
 	if (!setupToggle_ || !setupToggle_->isChecked()) {
-		items_->setCurrentRow(-1);
-		items_->clearSelection();
-		preview_->setSelectedIndex(-1);
-		setLayerControlsEnabled(false);
+		clearSourceSelection();
 	} else if (selected >= 0 && selected < layout.items.size()) {
 		items_->setCurrentRow(selected);
 		selectItem(selected);
@@ -2296,14 +2293,7 @@ void VerticalLayoutEditor::setSetupVisible(bool visible, bool persist)
 			setupSelectedRow_ = items_->currentRow();
 		transformToggle_->setChecked(false);
 		obsLinksToggle_->setChecked(false);
-		if (items_) {
-			const QSignalBlocker blocker(items_);
-			items_->setCurrentRow(-1);
-			items_->clearSelection();
-		}
-		if (preview_)
-			preview_->setSelectedIndex(-1);
-		setLayerControlsEnabled(false);
+		clearSourceSelection();
 	} else if (items_ && setupSelectedRow_ >= 0 && setupSelectedRow_ < items_->count()) {
 		items_->setCurrentRow(setupSelectedRow_);
 		selectItem(setupSelectedRow_);
@@ -2311,6 +2301,18 @@ void VerticalLayoutEditor::setSetupVisible(bool visible, bool persist)
 
 	if (persist)
 		saveVerticalSetupVisiblePreference(visible);
+}
+
+void VerticalLayoutEditor::clearSourceSelection()
+{
+	if (items_) {
+		const QSignalBlocker blocker(items_);
+		items_->setCurrentRow(-1);
+		items_->clearSelection();
+	}
+	if (preview_)
+		preview_->setSelectedIndex(-1);
+	setLayerControlsEnabled(false);
 }
 
 void VerticalLayoutEditor::updateItemRectFromPreview(int row, const QRectF &rect, bool save)

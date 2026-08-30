@@ -211,11 +211,11 @@ void VerticalSceneBuilder::clear()
 	}
 }
 
-void VerticalSceneBuilder::release()
+void VerticalSceneBuilder::release(bool removeFromCanvas)
 {
 	clear();
 	if (scene_) {
-		if (sceneUsesCanvas_)
+		if (sceneUsesCanvas_ && removeFromCanvas)
 			obs_canvas_scene_remove(scene_);
 		obs_scene_release(scene_);
 		scene_ = nullptr;

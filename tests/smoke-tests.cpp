@@ -1136,6 +1136,33 @@ void testStreamControlsState()
 	check(dsk::twitchDualFormatState(QStringLiteral("twitch"), true, QStringLiteral("canvas-1"),
 					 QStringLiteral("canvas-1")) == dsk::TwitchDualFormatState::Ready,
 	      "matching Twitch Enhanced Broadcasting settings enable Dual Format");
+	check(dsk::isObsNativeTwitchService(QStringLiteral("Twitch"), QStringLiteral("rtmp_common"),
+					    QStringLiteral("rtmp_common")),
+	      "the OBS built-in Twitch service is recognized as native Twitch");
+	check(!dsk::isObsNativeTwitchService(QStringLiteral("Twitch"), QStringLiteral("rtmp_custom"),
+					     QStringLiteral("rtmp_custom")),
+	      "a custom RTMP service is not treated as OBS native Twitch");
+	check(!dsk::isObsNativeTwitchService(QStringLiteral("My Twitch Backup"), QStringLiteral("rtmp_common"),
+					     QStringLiteral("rtmp_common")),
+	      "a Twitch substring does not impersonate the OBS native Twitch service");
+
+	twitch.platformId = QStringLiteral("custom");
+	twitch.authMode = dsk::TargetAuthMode::ManualRtmp;
+	twitch.serverUrl = QStringLiteral("rtmp://live.twitch.tv/app");
+	check(dsk::isTwitchOutputTarget(twitch),
+	      "a custom manual target using Twitch's canonical ingest host is recognized as Twitch");
+	twitch.serverUrl = QStringLiteral("rtmps://iad05.contribute.live-video.net/app");
+	check(dsk::isTwitchOutputTarget(twitch),
+	      "a custom manual target using a regional Twitch ingest host is recognized as Twitch");
+	twitch.serverUrl = QStringLiteral("rtmps://live.twitch.tv.example.invalid/app");
+	check(!dsk::isTwitchOutputTarget(twitch),
+	      "a lookalike Twitch hostname is not classified as Twitch");
+	check(dsk::shouldDeferVerticalCanvasRelease(true, false),
+	      "an active native Dual Format stream defers vertical canvas release");
+	check(!dsk::shouldDeferVerticalCanvasRelease(true, true),
+	      "OBS shutdown may release the vertical canvas after outputs are stopping");
+	check(!dsk::shouldDeferVerticalCanvasRelease(false, false),
+	      "an idle native stream does not defer vertical canvas release");
 
 	check(dsk::obsNativeCanStartWithAll(true, false, false), "idle OBS native stream enables Start All");
 	check(!dsk::obsNativeCanStartWithAll(true, false, true),

@@ -10,17 +10,14 @@
 
 #include <obs.h>
 #include <obs-frontend-api.h>
-#include <util/bmem.h>
 
 #include <QDateTime>
-#include <QFile>
 #include <QFrame>
 #include <QGraphicsDropShadowEffect>
 #include <QGridLayout>
 #include <QHBoxLayout>
 #include <QInputDialog>
 #include <QJsonArray>
-#include <QJsonDocument>
 #include <QJsonObject>
 #include <QLabel>
 #include <QMenu>
@@ -206,34 +203,31 @@ QString platformFromService(const QString &serviceName, const QString &server, c
 ObsNativeStreamInfo obsNativeStreamInfo()
 {
 	ObsNativeStreamInfo info;
-	char *profilePathRaw = obs_frontend_get_current_profile_path();
-	if (!profilePathRaw)
+	// The frontend API returns a borrowed service pointer. Do not release it.
+	obs_service_t *service = obs_frontend_get_streaming_service();
+	if (!service)
 		return info;
 
-	const QString servicePath = QString::fromUtf8(profilePathRaw) + QStringLiteral("/service.json");
-	bfree(profilePathRaw);
-
-	QFile file(servicePath);
-	if (!file.open(QIODevice::ReadOnly))
-		return info;
-
-	const QJsonDocument document = QJsonDocument::fromJson(file.readAll());
-	if (!document.isObject())
-		return info;
-
-	const QJsonObject root = document.object();
-	const QJsonObject settings = root.value("settings").toObject();
-	const QString type = root.value("type").toString();
-	const QString serviceName = settings.value("service").toString().trimmed();
-	const QString server = settings.value("server").toString().trimmed();
-	const QString name = settings.value("name").toString().trimmed();
-	const QString username = settings.value("username").toString().trimmed();
-	const QString account = settings.value("account").toString().trimmed();
+	obs_data_t *settings = obs_service_get_settings(service);
+	const auto setting = [settings](const char *name) {
+		return settings ? QString::fromUtf8(obs_data_get_string(settings, name)).trimmed() : QString();
+	};
+	const QString serviceName = setting("service");
+	const QString server = setting("server");
+	const QString name = setting("name");
+	const QString username = setting("username");
+	const QString account = setting("account");
+	const char *typeRaw = obs_service_get_type(service);
+	const char *idRaw = obs_service_get_id(service);
+	const QString type = typeRaw ? QString::fromUtf8(typeRaw).trimmed() : QString();
+	const QString id = idRaw ? QString::fromUtf8(idRaw).trimmed() : QString();
+	if (settings)
+		obs_data_release(settings);
 
 	info.available = obsNativeServiceConfigured(!serviceName.isEmpty(), !name.isEmpty(), !server.isEmpty(),
-						 !type.trimmed().isEmpty());
+						 !type.isEmpty());
 	info.serviceName = !serviceName.isEmpty() ? serviceName : (!name.isEmpty() ? name : QStringLiteral("OBS Native Stream"));
-	info.platformId = platformFromService(info.serviceName, server, type);
+	info.platformId = platformFromService(info.serviceName, server, QStringLiteral("%1 %2").arg(type, id));
 	info.accountLabel = !username.isEmpty() ? username : account;
 	info.detail = info.accountLabel.isEmpty() ? QStringLiteral("OBS native stream")
 						 : QString("OBS native stream - %1").arg(info.accountLabel);

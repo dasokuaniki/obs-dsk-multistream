@@ -401,6 +401,7 @@ if(DSK_BUILD_TESTS)
     COMMAND
       "${CMAKE_COMMAND}"
       "-DOUTPUT_MANAGER_CPP=${CMAKE_CURRENT_SOURCE_DIR}/src/core/output-manager.cpp"
+      "-DSTREAM_CONTROLS_DOCK_CPP=${CMAKE_CURRENT_SOURCE_DIR}/src/ui/stream-controls-dock.cpp"
       "-DVERTICAL_SCENE_BUILDER_CPP=${CMAKE_CURRENT_SOURCE_DIR}/src/core/vertical-scene-builder.cpp"
       "-DPLUGIN_MAIN=${CMAKE_CURRENT_SOURCE_DIR}/src/plugin-main.cpp"
       -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/twitch-dual-format-contract-test.cmake"

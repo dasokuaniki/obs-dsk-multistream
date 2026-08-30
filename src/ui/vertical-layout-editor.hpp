@@ -82,6 +82,7 @@ private:
 	void updateSceneStatus();
 	void updateObsLinkStatus();
 	void setSetupVisible(bool visible, bool persist);
+	void clearSourceSelection();
 
 	OutputManager *manager_ = nullptr;
 	QCheckBox *followScene_ = nullptr;

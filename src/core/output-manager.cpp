@@ -51,24 +51,26 @@ constexpr int YouTubeArchiveTransitionPollMs = 2000;
 constexpr int YouTubeArchiveTransitionMaxPolls = 30;
 constexpr uint32_t DskVerticalCanvasFlags = ACTIVATE | SCENE_REF;
 constexpr uint32_t DskPrivateCanvasFlags = ACTIVATE | SCENE_REF | EPHEMERAL;
+constexpr const char *DskVerticalCanvasName = "DSK Vertical";
+constexpr const char *DskVerticalSceneName = "DSK Vertical Program";
+constexpr const char *DskVerticalSceneOwnerKey = "dsk_vertical_canvas_owner";
+constexpr const char *DskVerticalSceneOwnerValue = "obs-dsk-multistream";
 
 bool obsNativeServiceIsTwitch()
 {
+	// Borrowed from the frontend; obs_frontend_get_streaming_service() does not add a reference.
 	obs_service_t *service = obs_frontend_get_streaming_service();
 	if (!service)
 		return false;
 
 	obs_data_t *settings = obs_service_get_settings(service);
 	const QString serviceName = settings ? QString::fromUtf8(obs_data_get_string(settings, "service")) : QString();
-	const QString server = settings ? QString::fromUtf8(obs_data_get_string(settings, "server")) : QString();
 	const QString type = QString::fromUtf8(obs_service_get_type(service));
 	const QString id = QString::fromUtf8(obs_service_get_id(service));
 	if (settings)
 		obs_data_release(settings);
-	obs_service_release(service);
 
-	return QStringLiteral("%1 %2 %3 %4").arg(serviceName, server, type, id).contains(
-		QStringLiteral("twitch"), Qt::CaseInsensitive);
+	return isObsNativeTwitchService(serviceName, type, id);
 }
 
 bool isSelectedObsAdditionalCanvas(obs_canvas_t *canvas)
@@ -80,6 +82,46 @@ bool isSelectedObsAdditionalCanvas(obs_canvas_t *canvas)
 	const char *canvasUuid = obs_canvas_get_uuid(canvas);
 	return selectedCanvas && *selectedCanvas && canvasUuid && *canvasUuid &&
 	       QString::fromUtf8(selectedCanvas).compare(QString::fromUtf8(canvasUuid), Qt::CaseInsensitive) == 0;
+}
+
+bool hasPluginOwnedVerticalSceneMarker(obs_scene_t *scene)
+{
+	obs_source_t *source = scene ? obs_scene_get_source(scene) : nullptr;
+	obs_data_t *privateSettings = source ? obs_source_get_private_settings(source) : nullptr;
+	const char *owner = privateSettings ? obs_data_get_string(privateSettings, DskVerticalSceneOwnerKey) : nullptr;
+	const bool owned = owner && strcmp(owner, DskVerticalSceneOwnerValue) == 0;
+	if (privateSettings)
+		obs_data_release(privateSettings);
+	return owned;
+}
+
+void markPluginOwnedVerticalScene(obs_source_t *source)
+{
+	obs_data_t *privateSettings = source ? obs_source_get_private_settings(source) : nullptr;
+	if (!privateSettings)
+		return;
+	obs_data_set_string(privateSettings, DskVerticalSceneOwnerKey, DskVerticalSceneOwnerValue);
+	obs_data_release(privateSettings);
+}
+
+bool isOrMigratePluginOwnedVerticalCanvas(obs_canvas_t *canvas)
+{
+	if (!canvas || obs_canvas_removed(canvas))
+		return false;
+	obs_scene_t *markerScene = obs_canvas_get_scene_by_name(canvas, DskVerticalSceneName);
+	if (!markerScene)
+		return false;
+
+	bool owned = hasPluginOwnedVerticalSceneMarker(markerScene);
+	const char *canvasName = obs_canvas_get_name(canvas);
+	const bool legacyPluginCanvas = !owned && canvasName && strcmp(canvasName, DskVerticalCanvasName) == 0;
+	if (legacyPluginCanvas) {
+		markPluginOwnedVerticalScene(obs_scene_get_source(markerScene));
+		owned = true;
+		logInfo(QStringLiteral("Migrated the legacy DSK Vertical canvas ownership marker."));
+	}
+	obs_scene_release(markerScene);
+	return owned;
 }
 
 } // namespace
@@ -853,6 +895,14 @@ void OutputManager::reloadForCurrentProfile()
 {
 	if (shuttingDown_ || unloadPrepared_)
 		return;
+	if (shouldDeferVerticalCanvasRelease(obsNativeUsingVerticalCanvas_, shuttingDown_)) {
+		obsContextReloadPending_ = true;
+		logWarning(QStringLiteral(
+			"Deferred OBS profile reload while Twitch Dual Format is using the DSK Vertical canvas."));
+		emit statusMessage(QStringLiteral(
+			"DSK profile reload will complete after the active Twitch Dual Format stream stops."));
+		return;
+	}
 
 	SettingsStore nextStore;
 	const QString nextSettingsPath = normalizedSettingsPath(nextStore.settingsPath());
@@ -898,6 +948,11 @@ void OutputManager::prepareForSceneCollectionChange()
 {
 	if (shuttingDown_ || unloadPrepared_)
 		return;
+	if (shouldDeferVerticalCanvasRelease(obsNativeUsingVerticalCanvas_, shuttingDown_)) {
+		obsContextReloadPending_ = true;
+		logWarning(QStringLiteral(
+			"Deferring DSK Vertical scene references while Twitch Dual Format is streaming."));
+	}
 
 	QVector<QString> targetIds;
 	for (const Session *session : sessions_) {
@@ -960,13 +1015,20 @@ void OutputManager::releaseObsSceneReferences()
 {
 #ifdef DSK_ENABLE_OBS_CANVAS_API
 	releaseAllSceneCanvases();
+	if (shouldDeferVerticalCanvasRelease(obsNativeUsingVerticalCanvas_, shuttingDown_)) {
+		obsContextReloadPending_ = true;
+		logWarning(QStringLiteral(
+			"Deferred DSK Vertical canvas release while OBS Twitch Dual Format is active."));
+		return;
+	}
 	if (!shuttingDown_ && sessionUsesCanvasKey(QStringLiteral("dsk-vertical"))) {
 		logWarning(QStringLiteral("Deferred DSK Vertical canvas release while a vertical output is active."));
 		return;
 	}
 	if (verticalCanvas_) {
 		obs_canvas_set_channel(verticalCanvas_, 0, nullptr);
-		verticalScene_.release();
+		// Keep the uniquely named scene as an ownership marker in the persistent canvas.
+		verticalScene_.release(false);
 		obs_canvas_release(verticalCanvas_);
 		verticalCanvas_ = nullptr;
 	}
@@ -1392,6 +1454,7 @@ bool OutputManager::shouldSuppressObsAutoStop()
 
 void OutputManager::handleObsStreamingStarted()
 {
+	obsNativeUsingVerticalCanvas_ = twitchDualFormatActive(twitchDualFormatState());
 	if (shouldSuppressObsAutoStart()) {
 		logInfo("OBS streaming started by DSK individual control; skipping auto-start targets.");
 		return;
@@ -1411,23 +1474,29 @@ void OutputManager::handleObsStreamingStarted()
 
 void OutputManager::handleObsStreamingStopped()
 {
-	if (shouldSuppressObsAutoStop()) {
+	const bool suppressAutoStop = shouldSuppressObsAutoStop();
+	if (suppressAutoStop) {
 		logInfo("OBS streaming stopped by DSK individual control; skipping auto-stop targets.");
-		return;
+	} else {
+		QVector<QString> ids;
+		ids.reserve(targets_.size());
+		for (const auto &target : targets_) {
+			if (target.autoStopWithObs)
+				ids.push_back(target.id);
+		}
+		for (const auto &id : ids)
+			stopTarget(id);
 	}
 
-	QVector<QString> ids;
-	ids.reserve(targets_.size());
-	for (const auto &target : targets_) {
-		if (target.autoStopWithObs)
-			ids.push_back(target.id);
-	}
-	for (const auto &id : ids)
-		stopTarget(id);
+	obsNativeUsingVerticalCanvas_ = false;
+	recoverDeferredObsContext();
 }
 
 void OutputManager::handleObsSceneChanged()
 {
+	if (obsContextReloadPending_ && obsNativeUsingVerticalCanvas_)
+		return;
+
 	bool applied = false;
 	if (followObsScene_)
 		applied = applyLinkedScene(currentObsSceneName());
@@ -1438,6 +1507,9 @@ void OutputManager::handleObsSceneChanged()
 
 void OutputManager::refreshSceneIdentities()
 {
+	if (obsContextReloadPending_ && obsNativeUsingVerticalCanvas_)
+		return;
+
 	QVector<OutputTarget> previousTargets;
 	previousTargets.reserve(targets_.size());
 	for (const auto &target : targets_) {
@@ -4254,8 +4326,7 @@ bool OutputManager::ensureVerticalCanvasVideo(QString *errorMessage)
 		obs_frontend_get_canvases(&canvases);
 		for (size_t i = 0; i < canvases.canvases.num; ++i) {
 			obs_canvas_t *candidate = canvases.canvases.array[i];
-			const char *name = obs_canvas_get_name(candidate);
-			if (name && strcmp(name, "DSK Vertical") == 0 && !obs_canvas_removed(candidate)) {
+			if (isOrMigratePluginOwnedVerticalCanvas(candidate)) {
 				verticalCanvas_ = obs_canvas_get_ref(candidate);
 				break;
 			}
@@ -4299,7 +4370,7 @@ bool OutputManager::ensureVerticalCanvasVideo(QString *errorMessage)
 	}
 
 	if (!verticalCanvas_)
-		verticalCanvas_ = obs_frontend_add_canvas("DSK Vertical", &info, DskVerticalCanvasFlags);
+		verticalCanvas_ = obs_frontend_add_canvas(DskVerticalCanvasName, &info, DskVerticalCanvasFlags);
 
 	if (!verticalCanvas_ || !obs_canvas_has_video(verticalCanvas_)) {
 		if (verticalCanvas_) {
@@ -4325,6 +4396,11 @@ bool OutputManager::ensureVerticalCanvasVideo(QString *errorMessage)
 bool OutputManager::prepareVerticalCanvas(QString *errorMessage)
 {
 #ifdef DSK_ENABLE_OBS_CANVAS_API
+	if (obsContextReloadPending_ && obsNativeUsingVerticalCanvas_) {
+		if (errorMessage)
+			errorMessage->clear();
+		return true;
+	}
 	if (!ensureVerticalCanvasVideo(errorMessage))
 		return false;
 	return refreshVerticalCanvasScene(errorMessage);
@@ -4333,6 +4409,28 @@ bool OutputManager::prepareVerticalCanvas(QString *errorMessage)
 		*errorMessage = QStringLiteral("DSK Vertical needs the OBS Canvas API.");
 	return false;
 #endif
+}
+
+void OutputManager::recoverDeferredObsContext()
+{
+	if (!obsContextReloadPending_ || shuttingDown_ || unloadPrepared_)
+		return;
+
+	obsContextReloadPending_ = false;
+	logInfo(QStringLiteral("Applying the OBS context change deferred during Twitch Dual Format streaming."));
+	releaseObsSceneReferences();
+	reloadForCurrentProfile();
+	if (shuttingDown_ || unloadPrepared_)
+		return;
+
+	refreshSceneIdentities();
+	handleObsSceneChanged();
+	QString error;
+	if (!prepareVerticalCanvas(&error) && !error.isEmpty()) {
+		logWarning(QStringLiteral("Failed to restore DSK Vertical after the deferred OBS context change: %1")
+				   .arg(error));
+		emit statusMessage(error);
+	}
 }
 
 QString OutputManager::verticalCanvasUuid() const
@@ -4376,6 +4474,7 @@ bool OutputManager::refreshVerticalCanvasScene(QString *errorMessage)
 			*errorMessage = sceneError.isEmpty() ? "Failed to build DSK Vertical scene." : sceneError;
 		return false;
 	}
+	markPluginOwnedVerticalScene(source);
 
 	if (verticalCanvas_)
 		obs_canvas_set_channel(verticalCanvas_, 0, source);

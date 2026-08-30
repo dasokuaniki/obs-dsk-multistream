@@ -4,6 +4,7 @@
 
 #include <QString>
 #include <QStringView>
+#include <QUrl>
 
 namespace dsk {
 
@@ -38,9 +39,34 @@ inline bool twitchDualFormatActive(TwitchDualFormatState state)
 	return state == TwitchDualFormatState::Ready;
 }
 
+inline bool shouldDeferVerticalCanvasRelease(bool obsNativeUsingVerticalCanvas, bool shuttingDown)
+{
+	return obsNativeUsingVerticalCanvas && !shuttingDown;
+}
+
+inline bool isObsNativeTwitchService(QStringView serviceName, QStringView serviceType, QStringView serviceId)
+{
+	const auto isCustomRtmp = [](QStringView value) {
+		return value.trimmed().compare(QStringLiteral("rtmp_custom"), Qt::CaseInsensitive) == 0;
+	};
+	return !isCustomRtmp(serviceType) && !isCustomRtmp(serviceId) &&
+	       serviceName.trimmed().compare(QStringLiteral("Twitch"), Qt::CaseInsensitive) == 0;
+}
+
+inline bool isTwitchOutputTarget(const OutputTarget &target)
+{
+	if (target.platformId.trimmed().compare(QStringLiteral("twitch"), Qt::CaseInsensitive) == 0 ||
+	    target.authMode == TargetAuthMode::TwitchOAuth)
+		return true;
+
+	const QString host = QUrl(target.serverUrl.trimmed()).host().trimmed().toLower();
+	return host == QStringLiteral("twitch.tv") || host.endsWith(QStringLiteral(".twitch.tv")) ||
+	       host == QStringLiteral("live-video.net") || host.endsWith(QStringLiteral(".live-video.net"));
+}
+
 inline bool shouldSuppressIndependentTwitchTarget(const OutputTarget &target, bool dualFormatActive)
 {
-	return dualFormatActive && target.platformId.trimmed().compare(QStringLiteral("twitch"), Qt::CaseInsensitive) == 0;
+	return dualFormatActive && isTwitchOutputTarget(target);
 }
 
 inline bool shouldBlockIndependentTwitchStart(const OutputTarget &target, bool dualFormatActive,

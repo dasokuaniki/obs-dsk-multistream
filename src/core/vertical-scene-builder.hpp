@@ -28,7 +28,7 @@ public:
 	bool updateItemTransforms(const VerticalLayout &layout);
 	obs_source_t *source() const;
 	void clear();
-	void release();
+	void release(bool removeFromCanvas = true);
 
 private:
 	QString sceneName_;
