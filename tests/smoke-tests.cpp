@@ -1154,6 +1154,13 @@ void testStreamControlsState()
 	twitch.serverUrl = QStringLiteral("rtmps://iad05.contribute.live-video.net/app");
 	check(dsk::isTwitchOutputTarget(twitch),
 	      "a custom manual target using a regional Twitch ingest host is recognized as Twitch");
+	twitch.platformId = QStringLiteral("kick");
+	twitch.authMode = dsk::TargetAuthMode::KickOAuth;
+	twitch.serverUrl = QStringLiteral("rtmps://example.global-contribute.live-video.net/app");
+	check(!dsk::isTwitchOutputTarget(twitch),
+	      "an explicit Kick OAuth target is not reclassified as Twitch by its shared ingest host");
+	twitch.platformId = QStringLiteral("custom");
+	twitch.authMode = dsk::TargetAuthMode::ManualRtmp;
 	twitch.serverUrl = QStringLiteral("rtmps://live.twitch.tv.example.invalid/app");
 	check(!dsk::isTwitchOutputTarget(twitch),
 	      "a lookalike Twitch hostname is not classified as Twitch");

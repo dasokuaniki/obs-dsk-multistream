@@ -55,9 +55,17 @@ inline bool isObsNativeTwitchService(QStringView serviceName, QStringView servic
 
 inline bool isTwitchOutputTarget(const OutputTarget &target)
 {
-	if (target.platformId.trimmed().compare(QStringLiteral("twitch"), Qt::CaseInsensitive) == 0 ||
+	const QString platformId = target.platformId.trimmed();
+	if (platformId.compare(QStringLiteral("twitch"), Qt::CaseInsensitive) == 0 ||
 	    target.authMode == TargetAuthMode::TwitchOAuth)
 		return true;
+	// Kick and Twitch can both use Amazon IVS hosts under live-video.net. Respect an
+	// explicitly configured non-Twitch platform/auth mode before considering the
+	// endpoint as a fallback signal for unclassified manual RTMP targets.
+	if ((!platformId.isEmpty() &&
+	     platformId.compare(QStringLiteral("custom"), Qt::CaseInsensitive) != 0) ||
+	    target.authMode != TargetAuthMode::ManualRtmp)
+		return false;
 
 	const QString host = QUrl(target.serverUrl.trimmed()).host().trimmed().toLower();
 	return host == QStringLiteral("twitch.tv") || host.endsWith(QStringLiteral(".twitch.tv")) ||
