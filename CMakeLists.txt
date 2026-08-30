@@ -397,6 +397,15 @@ if(DSK_BUILD_TESTS)
   set_tests_properties(dsk-vertical-preview-lifecycle-test PROPERTIES LABELS "unit;ui;stability;no-obs")
 
   add_test(
+    NAME dsk-obs-startup-selection-test
+    COMMAND
+      "${CMAKE_COMMAND}"
+      "-DPLUGIN_MAIN=${CMAKE_CURRENT_SOURCE_DIR}/src/plugin-main.cpp"
+      -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/obs-startup-selection-test.cmake"
+  )
+  set_tests_properties(dsk-obs-startup-selection-test PROPERTIES LABELS "unit;ui;stability;no-obs")
+
+  add_test(
     NAME dsk-twitch-dual-format-contract-test
     COMMAND
       "${CMAKE_COMMAND}"

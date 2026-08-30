@@ -528,6 +528,27 @@ void prepareVerticalCanvas()
 		dsk::logWarning(QStringLiteral("DSK Vertical canvas preparation failed: %1").arg(error));
 }
 
+bool deselectObsSceneItem(obs_scene_t *, obs_sceneitem_t *item, void *)
+{
+	if (obs_sceneitem_is_group(item))
+		obs_sceneitem_group_enum_items(item, deselectObsSceneItem, nullptr);
+	obs_sceneitem_select(item, false);
+	return true;
+}
+
+void clearObsMainCanvasSelection()
+{
+	obs_source_t *sceneSource = obs_frontend_get_current_preview_scene();
+	if (!sceneSource)
+		sceneSource = obs_frontend_get_current_scene();
+	if (!sceneSource)
+		return;
+
+	if (obs_scene_t *scene = obs_scene_from_source(sceneSource))
+		obs_scene_enum_items(scene, deselectObsSceneItem, nullptr);
+	obs_source_release(sceneSource);
+}
+
 void initializeFrontendUi()
 {
 	if (frontendUiInitialized)
@@ -569,6 +590,7 @@ void frontendEvent(enum obs_frontend_event event, void *)
 {
 	if (event == OBS_FRONTEND_EVENT_FINISHED_LOADING) {
 		initializeFrontendUi();
+		clearObsMainCanvasSelection();
 	} else if (event == OBS_FRONTEND_EVENT_PROFILE_CHANGED) {
 		if (manager) {
 			manager->reloadForCurrentProfile();
