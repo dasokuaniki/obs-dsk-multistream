@@ -49,7 +49,38 @@ constexpr qint64 YouTubeAutoStartWaitTimeoutMs = 5 * 60 * 1000;
 constexpr int YouTubeArchiveRotationRetryMs = 5 * 60 * 1000;
 constexpr int YouTubeArchiveTransitionPollMs = 2000;
 constexpr int YouTubeArchiveTransitionMaxPolls = 30;
-constexpr uint32_t DskVideoCanvasFlags = ACTIVATE | SCENE_REF | EPHEMERAL;
+constexpr uint32_t DskVerticalCanvasFlags = ACTIVATE | SCENE_REF;
+constexpr uint32_t DskPrivateCanvasFlags = ACTIVATE | SCENE_REF | EPHEMERAL;
+
+bool obsNativeServiceIsTwitch()
+{
+	obs_service_t *service = obs_frontend_get_streaming_service();
+	if (!service)
+		return false;
+
+	obs_data_t *settings = obs_service_get_settings(service);
+	const QString serviceName = settings ? QString::fromUtf8(obs_data_get_string(settings, "service")) : QString();
+	const QString server = settings ? QString::fromUtf8(obs_data_get_string(settings, "server")) : QString();
+	const QString type = QString::fromUtf8(obs_service_get_type(service));
+	const QString id = QString::fromUtf8(obs_service_get_id(service));
+	if (settings)
+		obs_data_release(settings);
+	obs_service_release(service);
+
+	return QStringLiteral("%1 %2 %3 %4").arg(serviceName, server, type, id).contains(
+		QStringLiteral("twitch"), Qt::CaseInsensitive);
+}
+
+bool isSelectedObsAdditionalCanvas(obs_canvas_t *canvas)
+{
+	if (!canvas || obs_canvas_removed(canvas))
+		return false;
+	config_t *config = obs_frontend_get_profile_config();
+	const char *selectedCanvas = config ? config_get_string(config, "Stream1", "MultitrackExtraCanvas") : nullptr;
+	const char *canvasUuid = obs_canvas_get_uuid(canvas);
+	return selectedCanvas && *selectedCanvas && canvasUuid && *canvasUuid &&
+	       QString::fromUtf8(selectedCanvas).compare(QString::fromUtf8(canvasUuid), Qt::CaseInsensitive) == 0;
+}
 
 } // namespace
 
@@ -1213,6 +1244,13 @@ bool OutputManager::startTarget(const QString &id)
 	const TargetRuntimeStatus runtime = runtimeStatusForTarget(id);
 	if (runtimeTransportIsRunning(runtime) || target->state == TargetState::Live || target->state == TargetState::Starting)
 		return true;
+	if (shouldBlockIndependentTwitchStart(*target, twitchDualFormatActive(twitchDualFormatState()), false)) {
+		const QString message = QStringLiteral(
+			"Twitch Dual Format is handled by the OBS Twitch button. The separate DSK Twitch output was not started.");
+		logInfo(QStringLiteral("%1: %2").arg(target->name, message));
+		emit statusMessage(message);
+		return false;
+	}
 	if (runtime.transport == TransportState::Stopping || sessionForTarget(id)) {
 		target->state = TargetState::Stopping;
 		target->lastError = QStringLiteral("Output is still stopping. Try again in a moment.");
@@ -1283,7 +1321,13 @@ void OutputManager::stopTarget(const QString &id)
 
 void OutputManager::startAll()
 {
-	const QVector<QString> ids = startAllTargetIds(targets_);
+	const bool dualFormatActive = twitchDualFormatActive(twitchDualFormatState());
+	QVector<QString> ids;
+	for (const QString &id : startAllTargetIds(targets_)) {
+		const OutputTarget *target = findTarget(id);
+		if (target && !shouldSuppressIndependentTwitchTarget(*target, dualFormatActive))
+			ids.push_back(id);
+	}
 	int started = 0;
 	int failed = 0;
 	for (const auto &id : ids) {
@@ -1355,8 +1399,10 @@ void OutputManager::handleObsStreamingStarted()
 
 	QVector<QString> ids;
 	ids.reserve(targets_.size());
+	const bool dualFormatActive = twitchDualFormatActive(twitchDualFormatState());
 	for (const auto &target : targets_) {
-		if (target.enabled && target.autoStartWithObs)
+		if (target.enabled && target.autoStartWithObs &&
+		    !shouldSuppressIndependentTwitchTarget(target, dualFormatActive))
 			ids.push_back(target.id);
 	}
 	for (const auto &id : ids)
@@ -4224,12 +4270,18 @@ bool OutputManager::ensureVerticalCanvasVideo(QString *errorMessage)
 				     currentInfo.base_height == info.base_height &&
 				     currentInfo.output_width == info.output_width &&
 				     currentInfo.output_height == info.output_height;
-	const bool hasMatchingFlags = verticalCanvas_ && obs_canvas_get_flags(verticalCanvas_) == DskVideoCanvasFlags;
+	const bool hasMatchingFlags = verticalCanvas_ && obs_canvas_get_flags(verticalCanvas_) == DskVerticalCanvasFlags;
 
 	if (verticalCanvas_ && (!hasVideo || !hasMatchingInfo || !hasMatchingFlags)) {
 		if (sessionUsesCanvasKey(QStringLiteral("dsk-vertical"))) {
 			if (errorMessage)
 				*errorMessage = QStringLiteral("DSK Vertical canvas is in use and cannot change its configuration.");
+			return false;
+		}
+		if (obs_frontend_streaming_active() && isSelectedObsAdditionalCanvas(verticalCanvas_)) {
+			if (errorMessage)
+				*errorMessage = QStringLiteral(
+					"DSK Vertical is active in OBS Twitch Dual Format and cannot be replaced while streaming.");
 			return false;
 		}
 		if (hasMatchingFlags && !obs_video_active() && obs_canvas_reset_video(verticalCanvas_, &info))
@@ -4247,7 +4299,7 @@ bool OutputManager::ensureVerticalCanvasVideo(QString *errorMessage)
 	}
 
 	if (!verticalCanvas_)
-		verticalCanvas_ = obs_frontend_add_canvas("DSK Vertical", &info, DskVideoCanvasFlags);
+		verticalCanvas_ = obs_frontend_add_canvas("DSK Vertical", &info, DskVerticalCanvasFlags);
 
 	if (!verticalCanvas_ || !obs_canvas_has_video(verticalCanvas_)) {
 		if (verticalCanvas_) {
@@ -4268,6 +4320,42 @@ bool OutputManager::ensureVerticalCanvasVideo(QString *errorMessage)
 		*errorMessage = "DSK Vertical scene was built, but real 9:16 output needs OBS canvas API wiring.";
 	return false;
 #endif
+}
+
+bool OutputManager::prepareVerticalCanvas(QString *errorMessage)
+{
+#ifdef DSK_ENABLE_OBS_CANVAS_API
+	if (!ensureVerticalCanvasVideo(errorMessage))
+		return false;
+	return refreshVerticalCanvasScene(errorMessage);
+#else
+	if (errorMessage)
+		*errorMessage = QStringLiteral("DSK Vertical needs the OBS Canvas API.");
+	return false;
+#endif
+}
+
+QString OutputManager::verticalCanvasUuid() const
+{
+#ifdef DSK_ENABLE_OBS_CANVAS_API
+	if (!verticalCanvas_ || obs_canvas_removed(verticalCanvas_))
+		return {};
+	const char *uuid = obs_canvas_get_uuid(verticalCanvas_);
+	return uuid ? QString::fromUtf8(uuid) : QString();
+#else
+	return {};
+#endif
+}
+
+TwitchDualFormatState OutputManager::twitchDualFormatState() const
+{
+	config_t *config = obs_frontend_get_profile_config();
+	const bool enhancedBroadcastingEnabled = config && config_get_bool(config, "Stream1", "EnableMultitrackVideo");
+	const char *selectedCanvas = config ? config_get_string(config, "Stream1", "MultitrackExtraCanvas") : nullptr;
+	return dsk::twitchDualFormatState(obsNativeServiceIsTwitch() ? QStringLiteral("twitch") : QStringLiteral("custom"),
+					  enhancedBroadcastingEnabled,
+					  selectedCanvas ? QString::fromUtf8(selectedCanvas) : QString(),
+					  verticalCanvasUuid());
 }
 
 bool OutputManager::refreshVerticalCanvasScene(QString *errorMessage)
@@ -4378,7 +4466,7 @@ bool OutputManager::ensureSceneCanvasForTarget(const OutputTarget &target, const
 				     currentInfo.base_height == info.base_height &&
 				     currentInfo.output_width == info.output_width &&
 				     currentInfo.output_height == info.output_height;
-	const bool hasMatchingFlags = canvas && obs_canvas_get_flags(canvas) == DskVideoCanvasFlags;
+	const bool hasMatchingFlags = canvas && obs_canvas_get_flags(canvas) == DskPrivateCanvasFlags;
 	if (canvas && (!hasVideo || !hasMatchingInfo || !hasMatchingFlags)) {
 		if (sessionUsesCanvasKey(sceneCanvasKeyForTarget(target))) {
 			obs_source_release(sceneSource);
@@ -4402,7 +4490,7 @@ bool OutputManager::ensureSceneCanvasForTarget(const OutputTarget &target, const
 
 	if (!canvas) {
 		const QString canvasName = QStringLiteral("DSK Scene - %1").arg(target.name.isEmpty() ? target.id : target.name);
-		canvas = obs_frontend_add_canvas(canvasName.toUtf8().constData(), &info, DskVideoCanvasFlags);
+		canvas = obs_frontend_add_canvas(canvasName.toUtf8().constData(), &info, DskPrivateCanvasFlags);
 		if (!canvas || !obs_canvas_has_video(canvas)) {
 			if (canvas) {
 				obs_frontend_remove_canvas(canvas);

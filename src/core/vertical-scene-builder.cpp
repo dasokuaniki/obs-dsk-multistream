@@ -106,7 +106,12 @@ obs_source_t *VerticalSceneBuilder::rebuild(const VerticalLayout &layout, obs_ca
 	if (!scene_) {
 		const QByteArray sceneName = sceneName_.toUtf8();
 		if (canvas) {
-			scene_ = obs_canvas_scene_create(canvas, sceneName.constData());
+			// A non-ephemeral canvas may have been saved by OBS before a crash.
+			// Adopt the restored scene to keep one stable program scene instead of
+			// creating a deduplicated copy on every recovery.
+			scene_ = obs_canvas_get_scene_by_name(canvas, sceneName.constData());
+			if (!scene_)
+				scene_ = obs_canvas_scene_create(canvas, sceneName.constData());
 			sceneUsesCanvas_ = scene_ != nullptr;
 		} else {
 #ifdef DSK_ENABLE_OBS_CANVAS_API

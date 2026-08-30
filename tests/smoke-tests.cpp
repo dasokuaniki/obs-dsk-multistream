@@ -1099,6 +1099,44 @@ void testStreamControlsState()
 	target.startWithAll = false;
 	check(!dsk::targetCanStartWithAll(target, runtime), "excluded target does not enable Start All");
 
+	dsk::OutputTarget twitch;
+	twitch.platformId = QStringLiteral("twitch");
+	twitch.enabled = true;
+	twitch.startWithAll = true;
+	check(dsk::targetCanStartWithAll(twitch, runtime, false),
+	      "an independent Twitch target remains eligible outside Dual Format");
+	check(!dsk::targetCanStartWithAll(twitch, runtime, true),
+	      "Dual Format excludes the independent Twitch target from Start All");
+	check(!dsk::targetBlocksStartAll(twitch, runtime, true),
+	      "a suppressed Twitch target cannot block other Start All destinations");
+	check(dsk::shouldSuppressIndependentTwitchTarget(twitch, true),
+	      "Dual Format suppresses independent Twitch transport");
+	check(dsk::shouldBlockIndependentTwitchStart(twitch, true, false),
+	      "Dual Format blocks a new independent Twitch start");
+	check(!dsk::shouldBlockIndependentTwitchStart(twitch, true, true),
+	      "Dual Format keeps an already-running independent Twitch target stoppable");
+	twitch.platformId = QStringLiteral("youtube");
+	check(!dsk::shouldSuppressIndependentTwitchTarget(twitch, true),
+	      "Dual Format does not suppress non-Twitch targets");
+
+	check(dsk::twitchDualFormatState(QStringLiteral("youtube"), true, QStringLiteral("canvas-1"),
+					 QStringLiteral("canvas-1")) == dsk::TwitchDualFormatState::NotTwitch,
+	      "a non-Twitch OBS service cannot enter Twitch Dual Format");
+	check(dsk::twitchDualFormatState(QStringLiteral("twitch"), true, QStringLiteral("canvas-1"), {}) ==
+		      dsk::TwitchDualFormatState::VerticalCanvasUnavailable,
+	      "Twitch Dual Format requires a prepared DSK Vertical canvas");
+	check(dsk::twitchDualFormatState(QStringLiteral("twitch"), false, QStringLiteral("canvas-1"),
+					 QStringLiteral("canvas-1")) ==
+		      dsk::TwitchDualFormatState::EnhancedBroadcastingDisabled,
+	      "Twitch Dual Format requires Enhanced Broadcasting");
+	check(dsk::twitchDualFormatState(QStringLiteral("twitch"), true, QStringLiteral("other-canvas"),
+					 QStringLiteral("canvas-1")) ==
+		      dsk::TwitchDualFormatState::VerticalCanvasNotSelected,
+	      "Twitch Dual Format requires DSK Vertical as Additional Canvas");
+	check(dsk::twitchDualFormatState(QStringLiteral("twitch"), true, QStringLiteral("canvas-1"),
+					 QStringLiteral("canvas-1")) == dsk::TwitchDualFormatState::Ready,
+	      "matching Twitch Enhanced Broadcasting settings enable Dual Format");
+
 	check(dsk::obsNativeCanStartWithAll(true, false, false), "idle OBS native stream enables Start All");
 	check(!dsk::obsNativeCanStartWithAll(true, false, true),
 	      "transitioning OBS native stream does not enable Start All");

@@ -519,6 +519,15 @@ void releaseObsSceneReferences()
 		manager->releaseObsSceneReferences();
 }
 
+void prepareVerticalCanvas()
+{
+	if (!manager || !shouldCreateDocks())
+		return;
+	QString error;
+	if (!manager->prepareVerticalCanvas(&error) && !error.trimmed().isEmpty())
+		dsk::logWarning(QStringLiteral("DSK Vertical canvas preparation failed: %1").arg(error));
+}
+
 void initializeFrontendUi()
 {
 	if (frontendUiInitialized)
@@ -528,6 +537,7 @@ void initializeFrontendUi()
 	if (!manager)
 		manager = std::make_unique<dsk::OutputManager>();
 	manager->refreshSceneIdentities();
+	prepareVerticalCanvas();
 	if (!mainWindowCloseFilter) {
 		if (auto *mainWindow = static_cast<QWidget *>(obs_frontend_get_main_window())) {
 			mainWindowCloseFilter = new MainWindowCloseFilter(mainWindow);
@@ -560,8 +570,10 @@ void frontendEvent(enum obs_frontend_event event, void *)
 	if (event == OBS_FRONTEND_EVENT_FINISHED_LOADING) {
 		initializeFrontendUi();
 	} else if (event == OBS_FRONTEND_EVENT_PROFILE_CHANGED) {
-		if (manager)
+		if (manager) {
 			manager->reloadForCurrentProfile();
+			prepareVerticalCanvas();
+		}
 	} else if (event == OBS_FRONTEND_EVENT_STREAMING_STARTED) {
 		if (manager)
 			manager->handleObsStreamingStarted();
@@ -584,6 +596,7 @@ void frontendEvent(enum obs_frontend_event event, void *)
 		if (manager) {
 			manager->refreshSceneIdentities();
 			manager->handleObsSceneChanged();
+			prepareVerticalCanvas();
 		}
 		if (verticalDock)
 			verticalDock->handleSceneCollectionChanged();

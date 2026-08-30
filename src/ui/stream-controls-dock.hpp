@@ -70,9 +70,10 @@ private:
 	RowWidgets createVisualRow(const QString &platformId, const QString &name);
 	RowWidgets createTargetRow(const OutputTarget &target);
 	RowWidgets createObsNativeRow();
-	void updateTargetRow(const OutputTarget &target, const TargetRuntimeStatus &runtime, RowWidgets &widgets);
+	void updateTargetRow(const OutputTarget &target, const TargetRuntimeStatus &runtime, bool suppressIndependentTwitch,
+			     RowWidgets &widgets);
 	void updateObsNativeRow(RowWidgets &widgets, const QString &platformId, const QString &serviceName,
-				const QString &detail);
+				const QString &statusText, const QString &detail);
 	void removeStaleTargetRows(const QVector<OutputTarget> &targets);
 	void placeRow(QWidget *row, int index);
 	void removeRow(RowWidgets &widgets);

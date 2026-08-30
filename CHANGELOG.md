@@ -2,6 +2,20 @@
 
 All notable user-facing changes are documented in this file.
 
+## [0.4.0] - Development
+
+### Added
+
+- DSK Vertical can now be selected as OBS's Additional Canvas for Twitch Dual
+  Format with Enhanced Broadcasting.
+
+### Changed
+
+- The existing OBS-native Twitch row remains the single Twitch start/stop
+  control in Dual Format mode. Independent DSK Twitch starts are suppressed to
+  prevent a duplicate Twitch RTMP connection, while an already-running legacy
+  connection can still be stopped safely.
+
 ## [0.3.8] - Beta
 
 ### Fixed

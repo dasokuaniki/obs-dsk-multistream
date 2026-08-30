@@ -66,8 +66,10 @@ bool hasYouTubeApiLogin(const OutputTarget &target)
 	       (!target.oauthRefreshToken.trimmed().isEmpty() || !target.oauthRefreshTokenRef.trimmed().isEmpty());
 }
 
-QString rowDetailText(const OutputTarget &target, const TargetRuntimeStatus &runtime)
+QString rowDetailText(const OutputTarget &target, const TargetRuntimeStatus &runtime, bool suppressIndependentTwitch = false)
 {
+	if (shouldSuppressIndependentTwitchTarget(target, suppressIndependentTwitch) && !isRunning(target, runtime))
+		return QStringLiteral("Handled by OBS Twitch Dual Format");
 	if (runtimeHasSession(runtime) || runtimeTransportIsRunning(runtime)) {
 		if (isYouTubeTarget(target) && runtimeTransportIsRunning(runtime) &&
 		    runtimePlatformIsWarning(runtime.platform)) {
@@ -153,11 +155,12 @@ QString youtubeBroadcastChoiceLabel(const QJsonObject &broadcast)
 	return details.isEmpty() ? title : QStringLiteral("%1 — %2").arg(title, details.join(QStringLiteral(" / ")));
 }
 
-QString buttonStyle(const OutputTarget &target, const TargetRuntimeStatus &runtime)
+QString buttonStyle(const OutputTarget &target, const TargetRuntimeStatus &runtime, bool suppressIndependentTwitch = false)
 {
 	const bool transitioning = target.state == TargetState::Starting || target.state == TargetState::Stopping ||
 				   runtimeTransportIsBusy(runtime);
-	const QString color = transitioning ? QStringLiteral("#8e979f")
+	const QString color = suppressIndependentTwitch ? QStringLiteral("#66717a")
+				     : transitioning ? QStringLiteral("#8e979f")
 				     : (isRunning(target, runtime) ? QStringLiteral("#ff6c72")
 								   : QStringLiteral("#e6e9ec"));
 	return QStringLiteral("QPushButton#dskTargetPrimaryAction { color: %1; background: transparent; border: 0; padding: 0; }")
@@ -235,6 +238,23 @@ ObsNativeStreamInfo obsNativeStreamInfo()
 	info.detail = info.accountLabel.isEmpty() ? QStringLiteral("OBS native stream")
 						 : QString("OBS native stream - %1").arg(info.accountLabel);
 	return info;
+}
+
+QString twitchDualFormatRowStatus(TwitchDualFormatState state)
+{
+	switch (state) {
+	case TwitchDualFormatState::NotTwitch:
+		return QStringLiteral("Ready");
+	case TwitchDualFormatState::VerticalCanvasUnavailable:
+		return QStringLiteral("DSK Vertical unavailable");
+	case TwitchDualFormatState::EnhancedBroadcastingDisabled:
+		return QStringLiteral("Enable Enhanced Broadcasting");
+	case TwitchDualFormatState::VerticalCanvasNotSelected:
+		return QStringLiteral("Select DSK Vertical canvas");
+	case TwitchDualFormatState::Ready:
+		return QStringLiteral("Dual Format ready");
+	}
+	return QStringLiteral("Ready");
 }
 
 } // namespace
@@ -513,6 +533,9 @@ void StreamControlsDock::refresh()
 	const QVector<OutputTarget> targets = manager_ ? manager_->targets() : QVector<OutputTarget>{};
 	const bool obsNativeActive = obs_frontend_streaming_active();
 	const ObsNativeStreamInfo nativeInfo = obsNativeProbeReady_ ? obsNativeStreamInfo() : ObsNativeStreamInfo{};
+	const TwitchDualFormatState dualFormatState = manager_ ? manager_->twitchDualFormatState()
+								     : TwitchDualFormatState::NotTwitch;
+	const bool dualFormatActive = twitchDualFormatActive(dualFormatState);
 	const bool hasObsNative =
 		obsNativeRowAvailable(obsNativeProbeReady_, nativeInfo.available, obsNativeActive, obsNativeTransitioning_);
 	removeStaleTargetRows(targets);
@@ -534,7 +557,8 @@ void StreamControlsDock::refresh()
 	if (hasObsNative) {
 		if (!obsNativeRow_.row)
 			obsNativeRow_ = createObsNativeRow();
-		updateObsNativeRow(obsNativeRow_, nativeInfo.platformId, nativeInfo.serviceName, nativeInfo.detail);
+		updateObsNativeRow(obsNativeRow_, nativeInfo.platformId, nativeInfo.serviceName,
+				   twitchDualFormatRowStatus(dualFormatState), nativeInfo.detail);
 		placeRow(obsNativeRow_.row, rowIndex++);
 	}
 
@@ -543,14 +567,14 @@ void StreamControlsDock::refresh()
 	for (const auto &target : targets) {
 		const TargetRuntimeStatus runtime = manager_->runtimeStatusForTarget(target.id);
 		runtimes.insert(target.id, runtime);
-		if (targetCanStartWithAll(target, runtime))
+		if (targetCanStartWithAll(target, runtime, dualFormatActive))
 			++eligibleStartAllCount;
-		if (targetBlocksStartAll(target, runtime))
+		if (targetBlocksStartAll(target, runtime, dualFormatActive))
 			startAllBlockedByTransition = true;
 		auto row = targetRows_.find(target.id);
 		if (row == targetRows_.end())
 			row = targetRows_.insert(target.id, createTargetRow(target));
-		updateTargetRow(target, runtime, row.value());
+		updateTargetRow(target, runtime, dualFormatActive, row.value());
 		placeRow(row->row, rowIndex++);
 	}
 
@@ -660,6 +684,9 @@ void StreamControlsDock::handleButtonClicked()
 		if (isRunning(target, runtime)) {
 			manager_->stopTarget(id);
 		} else {
+			if (shouldBlockIndependentTwitchStart(
+				    target, twitchDualFormatActive(manager_->twitchDualFormatState()), false))
+				return;
 			requestStartTargets({id});
 		}
 		return;
@@ -679,11 +706,12 @@ void StreamControlsDock::handleStartEnabled()
 	QVector<QString> ids;
 	bool startAllBlockedByTransition = false;
 	const QVector<OutputTarget> targets = manager_ ? manager_->targets() : QVector<OutputTarget>{};
+	const bool dualFormatActive = manager_ && twitchDualFormatActive(manager_->twitchDualFormatState());
 	for (const OutputTarget &target : targets) {
 		const TargetRuntimeStatus runtime = manager_->runtimeStatusForTarget(target.id);
-		if (targetCanStartWithAll(target, runtime))
+		if (targetCanStartWithAll(target, runtime, dualFormatActive))
 			ids.push_back(target.id);
-		if (targetBlocksStartAll(target, runtime))
+		if (targetBlocksStartAll(target, runtime, dualFormatActive))
 			startAllBlockedByTransition = true;
 	}
 
@@ -889,13 +917,15 @@ StreamControlsDock::RowWidgets StreamControlsDock::createTargetRow(const OutputT
 }
 
 void StreamControlsDock::updateTargetRow(const OutputTarget &target, const TargetRuntimeStatus &runtime,
-					 RowWidgets &widgets)
+					 bool suppressIndependentTwitch, RowWidgets &widgets)
 {
 	if (!widgets.row)
 		return;
+	const bool running = isRunning(target, runtime);
+	const bool startSuppressed = shouldBlockIndependentTwitchStart(target, suppressIndependentTwitch, running);
 	static_cast<PlatformBadge *>(widgets.badge)->setIdentity(target.platformId, target.name);
 	widgets.name->setText(target.name.isEmpty() ? QStringLiteral("Untitled") : target.name);
-	widgets.details->setText(rowDetailText(target, runtime));
+	widgets.details->setText(rowDetailText(target, runtime, startSuppressed));
 	const bool liveWarning = isYouTubeTarget(target) && runtimePlatformIsWarning(runtime.platform) &&
 				 runtimeTransportIsRunning(runtime);
 	const QString detailStyle = liveWarning
@@ -906,19 +936,22 @@ void StreamControlsDock::updateTargetRow(const OutputTarget &target, const Targe
 	if (widgets.details->styleSheet() != detailStyle)
 		widgets.details->setStyleSheet(detailStyle);
 	if (widgets.statusLight)
-		static_cast<StatusLight *>(widgets.statusLight)->setColor(statusColor(target, runtime));
+		static_cast<StatusLight *>(widgets.statusLight)
+			->setColor(startSuppressed ? QColor(QStringLiteral("#66717a")) : statusColor(target, runtime));
 	widgets.button->setProperty("targetId", target.id);
 	const QString action = actionText(target, runtime);
 	widgets.button->setText(action.toUpper());
 	widgets.button->setAccessibleName(QString("%1 %2").arg(action, target.name));
-	widgets.button->setToolTip(isRunning(target, runtime) ? QString("Stop only %1.").arg(target.name)
-							      : QString("Start only %1.").arg(target.name));
+	widgets.button->setToolTip(startSuppressed
+					  ? QStringLiteral("Use the OBS Twitch row for Dual Format streaming.")
+					  : (running ? QString("Stop only %1.").arg(target.name)
+									: QString("Start only %1.").arg(target.name)));
 	if (widgets.actionMenu) {
 		widgets.actionMenu->setAccessibleName(QString("More stream actions for %1").arg(target.name));
 		widgets.actionMenu->setToolTip(QString("More stream actions for %1.").arg(target.name));
 	}
-	widgets.button->setEnabled(!isBusy(target, runtime));
-	const QString style = buttonStyle(target, runtime);
+	widgets.button->setEnabled(!startSuppressed && !isBusy(target, runtime));
+	const QString style = buttonStyle(target, runtime, startSuppressed);
 	if (widgets.button->styleSheet() != style)
 		widgets.button->setStyleSheet(style);
 }
@@ -937,7 +970,8 @@ StreamControlsDock::RowWidgets StreamControlsDock::createObsNativeRow()
 }
 
 void StreamControlsDock::updateObsNativeRow(RowWidgets &widgets, const QString &platformId,
-					    const QString &serviceName, const QString &detail)
+					    const QString &serviceName, const QString &statusText,
+					    const QString &detail)
 {
 	if (!widgets.row)
 		return;
@@ -947,7 +981,10 @@ void StreamControlsDock::updateObsNativeRow(RowWidgets &widgets, const QString &
 	widgets.details->setText(obsNativeTransitioning_
 				 ? (obsNativeExpectedActive_ ? QStringLiteral("Starting OBS native stream")
 							     : QStringLiteral("Stopping OBS native stream"))
-				 : (active ? QStringLiteral("Live - OBS native stream") : QStringLiteral("Ready")));
+				 : (active ? (statusText == QStringLiteral("Dual Format ready")
+					      ? QStringLiteral("Live - Twitch Dual Format")
+					      : QStringLiteral("Live - OBS native stream"))
+					   : statusText));
 	widgets.details->setToolTip(detail);
 	const QString action = obsNativeTransitioning_ ? (obsNativeExpectedActive_ ? QStringLiteral("Starting")
 									     : QStringLiteral("Stopping"))

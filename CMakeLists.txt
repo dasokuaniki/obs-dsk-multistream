@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.28...3.30)
 
-project(obs-dsk-multistream VERSION 0.3.8 LANGUAGES CXX)
+project(obs-dsk-multistream VERSION 0.4.0 LANGUAGES CXX)
 
 # CMake 4.2 can mojibake the UTF-8 /showIncludes prefix from Japanese MSVC,
 # leaving Ninja with no header dependencies and stale incremental objects.
@@ -111,6 +111,7 @@ target_sources(
     src/core/secret-store.hpp
     src/core/settings-store.cpp
     src/core/settings-store.hpp
+    src/core/twitch-dual-format.hpp
     src/core/vertical-scene-builder.cpp
     src/core/vertical-scene-builder.hpp
     src/core/vertical-layout-geometry.hpp
@@ -394,6 +395,20 @@ if(DSK_BUILD_TESTS)
       -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/vertical-preview-lifecycle-test.cmake"
   )
   set_tests_properties(dsk-vertical-preview-lifecycle-test PROPERTIES LABELS "unit;ui;stability;no-obs")
+
+  add_test(
+    NAME dsk-twitch-dual-format-contract-test
+    COMMAND
+      "${CMAKE_COMMAND}"
+      "-DOUTPUT_MANAGER_CPP=${CMAKE_CURRENT_SOURCE_DIR}/src/core/output-manager.cpp"
+      "-DVERTICAL_SCENE_BUILDER_CPP=${CMAKE_CURRENT_SOURCE_DIR}/src/core/vertical-scene-builder.cpp"
+      "-DPLUGIN_MAIN=${CMAKE_CURRENT_SOURCE_DIR}/src/plugin-main.cpp"
+      -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/twitch-dual-format-contract-test.cmake"
+  )
+  set_tests_properties(
+    dsk-twitch-dual-format-contract-test
+    PROPERTIES LABELS "unit;twitch;streaming;stability;no-obs"
+  )
 
   add_test(
     NAME dsk-release-e2e-hooks-test

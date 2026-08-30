@@ -7,6 +7,7 @@
 #include "core/output-target.hpp"
 #include "core/platform-preset-registry.hpp"
 #include "core/settings-store.hpp"
+#include "core/twitch-dual-format.hpp"
 #include "core/vertical-scene-builder.hpp"
 
 #include <QObject>
@@ -90,6 +91,9 @@ public:
 	void handleObsSceneChanged();
 	void refreshSceneIdentities();
 	void reloadForCurrentProfile();
+	bool prepareVerticalCanvas(QString *errorMessage = nullptr);
+	QString verticalCanvasUuid() const;
+	TwitchDualFormatState twitchDualFormatState() const;
 	void prepareForSceneCollectionChange();
 	void handleOutputSignal(obs_output_t *output, quint64 expectedSerial, const QString &signalName,
 				int reconnectDelaySeconds = 0);
