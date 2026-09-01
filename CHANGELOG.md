@@ -2,7 +2,7 @@
 
 All notable user-facing changes are documented in this file.
 
-## [0.4.0] - Development
+## [0.4.0] - Beta - 2026-09-01
 
 ### Added
 
