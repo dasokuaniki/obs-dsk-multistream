@@ -11,10 +11,12 @@ param(
     [string]$ExternalSignedUninstallerDir = "",
     [switch]$PrepareExternalSignedUninstaller,
     [switch]$InstallerE2E,
-    [switch]$KeepStage
+    [switch]$KeepStage,
+    [switch]$RequirePublisherRelease
 )
 
 $ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot "dsk-release-validation.ps1")
 $requirePluginSignature = $RequireValidSignature -or $RequireValidPluginSignature
 $requireInstallerSignature = $RequireValidSignature -or $RequireValidInstallerSignature
 $requireUninstallerSignature = $RequireValidSignature -or $RequireValidUninstallerSignature
@@ -173,10 +175,8 @@ $cmakeCachePath = Join-Path $buildRoot "CMakeCache.txt"
 if (-not (Test-Path -LiteralPath $cmakeCachePath -PathType Leaf)) {
     throw "CMakeCache.txt was not found under $buildRoot. Configure and rebuild with E2E hooks disabled before packaging."
 }
-$cmakeCacheText = Get-Content -LiteralPath $cmakeCachePath -Raw -Encoding UTF8
-if ($cmakeCacheText -notmatch '(?m)^DSK_INCLUDE_E2E_HOOKS:BOOL=OFF\s*$') {
-    throw "Distribution packaging requires DSK_INCLUDE_E2E_HOOKS=OFF. Reconfigure and rebuild without -EnableE2eHooks."
-}
+$oauthHeaderPath = Join-Path $buildRoot "generated\oauth-publisher-config.hpp"
+Assert-ReleaseBuildConfiguration -CachePath $cmakeCachePath -OAuthHeaderPath $oauthHeaderPath -RequirePublisherRelease:$RequirePublisherRelease
 
 $dllAscii = [Text.Encoding]::ASCII.GetString([IO.File]::ReadAllBytes($builtDll))
 if ($dllAscii.Contains("DSK_E2E_AUTORUN") -or $dllAscii.Contains("DSK_E2E_VERTICAL_UI_STRESS")) {

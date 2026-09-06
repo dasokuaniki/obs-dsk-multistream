@@ -8,7 +8,8 @@ param(
     [string]$Configuration = "RelWithDebInfo",
     [switch]$DisableBundledOAuth,
     [switch]$DisableObsCanvasApi,
-    [switch]$EnableE2eHooks
+    [switch]$EnableE2eHooks,
+    [switch]$PublisherRelease
 )
 
 $ErrorActionPreference = "Stop"
@@ -92,6 +93,15 @@ Require-File "Qt6Config.cmake" $qtConfig
 Require-File "obs-deps SIMDe headers" $simdeHeader
 Require-File "CURLConfig.cmake" $curlConfig
 
+if ($PublisherRelease -and [string]::IsNullOrWhiteSpace($OAuthAppConfig)) {
+    throw "PublisherRelease requires OAuthAppConfig."
+}
+if ($PublisherRelease -and $DisableBundledOAuth) {
+    throw "PublisherRelease cannot be combined with DisableBundledOAuth."
+}
+if ($PublisherRelease -and $EnableE2eHooks) {
+    throw "PublisherRelease cannot be combined with EnableE2eHooks."
+}
 if ($DisableBundledOAuth -and -not [string]::IsNullOrWhiteSpace($OAuthAppConfig)) {
     throw "DisableBundledOAuth cannot be combined with OAuthAppConfig."
 }
@@ -113,6 +123,7 @@ $prefixPath = @(
 ) -join ";"
 $canvas = if ($DisableObsCanvasApi) { "OFF" } else { "ON" }
 $e2eHooks = if ($EnableE2eHooks) { "ON" } else { "OFF" }
+$publisherRelease = if ($PublisherRelease) { "ON" } else { "OFF" }
 
 Normalize-ProcessPath
 
@@ -128,7 +139,8 @@ $cmakeArgs = @(
     "-DCURL_DIR=`"$curlDir`"",
     "-DCMAKE_PREFIX_PATH=`"$prefixPath`"",
     "-DDSK_ENABLE_OBS_CANVAS_API=$canvas",
-    "-DDSK_INCLUDE_E2E_HOOKS=$e2eHooks"
+    "-DDSK_INCLUDE_E2E_HOOKS=$e2eHooks",
+    "-DDSK_PUBLISHER_RELEASE=$publisherRelease"
 )
 if (-not [string]::IsNullOrWhiteSpace($TestRuntimeDir) -and
     (Test-Path -LiteralPath $TestRuntimeDir -PathType Container)) {

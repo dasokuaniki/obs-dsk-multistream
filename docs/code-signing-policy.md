@@ -30,6 +30,22 @@ Repository and signing-provider accounts used for release work must have multi-f
 
 ## Current signing route
 
+### Publisher release gates (0.4.1 and later)
+
+Configure official builds with `scripts/configure-windows.ps1 -PublisherRelease`
+and the existing publisher-only `-OAuthAppConfig` input. This enables
+`DSK_PUBLISHER_RELEASE=ON`, which rejects missing YouTube OAuth configuration
+and E2E hooks. Generic OSS builds retain the opt-out custom-client workflow.
+The release UI test additionally verifies that bundled login is available.
+
+Pass `-ExpectedSignerThumbprint` to every external-signing phase. Obtain this
+public certificate thumbprint from an independently approved publisher
+certificate, never from the candidate being verified. Every signed layer must
+match it and have a valid signature and trusted timestamp. Certificate renewal
+requires deliberate approval of the replacement thumbprint.
+`StagePlugin` and `-RequirePublisherRelease` packaging also check the generated
+OAuth header; keep that header private to the local build/staging tree.
+
 The SignPath Foundation application was not approved. The current route uses a
 publicly trusted individual code-signing certificate in SSL.com eSigner. The
 private key remains in the provider's cloud HSM. Signing runs interactively on

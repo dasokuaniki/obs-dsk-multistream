@@ -2,6 +2,12 @@
 
 All notable user-facing changes are documented in this file.
 
+## [0.4.1] - Beta - 2026-09-06
+
+### Changed
+
+- Release packaging now requires publisher-managed YouTube OAuth credentials and an explicitly pinned release signer.
+
 ## [0.4.0] - Beta - 2026-09-01
 
 ### Added

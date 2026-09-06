@@ -845,6 +845,10 @@ void testYouTubeBundledOAuthUi()
 	auto *clientId = dialog.findChild<QLineEdit *>(QStringLiteral("dskOAuthClientId"));
 	auto *clientSecret = dialog.findChild<QLineEdit *>(QStringLiteral("dskOAuthClientSecret"));
 	if (!dsk::oauthHasBundledClientCredentials(dsk::TargetAuthMode::YouTubeOAuth)) {
+#ifdef DSK_PUBLISHER_RELEASE
+		check(false, "publisher releases require bundled YouTube OAuth credentials");
+		return;
+#endif
 		check(customApp && customApp->isHidden(),
 		      "unbundled builds hide the unavailable publisher-app selector");
 		check(clientId && !clientId->isHidden(),

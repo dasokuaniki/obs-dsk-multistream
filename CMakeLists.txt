@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.28...3.30)
 
-project(obs-dsk-multistream VERSION 0.4.0 LANGUAGES CXX)
+project(obs-dsk-multistream VERSION 0.4.1 LANGUAGES CXX)
 
 # CMake 4.2 can mojibake the UTF-8 /showIncludes prefix from Japanese MSVC,
 # leaving Ninja with no header dependencies and stale incremental objects.
@@ -34,6 +34,7 @@ endif()
 option(DSK_ENABLE_OBS_CANVAS_API "Enable OBS canvas API path for real vertical video output" ON)
 option(DSK_BUILD_TESTS "Build DSK non-OBS smoke tests" ON)
 option(DSK_INCLUDE_E2E_HOOKS "Compile OBS E2E automation hooks into the plugin" OFF)
+option(DSK_PUBLISHER_RELEASE "Require publisher OAuth credentials for release builds" OFF)
 set(DSK_TEST_RUNTIME_DIR "" CACHE PATH "Signed OBS runtime directory used by Windows tests")
 set(DSK_OAUTH_APP_CONFIG "" CACHE FILEPATH "Publisher OAuth application JSON used at build time")
 if(WIN32 AND NOT DSK_TEST_RUNTIME_DIR AND IS_DIRECTORY "C:/Program Files/obs-studio/bin/64bit")
@@ -54,6 +55,13 @@ if(DSK_OAUTH_APP_CONFIG)
 else()
   message(STATUS "DSK publisher YouTube OAuth application: not configured")
 endif()
+
+include(cmake/dsk-release-validation.cmake)
+dsk_validate_release_configuration(
+  "${DSK_PUBLISHER_RELEASE}" "${DSK_OAUTH_APP_CONFIG}"
+  "${DSK_BUNDLED_YOUTUBE_CLIENT_ID}" "${DSK_BUNDLED_YOUTUBE_CLIENT_SECRET}"
+  "${DSK_INCLUDE_E2E_HOOKS}"
+)
 
 set(DSK_GENERATED_INCLUDE_DIR "${CMAKE_BINARY_DIR}/generated")
 file(MAKE_DIRECTORY "${DSK_GENERATED_INCLUDE_DIR}")
@@ -223,6 +231,26 @@ if(DSK_BUILD_TESTS)
     dsk-configure-windows-dependency-discovery-test
     PROPERTIES LABELS "unit;build;no-obs"
   )
+
+  add_test(NAME dsk-release-gates-test COMMAND "${CMAKE_COMMAND}" "-DCMAKE_LIST=${CMAKE_CURRENT_SOURCE_DIR}/CMakeLists.txt" "-DCONFIGURE_SCRIPT=${CMAKE_CURRENT_SOURCE_DIR}/scripts/configure-windows.ps1" "-DBUILD_SCRIPT=${CMAKE_CURRENT_SOURCE_DIR}/scripts/build-windows-installer.ps1" "-DEXTERNAL_SIGNING_SCRIPT=${CMAKE_CURRENT_SOURCE_DIR}/scripts/external-windows-signing.ps1" -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/release-gates-test.cmake")
+  set_tests_properties(dsk-release-gates-test PROPERTIES LABELS "unit;packaging;security;no-obs")
+
+  add_test(
+    NAME dsk-publisher-release-test
+    COMMAND "${CMAKE_COMMAND}"
+      "-DVALIDATION_MODULE=${CMAKE_CURRENT_SOURCE_DIR}/cmake/dsk-release-validation.cmake"
+      -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/publisher-release-test.cmake"
+  )
+  set_tests_properties(dsk-publisher-release-test PROPERTIES LABELS "unit;packaging;security;no-obs")
+  if(WIN32)
+    add_test(
+      NAME dsk-release-validation-test
+      COMMAND powershell.exe -NoProfile -ExecutionPolicy Bypass
+        -File "${CMAKE_CURRENT_SOURCE_DIR}/tests/release-validation-test.ps1"
+        -ValidationScript "${CMAKE_CURRENT_SOURCE_DIR}/scripts/dsk-release-validation.ps1"
+    )
+    set_tests_properties(dsk-release-validation-test PROPERTIES LABELS "unit;packaging;security;no-obs")
+  endif()
 
   function(dsk_configure_test_runtime test_name qt_target)
     set(runtime_modifications "PATH=path_list_prepend:$<TARGET_FILE_DIR:${qt_target}>")
@@ -509,6 +537,9 @@ if(DSK_BUILD_TESTS)
   target_include_directories(dsk-ui-smoke-tests PRIVATE src "${DSK_GENERATED_INCLUDE_DIR}")
   target_link_libraries(dsk-ui-smoke-tests PRIVATE Qt6::Core Qt6::Network Qt6::Widgets CURL::libcurl)
   target_compile_definitions(dsk-ui-smoke-tests PRIVATE DSK_DIAGNOSTICS_QT_FALLBACK)
+  if(DSK_PUBLISHER_RELEASE)
+    target_compile_definitions(dsk-ui-smoke-tests PRIVATE DSK_PUBLISHER_RELEASE)
+  endif()
   if(WIN32)
     target_compile_definitions(dsk-ui-smoke-tests PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN)
   endif()

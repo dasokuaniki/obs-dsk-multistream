@@ -8,10 +8,15 @@ param(
     [string]$OutputDir = "release\signed",
     [string]$Configuration = "RelWithDebInfo",
     [string]$IsccPath = "",
-    [switch]$Force
+    [switch]$Force,
+    [Parameter(Mandatory = $true)]
+    [ValidatePattern('^[0-9A-Fa-f]{40}$')]
+    [string]$ExpectedSignerThumbprint
 )
 
 $ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot "dsk-release-validation.ps1")
+$expectedSignerThumbprint = $ExpectedSignerThumbprint.ToUpperInvariant()
 
 function Get-AbsolutePath {
     param([Parameter(Mandatory = $true)][string]$Path, [Parameter(Mandatory = $true)][string]$BasePath)
@@ -36,11 +41,7 @@ function Get-VerifiedSignature {
         throw "$Label was not found: $Path"
     }
     $signature = Get-AuthenticodeSignature -LiteralPath $Path
-    if ($signature.Status -ne [Management.Automation.SignatureStatus]::Valid -or
-        -not $signature.SignerCertificate -or
-        -not $signature.TimeStamperCertificate) {
-        throw "$Label must have a valid Authenticode signature and trusted timestamp. Status=$($signature.Status)"
-    }
+    Assert-ReleaseSignature -Signature $signature -ExpectedSignerThumbprint $ExpectedSignerThumbprint -Label $Label
     return $signature
 }
 
@@ -94,10 +95,8 @@ switch ($Phase) {
         if (-not (Test-Path -LiteralPath $sourceCache -PathType Leaf)) {
             throw "CMakeCache.txt was not found under the clean release build."
         }
-        $cacheText = Get-Content -LiteralPath $sourceCache -Raw -Encoding UTF8
-        if ($cacheText -notmatch '(?m)^DSK_INCLUDE_E2E_HOOKS:BOOL=OFF\s*$') {
-            throw "Release signing refuses a build with E2E hooks enabled."
-        }
+        $oauthHeaderPath = Join-Path $sourceBuildRoot "generated\oauth-publisher-config.hpp"
+        Assert-ReleaseBuildConfiguration -CachePath $sourceCache -OAuthHeaderPath $oauthHeaderPath -RequirePublisherRelease
         $sourceVersion = (Get-Item -LiteralPath $sourceDll).VersionInfo
         $expectedFileVersion = "$version.0"
         if ($sourceVersion.ProductName -ne "DSK Multistream" -or
@@ -122,6 +121,8 @@ switch ($Phase) {
         New-Item -ItemType Directory -Force -Path $signedBuildRoot, $externalUninstallerRoot, $installerOutputRoot | Out-Null
         Copy-Item -LiteralPath $sourceDll -Destination $signedDll -Force
         Copy-Item -LiteralPath $sourceCache -Destination (Join-Path $signedBuildRoot "CMakeCache.txt") -Force
+        New-Item -ItemType Directory -Force -Path (Join-Path $signedBuildRoot "generated") | Out-Null
+        Copy-Item -LiteralPath $oauthHeaderPath -Destination (Join-Path $signedBuildRoot "generated\oauth-publisher-config.hpp") -Force
         $state = [ordered]@{
             schemaVersion = 1
             product = "DSK Multistream"
@@ -146,7 +147,7 @@ switch ($Phase) {
         }
         & (Join-Path $PSScriptRoot "build-windows-installer.ps1") `
             -BuildDir $signedBuildRoot -Configuration $Configuration -OutputDir $installerOutputRoot `
-            -IsccPath $IsccPath -RequireValidPluginSignature `
+            -IsccPath $IsccPath -RequireValidPluginSignature -RequirePublisherRelease `
             -ExternalSignedUninstallerDir $externalUninstallerRoot -PrepareExternalSignedUninstaller
         $uninstallerArtifact = Get-SingleExternalUninstaller -Directory $externalUninstallerRoot
         $uninstallerSignature = Get-AuthenticodeSignature -LiteralPath $uninstallerArtifact
@@ -174,7 +175,7 @@ switch ($Phase) {
         }
         & (Join-Path $PSScriptRoot "build-windows-installer.ps1") `
             -BuildDir $signedBuildRoot -Configuration $Configuration -OutputDir $installerOutputRoot `
-            -IsccPath $IsccPath -RequireValidPluginSignature -RequireValidUninstallerSignature `
+            -IsccPath $IsccPath -RequireValidPluginSignature -RequirePublisherRelease -RequireValidUninstallerSignature `
             -ExternalSignedUninstallerDir $externalUninstallerRoot
         if (-not (Test-Path -LiteralPath $workingInstaller -PathType Leaf)) {
             throw "The installer was not built after external uninstaller signing."
@@ -196,7 +197,7 @@ switch ($Phase) {
         $uninstallerArtifact = Get-SingleExternalUninstaller -Directory $externalUninstallerRoot
         $uninstallerSignature = Get-VerifiedSignature -Path $uninstallerArtifact -Label "External Inno uninstaller artifact"
         $installerSignature = Get-VerifiedSignature -Path $workingInstaller -Label "Final installer"
-        $expectedSigner = $pluginSignature.SignerCertificate.Thumbprint
+        $expectedSigner = $expectedSignerThumbprint
         if ($uninstallerSignature.SignerCertificate.Thumbprint -ne $expectedSigner -or
             $installerSignature.SignerCertificate.Thumbprint -ne $expectedSigner) {
             throw "The plugin DLL, external uninstaller artifact, and installer must have the same signer."
