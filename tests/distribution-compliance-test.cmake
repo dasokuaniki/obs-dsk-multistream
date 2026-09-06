@@ -24,6 +24,20 @@ file(READ "${NOTICE}" notice)
 file(READ "${REMOVAL_SCRIPT}" removal_script)
 file(READ "${SIGNING_SCRIPT}" signing_script)
 file(READ "${EXTERNAL_SIGNING_SCRIPT}" external_signing_script)
+get_filename_component(external_signing_dir "${EXTERNAL_SIGNING_SCRIPT}" DIRECTORY)
+file(READ "${external_signing_dir}/dsk-release-validation.ps1" release_validation_script)
+foreach(required_helper_wiring IN ITEMS
+    ". (Join-Path $PSScriptRoot \"dsk-release-validation.ps1\")"
+    "Assert-ReleaseSignature -Signature $signature -ExpectedSignerThumbprint $ExpectedSignerThumbprint")
+  string(FIND "${external_signing_script}" "${required_helper_wiring}" helper_position)
+  if(helper_position LESS 0)
+    message(FATAL_ERROR "External signing must invoke pinned signature validation: ${required_helper_wiring}")
+  endif()
+endforeach()
+# Check existing signature requirements across the caller and its mandatory helper.
+# release-validation-test.ps1 separately proves rejection of invalid signatures,
+# mismatched signer pins, missing timestamps, and unsafe build configurations.
+string(APPEND external_signing_script "\n${release_validation_script}")
 string(REPLACE "\\" "/" build_script_paths "${build_script}")
 string(REPLACE "\\" "/" validator_paths "${validator}")
 
