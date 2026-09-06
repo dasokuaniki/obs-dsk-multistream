@@ -123,7 +123,7 @@ $prefixPath = @(
 ) -join ";"
 $canvas = if ($DisableObsCanvasApi) { "OFF" } else { "ON" }
 $e2eHooks = if ($EnableE2eHooks) { "ON" } else { "OFF" }
-$publisherRelease = if ($PublisherRelease) { "ON" } else { "OFF" }
+$publisherReleaseFlag = if ($PublisherRelease) { "ON" } else { "OFF" }
 
 Normalize-ProcessPath
 
@@ -140,7 +140,7 @@ $cmakeArgs = @(
     "-DCMAKE_PREFIX_PATH=`"$prefixPath`"",
     "-DDSK_ENABLE_OBS_CANVAS_API=$canvas",
     "-DDSK_INCLUDE_E2E_HOOKS=$e2eHooks",
-    "-DDSK_PUBLISHER_RELEASE=$publisherRelease"
+    "-DDSK_PUBLISHER_RELEASE=$publisherReleaseFlag"
 )
 if (-not [string]::IsNullOrWhiteSpace($TestRuntimeDir) -and
     (Test-Path -LiteralPath $TestRuntimeDir -PathType Container)) {
