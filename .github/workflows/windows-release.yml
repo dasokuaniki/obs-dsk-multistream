@@ -161,6 +161,11 @@ jobs:
           }
           Copy-Item -LiteralPath $signed.FullName -Destination '${{ steps.plugin.outputs.dll }}' -Force
 
+      - name: Install Inno Setup
+        shell: pwsh
+        run: |
+          choco install innosetup --yes --no-progress --limit-output
+
       - name: Build installer
         shell: pwsh
         run: |

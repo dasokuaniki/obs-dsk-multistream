@@ -334,6 +334,15 @@ if(DSK_BUILD_TESTS)
   )
   set_tests_properties(dsk-release-e2e-hooks-test PROPERTIES LABELS "unit;packaging;no-obs")
 
+  add_test(
+    NAME dsk-windows-release-installer-toolchain-test
+    COMMAND
+      "${CMAKE_COMMAND}"
+      "-DWORKFLOW=${CMAKE_CURRENT_SOURCE_DIR}/.github/workflows/windows-release.yml"
+      -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/windows-release-installer-toolchain-test.cmake"
+  )
+  set_tests_properties(dsk-windows-release-installer-toolchain-test PROPERTIES LABELS "unit;packaging;no-obs")
+
   add_executable(
     dsk-ui-smoke-tests
     tests/ui-smoke-tests.cpp
