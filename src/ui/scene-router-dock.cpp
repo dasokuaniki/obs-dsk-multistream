@@ -20,7 +20,9 @@ QString outputModeText(EncoderGroup group)
 {
 	if (group == EncoderGroup::DskVertical)
 		return QStringLiteral("Vertical layout");
-	return QStringLiteral("Horizontal output");
+	if (group == EncoderGroup::DskHorizontalCanvas)
+		return QStringLiteral("Horizontal layout");
+	return QStringLiteral("OBS main output");
 }
 
 QString targetDisplayName(const OutputTarget &target)
@@ -37,6 +39,8 @@ QString targetNoteText(const OutputTarget &target)
 {
 	if (target.encoderGroup == EncoderGroup::DskVertical)
 		return QStringLiteral("Uses DSK Vertical Layout");
+	if (target.encoderGroup == EncoderGroup::DskHorizontalCanvas)
+		return QStringLiteral("Uses DSK Horizontal Layout");
 	return QStringLiteral("Separate scene output");
 }
 

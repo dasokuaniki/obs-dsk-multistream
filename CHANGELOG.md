@@ -2,6 +2,35 @@
 
 All notable user-facing changes are documented in this file.
 
+## [0.5.0] - Beta candidate - Unreleased
+
+### Added
+
+- DSK Horizontal: an independent 1920x1080 scene canvas and preview dock, in
+  addition to OBS Main and DSK Vertical. Destinations can select any of the
+  three outputs. Horizontal scenes, transforms, ordering and OBS links are
+  separate from Vertical; audio continues to use the existing OBS mix.
+
+### Fixed
+
+- DSK dock placement, floating geometry and visibility are restored with OBS
+  on startup. Only lightweight shells are registered early; canvas and browser
+  contents still wait for OBS to finish loading.
+- Clearing source selection in a canvas preview now stays cleared when OBS
+  scene/source notifications refresh the editor, instead of selecting the
+  first source again.
+- The shared canvas toolbar measures the actual theme/font before switching
+  between compact and wide layouts and repaints after its initial dock show.
+
+### Compatibility
+
+- Settings schema 2 preserves independent horizontal layouts. Back up the
+  pre-upgrade DSK settings before upgrading. A rollback to 0.4.1 also requires
+  restoring that backup; do not change only the schema number or output ID.
+- OBS-native Twitch Dual Format still uses the existing Twitch control and
+  the persistent DSK Vertical canvas. Horizontal does not create a second
+  OBS-native Twitch connection.
+
 ## [0.4.1] - Beta - 2026-09-06
 
 ### Changed

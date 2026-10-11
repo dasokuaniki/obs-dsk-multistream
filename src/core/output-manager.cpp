@@ -56,6 +56,12 @@ constexpr const char *DskVerticalSceneName = "DSK Vertical Program";
 constexpr const char *DskVerticalSceneOwnerKey = "dsk_vertical_canvas_owner";
 constexpr const char *DskVerticalSceneOwnerValue = "obs-dsk-multistream";
 
+QString layoutOutputName(EncoderGroup group)
+{
+	return group == EncoderGroup::DskHorizontalCanvas ? QStringLiteral("DSK Horizontal")
+							   : QStringLiteral("DSK Vertical");
+}
+
 bool obsNativeServiceIsTwitch()
 {
 	// Borrowed from the frontend; obs_frontend_get_streaming_service() does not add a reference.
@@ -778,6 +784,13 @@ void OutputManager::loadSettingsFromCurrentProfile()
 	persistedActiveVerticalSceneId_ = layouts_.activeVerticalSceneId();
 	followObsScene_ = settings.followObsScene;
 	sceneLinks_ = std::move(settings.sceneLinks);
+	horizontalLayouts_.initializeVerticalScenes(settings.horizontalScenes, settings.activeHorizontalSceneId,
+						    settings.horizontalLayout);
+	persistedHorizontalLayout_ = horizontalLayouts_.verticalLayout();
+	persistedHorizontalScenes_ = horizontalLayouts_.verticalScenes();
+	persistedActiveHorizontalSceneId_ = horizontalLayouts_.activeVerticalSceneId();
+	horizontalFollowObsScene_ = settings.horizontalFollowObsScene;
+	horizontalSceneLinks_ = std::move(settings.horizontalSceneLinks);
 	bool migratedLinks = false;
 	QSet<QString> sceneLinkKeys;
 	for (int i = sceneLinks_.size() - 1; i >= 0; --i) {
@@ -910,6 +923,7 @@ void OutputManager::reloadForCurrentProfile()
 		refreshSceneIdentities();
 		emit targetsChanged();
 		emit verticalLayoutChanged();
+		emit horizontalLayoutChanged();
 		return;
 	}
 
@@ -930,6 +944,12 @@ void OutputManager::reloadForCurrentProfile()
 	persistedVerticalScenes_.clear();
 	persistedActiveVerticalSceneId_.clear();
 	followObsScene_ = false;
+	horizontalSceneLinks_.clear();
+	horizontalLayouts_ = LayoutManager(1920, 1080);
+	persistedHorizontalLayout_ = horizontalLayouts_.verticalLayout();
+	persistedHorizontalScenes_.clear();
+	persistedActiveHorizontalSceneId_.clear();
+	horizontalFollowObsScene_ = false;
 	suppressNextObsAutoStart_ = false;
 	suppressNextObsAutoStop_ = false;
 	suppressObsAutoStartUntilMs_ = 0;
@@ -941,6 +961,7 @@ void OutputManager::reloadForCurrentProfile()
 	refreshSceneIdentities();
 	emit targetsChanged();
 	emit verticalLayoutChanged();
+	emit horizontalLayoutChanged();
 	emit statusMessage(QStringLiteral("Loaded DSK settings for the current OBS profile."));
 }
 
@@ -959,7 +980,8 @@ void OutputManager::prepareForSceneCollectionChange()
 		if (!session)
 			continue;
 		const OutputTarget *target = findTarget(session->targetId);
-		if (target && (target->encoderGroup == EncoderGroup::DskVertical || targetUsesSceneCanvas(*target)))
+		if (target && (target->encoderGroup == EncoderGroup::DskVertical ||
+			       target->encoderGroup == EncoderGroup::DskHorizontalCanvas || targetUsesSceneCanvas(*target)))
 			targetIds.push_back(target->id);
 	}
 
@@ -993,7 +1015,7 @@ void OutputManager::prepareForSceneCollectionChange()
 
 	releaseObsSceneReferences();
 	if (!targetIds.isEmpty()) {
-		emit statusMessage(QStringLiteral("Stopped DSK vertical/separate-scene outputs before changing the OBS scene collection."));
+		emit statusMessage(QStringLiteral("Stopped DSK canvas/separate-scene outputs before changing the OBS scene collection."));
 		emit targetsChanged();
 	}
 }
@@ -1013,6 +1035,7 @@ void OutputManager::prepareForUnload()
 
 void OutputManager::releaseObsSceneReferences()
 {
+	releaseHorizontalCanvas();
 #ifdef DSK_ENABLE_OBS_CANVAS_API
 	releaseAllSceneCanvases();
 	if (shouldDeferVerticalCanvasRelease(obsNativeUsingVerticalCanvas_, shuttingDown_)) {
@@ -1046,24 +1069,50 @@ const PlatformPresetRegistry &OutputManager::platforms() const
 	return platforms_;
 }
 
-LayoutManager &OutputManager::layouts()
+LayoutManager &OutputManager::layouts(EncoderGroup group)
 {
-	return layouts_;
+	return group == EncoderGroup::DskHorizontalCanvas ? horizontalLayouts_ : layouts_;
 }
 
-const LayoutManager &OutputManager::layouts() const
+const LayoutManager &OutputManager::layouts(EncoderGroup group) const
 {
-	return layouts_;
+	return group == EncoderGroup::DskHorizontalCanvas ? horizontalLayouts_ : layouts_;
 }
 
-bool OutputManager::followObsScene() const
+bool OutputManager::followObsScene(EncoderGroup group) const
 {
-	return followObsScene_;
+	return group == EncoderGroup::DskHorizontalCanvas ? horizontalFollowObsScene_ : followObsScene_;
 }
 
-const QVector<SceneLayoutLink> &OutputManager::sceneLinks() const
+const QVector<SceneLayoutLink> &OutputManager::sceneLinks(EncoderGroup group) const
 {
-	return sceneLinks_;
+	return group == EncoderGroup::DskHorizontalCanvas ? horizontalSceneLinks_ : sceneLinks_;
+}
+
+void OutputManager::emitLayoutChanged(EncoderGroup group)
+{
+	if (group == EncoderGroup::DskHorizontalCanvas)
+		emit horizontalLayoutChanged();
+	else
+		emit verticalLayoutChanged();
+}
+
+void OutputManager::releaseHorizontalCanvas()
+{
+#ifdef DSK_ENABLE_OBS_CANVAS_API
+	if (!shuttingDown_ && sessionUsesCanvasKey(QStringLiteral("dsk-horizontal-canvas")))
+		return;
+	horizontalScene_.release();
+	if (horizontalCanvas_) {
+		obs_canvas_set_channel(horizontalCanvas_, 0, nullptr);
+		if (!obs_canvas_removed(horizontalCanvas_))
+			obs_canvas_remove(horizontalCanvas_);
+		obs_canvas_release(horizontalCanvas_);
+		horizontalCanvas_ = nullptr;
+	}
+#else
+	horizontalScene_.release();
+#endif
 }
 
 QStringList OutputManager::obsSceneNames() const
@@ -1500,6 +1549,10 @@ void OutputManager::handleObsSceneChanged()
 	bool applied = false;
 	if (followObsScene_)
 		applied = applyLinkedScene(currentObsSceneName());
+	const bool horizontalApplied = horizontalFollowObsScene_ &&
+		applyLinkedScene(currentObsSceneName(), EncoderGroup::DskHorizontalCanvas);
+	if (!horizontalApplied)
+		emit horizontalLayoutChanged();
 	refreshLinkedSceneCanvases();
 	if (!applied)
 		emit verticalLayoutChanged();
@@ -1518,6 +1571,7 @@ void OutputManager::refreshSceneIdentities()
 	}
 	const QVector<SceneLayoutLink> previousLinks = sceneLinks_;
 	bool changed = false;
+	const auto previousHorizontalLinks = horizontalSceneLinks_;
 
 	const auto syncSceneIdentity = [this, &changed](QString &name, QString &uuid) {
 		const QString cleanName = name.trimmed();
@@ -1561,6 +1615,8 @@ void OutputManager::refreshSceneIdentities()
 	}
 	for (auto &link : sceneLinks_)
 		syncSceneIdentity(link.sceneName, link.sceneUuid);
+	for (auto &link : horizontalSceneLinks_)
+		syncSceneIdentity(link.sceneName, link.sceneUuid);
 
 	if (!changed)
 		return;
@@ -1573,15 +1629,18 @@ void OutputManager::refreshSceneIdentities()
 		}
 		sceneLinks_ = previousLinks;
 		emit statusMessage(QStringLiteral("Failed to migrate OBS scene identities. Existing scene settings were kept."));
+		horizontalSceneLinks_ = previousHorizontalLinks;
 		return;
 	}
 
 	emit targetsChanged();
 	emit verticalLayoutChanged();
+	emit horizontalLayoutChanged();
 }
 
-void OutputManager::setFollowObsScene(bool follow)
+void OutputManager::setFollowObsScene(bool follow, EncoderGroup group)
 {
+	auto &followObsScene_ = group == EncoderGroup::DskHorizontalCanvas ? horizontalFollowObsScene_ : this->followObsScene_;
 	if (followObsScene_ == follow)
 		return;
 	const bool previous = followObsScene_;
@@ -1595,8 +1654,9 @@ void OutputManager::setFollowObsScene(bool follow)
 		handleObsSceneChanged();
 }
 
-void OutputManager::upsertSceneLink(const SceneLayoutLink &link)
+void OutputManager::upsertSceneLink(const SceneLayoutLink &link, EncoderGroup group)
 {
+	auto &sceneLinks_ = group == EncoderGroup::DskHorizontalCanvas ? horizontalSceneLinks_ : this->sceneLinks_;
 	SceneLayoutLink clean = link;
 	clean.sceneName = clean.sceneName.trimmed();
 	const QString resolvedUuid = obsSceneUuidForName(clean.sceneName);
@@ -1619,7 +1679,7 @@ void OutputManager::upsertSceneLink(const SceneLayoutLink &link)
 			existing.legacyTemplateId = clean.legacyTemplateId;
 			if (!save()) {
 				sceneLinks_ = previous;
-				emit statusMessage(QStringLiteral("Failed to save vertical scene link."));
+				emit statusMessage(QStringLiteral("Failed to save %1 scene link.").arg(layoutOutputName(group)));
 			}
 			return;
 		}
@@ -1627,12 +1687,13 @@ void OutputManager::upsertSceneLink(const SceneLayoutLink &link)
 	sceneLinks_.push_back(clean);
 	if (!save()) {
 		sceneLinks_ = previous;
-		emit statusMessage(QStringLiteral("Failed to save vertical scene link."));
+		emit statusMessage(QStringLiteral("Failed to save %1 scene link.").arg(layoutOutputName(group)));
 	}
 }
 
-void OutputManager::removeSceneLink(const QString &sceneName, const QString &sceneUuid)
+void OutputManager::removeSceneLink(const QString &sceneName, const QString &sceneUuid, EncoderGroup group)
 {
+	auto &sceneLinks_ = group == EncoderGroup::DskHorizontalCanvas ? horizontalSceneLinks_ : this->sceneLinks_;
 	const QString cleanName = sceneName.trimmed();
 	const QString cleanUuid = sceneUuid.trimmed().isEmpty() ? obsSceneUuidForName(cleanName) : sceneUuid.trimmed();
 	for (int i = 0; i < sceneLinks_.size(); ++i) {
@@ -1644,7 +1705,7 @@ void OutputManager::removeSceneLink(const QString &sceneName, const QString &sce
 			sceneLinks_.removeAt(i);
 			if (!save()) {
 				sceneLinks_ = previous;
-				emit statusMessage(QStringLiteral("Failed to remove vertical scene link."));
+				emit statusMessage(QStringLiteral("Failed to remove %1 scene link.").arg(layoutOutputName(group)));
 			}
 			return;
 		}
@@ -1909,13 +1970,19 @@ bool OutputManager::save()
 	}
 
 	QString error;
-	if (!store_.save(persistentTargets,
-			 layouts_.verticalLayout(),
-			 layouts_.verticalScenes(),
-			 layouts_.activeVerticalSceneId(),
-			 followObsScene_,
-			 sceneLinks_,
-			 &error)) {
+	PluginSettings settings;
+	settings.targets = persistentTargets;
+	settings.verticalLayout = layouts_.verticalLayout();
+	settings.verticalScenes = layouts_.verticalScenes();
+	settings.activeVerticalSceneId = layouts_.activeVerticalSceneId();
+	settings.followObsScene = followObsScene_;
+	settings.sceneLinks = sceneLinks_;
+	settings.horizontalLayout = horizontalLayouts_.verticalLayout();
+	settings.horizontalScenes = horizontalLayouts_.verticalScenes();
+	settings.activeHorizontalSceneId = horizontalLayouts_.activeVerticalSceneId();
+	settings.horizontalFollowObsScene = horizontalFollowObsScene_;
+	settings.horizontalSceneLinks = horizontalSceneLinks_;
+	if (!store_.save(settings, &error)) {
 		logError(QString("Failed to save settings: %1").arg(error));
 		emit statusMessage(QString("Failed to save DSK settings: %1").arg(error));
 		return false;
@@ -1932,41 +1999,50 @@ bool OutputManager::save()
 	persistedVerticalLayout_ = layouts_.verticalLayout();
 	persistedVerticalScenes_ = layouts_.verticalScenes();
 	persistedActiveVerticalSceneId_ = layouts_.activeVerticalSceneId();
+	persistedHorizontalLayout_ = horizontalLayouts_.verticalLayout();
+	persistedHorizontalScenes_ = horizontalLayouts_.verticalScenes();
+	persistedActiveHorizontalSceneId_ = horizontalLayouts_.activeVerticalSceneId();
 	return true;
 }
 
-bool OutputManager::saveVerticalLayout()
+bool OutputManager::saveVerticalLayout(EncoderGroup group)
 {
+	auto &layouts_ = layouts(group);
+	const auto &persistedVerticalLayout_ = group == EncoderGroup::DskHorizontalCanvas ? persistedHorizontalLayout_ : this->persistedVerticalLayout_;
+	const auto &persistedVerticalScenes_ = group == EncoderGroup::DskHorizontalCanvas ? persistedHorizontalScenes_ : this->persistedVerticalScenes_;
+	const auto &persistedActiveVerticalSceneId_ = group == EncoderGroup::DskHorizontalCanvas ? persistedActiveHorizontalSceneId_ : this->persistedActiveVerticalSceneId_;
 	if (!save()) {
 		layouts_.initializeVerticalScenes(persistedVerticalScenes_,
 					  persistedActiveVerticalSceneId_,
 					  persistedVerticalLayout_);
 		QString refreshError;
-		if (!refreshVerticalCanvasScene(&refreshError) && !refreshError.isEmpty())
-			logWarning(QStringLiteral("Failed to restore the saved DSK Vertical scene: %1").arg(refreshError));
-		emit verticalLayoutChanged();
+		if (!refreshVerticalCanvasScene(&refreshError, group) && !refreshError.isEmpty())
+			logWarning(QStringLiteral("Failed to restore the saved %1 scene: %2").arg(layoutOutputName(group), refreshError));
+		emitLayoutChanged(group);
 		return false;
 	}
 
 	QString refreshError;
-	if (!refreshVerticalCanvasScene(&refreshError) && !refreshError.isEmpty()) {
-		logWarning(QStringLiteral("Saved DSK Vertical layout but could not refresh its live canvas: %1").arg(refreshError));
-		emit statusMessage(QStringLiteral("Vertical layout saved, but live preview refresh failed: %1").arg(refreshError));
+	if (!refreshVerticalCanvasScene(&refreshError, group) && !refreshError.isEmpty()) {
+		logWarning(QStringLiteral("Saved %1 layout but could not refresh its live canvas: %2").arg(layoutOutputName(group), refreshError));
+		emit statusMessage(QStringLiteral("%1 layout saved, but live preview refresh failed: %2").arg(layoutOutputName(group), refreshError));
 	}
-	emit verticalLayoutChanged();
+	emitLayoutChanged(group);
 	return true;
 }
 
-QString OutputManager::createVerticalScene(const QString &name)
+QString OutputManager::createVerticalScene(const QString &name, EncoderGroup group)
 {
-	const QString id = layouts_.createVerticalScene(name);
-	if (id.isEmpty() || !saveVerticalLayout())
+	const QString id = layouts(group).createVerticalScene(name);
+	if (id.isEmpty() || !saveVerticalLayout(group))
 		return {};
 	return id;
 }
 
-bool OutputManager::removeVerticalScene(const QString &id)
+bool OutputManager::removeVerticalScene(const QString &id, EncoderGroup group)
 {
+	auto &layouts_ = layouts(group);
+	auto &sceneLinks_ = group == EncoderGroup::DskHorizontalCanvas ? horizontalSceneLinks_ : this->sceneLinks_;
 	const QVector<SceneLayoutLink> previousLinks = sceneLinks_;
 	if (!layouts_.removeVerticalScene(id))
 		return false;
@@ -1974,31 +2050,35 @@ bool OutputManager::removeVerticalScene(const QString &id)
 		if (sceneLinks_[i].verticalSceneId == id)
 			sceneLinks_.removeAt(i);
 	}
-	if (saveVerticalLayout())
+	if (saveVerticalLayout(group))
 		return true;
 	sceneLinks_ = previousLinks;
-	emit verticalLayoutChanged();
+	emitLayoutChanged(group);
 	return false;
 }
 
-bool OutputManager::renameVerticalScene(const QString &id, const QString &name)
+bool OutputManager::renameVerticalScene(const QString &id, const QString &name, EncoderGroup group)
 {
-	return layouts_.renameVerticalScene(id, name) && saveVerticalLayout();
+	return layouts(group).renameVerticalScene(id, name) && saveVerticalLayout(group);
 }
 
-bool OutputManager::moveVerticalScene(const QString &id, int offset)
+bool OutputManager::moveVerticalScene(const QString &id, int offset, EncoderGroup group)
 {
-	return layouts_.moveVerticalScene(id, offset) && saveVerticalLayout();
+	return layouts(group).moveVerticalScene(id, offset) && saveVerticalLayout(group);
 }
 
-bool OutputManager::reorderVerticalScenes(const QVector<QString> &orderedIds)
+bool OutputManager::reorderVerticalScenes(const QVector<QString> &orderedIds, EncoderGroup group)
 {
-	return layouts_.reorderVerticalScenes(orderedIds) && saveVerticalLayout();
+	return layouts(group).reorderVerticalScenes(orderedIds) && saveVerticalLayout(group);
 }
 
 EncoderProfile OutputManager::effectiveProfileForTarget(const OutputTarget &target) const
 {
 	EncoderProfile profile = encoders_.profileFor(target.encoderGroup);
+	if (target.encoderGroup == EncoderGroup::DskVertical || target.encoderGroup == EncoderGroup::DskHorizontalCanvas) {
+		profile.width = layouts(target.encoderGroup).verticalLayout().width;
+		profile.height = layouts(target.encoderGroup).verticalLayout().height;
+	}
 	if (target.videoBitrateKbps > 0)
 		profile.videoBitrateKbps = target.videoBitrateKbps;
 	if (target.audioBitrateKbps > 0)
@@ -4298,9 +4378,21 @@ obs_encoder_t *OutputManager::createAudioEncoder(const OutputTarget &target, con
 	return encoder;
 }
 
-bool OutputManager::ensureVerticalCanvasVideo(QString *errorMessage)
+bool OutputManager::ensureVerticalCanvasVideo(QString *errorMessage, EncoderGroup group)
 {
 #ifdef DSK_ENABLE_OBS_CANVAS_API
+	const bool horizontal = group == EncoderGroup::DskHorizontalCanvas;
+	auto &verticalCanvas_ = horizontal ? horizontalCanvas_ : this->verticalCanvas_;
+	auto &verticalScene_ = horizontal ? horizontalScene_ : this->verticalScene_;
+	const auto &layouts_ = layouts(group);
+	const auto flags = horizontal ? DskPrivateCanvasFlags : DskVerticalCanvasFlags;
+	const auto removeCanvas = [horizontal](obs_canvas_t *canvas) {
+		if (!horizontal)
+			return obs_frontend_remove_canvas(canvas);
+		if (!obs_canvas_removed(canvas))
+			obs_canvas_remove(canvas);
+		return true;
+	};
 	obs_video_info info = {};
 	if (!obs_get_video_info(&info)) {
 		if (errorMessage)
@@ -4309,7 +4401,7 @@ bool OutputManager::ensureVerticalCanvasVideo(QString *errorMessage)
 	}
 	if (layouts_.verticalLayout().width <= 0 || layouts_.verticalLayout().height <= 0) {
 		if (errorMessage)
-			*errorMessage = QStringLiteral("DSK Vertical canvas dimensions are invalid.");
+			*errorMessage = QStringLiteral("%1 canvas dimensions are invalid.").arg(layoutOutputName(group));
 		return false;
 	}
 	info.base_width = uint32_t(layouts_.verticalLayout().width);
@@ -4321,7 +4413,7 @@ bool OutputManager::ensureVerticalCanvasVideo(QString *errorMessage)
 		obs_canvas_release(verticalCanvas_);
 		verticalCanvas_ = nullptr;
 	}
-	if (!verticalCanvas_) {
+	if (!verticalCanvas_ && !horizontal) {
 		obs_frontend_canvas_list canvases = {};
 		obs_frontend_get_canvases(&canvases);
 		for (size_t i = 0; i < canvases.canvases.num; ++i) {
@@ -4341,15 +4433,15 @@ bool OutputManager::ensureVerticalCanvasVideo(QString *errorMessage)
 				     currentInfo.base_height == info.base_height &&
 				     currentInfo.output_width == info.output_width &&
 				     currentInfo.output_height == info.output_height;
-	const bool hasMatchingFlags = verticalCanvas_ && obs_canvas_get_flags(verticalCanvas_) == DskVerticalCanvasFlags;
+	const bool hasMatchingFlags = verticalCanvas_ && obs_canvas_get_flags(verticalCanvas_) == flags;
 
 	if (verticalCanvas_ && (!hasVideo || !hasMatchingInfo || !hasMatchingFlags)) {
-		if (sessionUsesCanvasKey(QStringLiteral("dsk-vertical"))) {
+		if (sessionUsesCanvasKey(encoderGroupToString(group))) {
 			if (errorMessage)
-				*errorMessage = QStringLiteral("DSK Vertical canvas is in use and cannot change its configuration.");
+				*errorMessage = QStringLiteral("%1 canvas is in use and cannot change its configuration.").arg(layoutOutputName(group));
 			return false;
 		}
-		if (obs_frontend_streaming_active() && isSelectedObsAdditionalCanvas(verticalCanvas_)) {
+		if (!horizontal && obs_frontend_streaming_active() && isSelectedObsAdditionalCanvas(verticalCanvas_)) {
 			if (errorMessage)
 				*errorMessage = QStringLiteral(
 					"DSK Vertical is active in OBS Twitch Dual Format and cannot be replaced while streaming.");
@@ -4360,26 +4452,30 @@ bool OutputManager::ensureVerticalCanvasVideo(QString *errorMessage)
 
 		verticalScene_.release();
 		obs_canvas_set_channel(verticalCanvas_, 0, nullptr);
-		if (!obs_frontend_remove_canvas(verticalCanvas_)) {
+		if (!removeCanvas(verticalCanvas_)) {
 			if (errorMessage)
-				*errorMessage = QStringLiteral("Failed to replace the DSK Vertical canvas.");
+				*errorMessage = QStringLiteral("Failed to replace the %1 canvas.").arg(layoutOutputName(group));
 			return false;
 		}
 		obs_canvas_release(verticalCanvas_);
 		verticalCanvas_ = nullptr;
 	}
 
-	if (!verticalCanvas_)
-		verticalCanvas_ = obs_frontend_add_canvas(DskVerticalCanvasName, &info, DskVerticalCanvasFlags);
+	if (!verticalCanvas_) {
+		if (horizontal)
+			verticalCanvas_ = obs_canvas_create_private("DSK Horizontal", &info, DskPrivateCanvasFlags);
+		else
+			verticalCanvas_ = obs_frontend_add_canvas(DskVerticalCanvasName, &info, DskVerticalCanvasFlags);
+	}
 
 	if (!verticalCanvas_ || !obs_canvas_has_video(verticalCanvas_)) {
 		if (verticalCanvas_) {
-			obs_frontend_remove_canvas(verticalCanvas_);
+			removeCanvas(verticalCanvas_);
 			obs_canvas_release(verticalCanvas_);
 			verticalCanvas_ = nullptr;
 		}
 		if (errorMessage)
-			*errorMessage = QStringLiteral("Failed to create DSK Vertical canvas video.");
+			*errorMessage = QStringLiteral("Failed to create %1 canvas video.").arg(layoutOutputName(group));
 		return false;
 	}
 
@@ -4388,7 +4484,7 @@ bool OutputManager::ensureVerticalCanvasVideo(QString *errorMessage)
 	return true;
 #else
 	if (errorMessage)
-		*errorMessage = "DSK Vertical scene was built, but real 9:16 output needs OBS canvas API wiring.";
+		*errorMessage = QStringLiteral("%1 output needs the OBS canvas API.").arg(layoutOutputName(group));
 	return false;
 #endif
 }
@@ -4456,25 +4552,29 @@ TwitchDualFormatState OutputManager::twitchDualFormatState() const
 					  verticalCanvasUuid());
 }
 
-bool OutputManager::refreshVerticalCanvasScene(QString *errorMessage)
+bool OutputManager::refreshVerticalCanvasScene(QString *errorMessage, EncoderGroup group)
 {
 #ifdef DSK_ENABLE_OBS_CANVAS_API
+	auto &verticalCanvas_ = group == EncoderGroup::DskHorizontalCanvas ? horizontalCanvas_ : this->verticalCanvas_;
+	auto &verticalScene_ = group == EncoderGroup::DskHorizontalCanvas ? horizontalScene_ : this->verticalScene_;
+	const auto &layouts_ = layouts(group);
 	if (!verticalCanvas_) {
 		if (errorMessage)
 			errorMessage->clear();
 		return true;
 	}
-	if (!ensureVerticalCanvasVideo(errorMessage))
+	if (!ensureVerticalCanvasVideo(errorMessage, group))
 		return false;
 
 	QString sceneError;
 	obs_source_t *source = verticalScene_.rebuild(layouts_.verticalLayout(), verticalCanvas_, &sceneError);
 	if (!source) {
 		if (errorMessage)
-			*errorMessage = sceneError.isEmpty() ? "Failed to build DSK Vertical scene." : sceneError;
+			*errorMessage = sceneError.isEmpty() ? QStringLiteral("Failed to build %1 scene.").arg(layoutOutputName(group)) : sceneError;
 		return false;
 	}
-	markPluginOwnedVerticalScene(source);
+	if (group == EncoderGroup::DskVertical)
+		markPluginOwnedVerticalScene(source);
 
 	if (verticalCanvas_)
 		obs_canvas_set_channel(verticalCanvas_, 0, source);
@@ -4496,6 +4596,8 @@ QString OutputManager::sceneCanvasKeyForTarget(const OutputTarget &target) const
 		return QStringLiteral("scene-target:%1").arg(target.id);
 	if (target.encoderGroup == EncoderGroup::DskVertical)
 		return QStringLiteral("dsk-vertical");
+	if (target.encoderGroup == EncoderGroup::DskHorizontalCanvas)
+		return QStringLiteral("dsk-horizontal-canvas");
 	return QStringLiteral("obs-program");
 }
 
@@ -4690,16 +4792,19 @@ video_t *OutputManager::videoForEncoderGroup(EncoderGroup group, QString *errorM
 	if (group == EncoderGroup::DskHorizontal)
 		return obs_get_video();
 
-	if (group == EncoderGroup::DskVertical) {
+	if (group == EncoderGroup::DskVertical || group == EncoderGroup::DskHorizontalCanvas) {
 #ifdef DSK_ENABLE_OBS_CANVAS_API
-		if (!ensureVerticalCanvasVideo(errorMessage))
+		auto &verticalCanvas_ = group == EncoderGroup::DskHorizontalCanvas ? horizontalCanvas_ : this->verticalCanvas_;
+		auto &verticalScene_ = group == EncoderGroup::DskHorizontalCanvas ? horizontalScene_ : this->verticalScene_;
+		const auto &layouts_ = layouts(group);
+		if (!ensureVerticalCanvasVideo(errorMessage, group))
 			return nullptr;
 
 		QString sceneError;
 		obs_source_t *source = verticalScene_.rebuild(layouts_.verticalLayout(), verticalCanvas_, &sceneError);
 		if (!source) {
 			if (errorMessage)
-				*errorMessage = sceneError.isEmpty() ? "Failed to build DSK Vertical scene." : sceneError;
+				*errorMessage = sceneError.isEmpty() ? QStringLiteral("Failed to build %1 scene.").arg(layoutOutputName(group)) : sceneError;
 			return nullptr;
 		}
 
@@ -4707,7 +4812,7 @@ video_t *OutputManager::videoForEncoderGroup(EncoderGroup group, QString *errorM
 		return obs_canvas_get_video(verticalCanvas_);
 #else
 		if (errorMessage)
-			*errorMessage = "DSK Vertical scene was built, but real 9:16 output needs OBS canvas API wiring.";
+			*errorMessage = QStringLiteral("%1 output needs the OBS canvas API.").arg(layoutOutputName(group));
 		return nullptr;
 #endif
 	}
@@ -4769,8 +4874,10 @@ QString OutputManager::obsSceneUuidForName(const QString &sceneName) const
 	return result;
 }
 
-bool OutputManager::applyLinkedScene(const QString &sceneName)
+bool OutputManager::applyLinkedScene(const QString &sceneName, EncoderGroup group)
 {
+	auto &layouts_ = layouts(group);
+	const auto &sceneLinks_ = sceneLinks(group);
 	if (sceneName.isEmpty())
 		return false;
 	const QString sceneUuid = currentObsSceneUuid();
@@ -4784,8 +4891,8 @@ bool OutputManager::applyLinkedScene(const QString &sceneName)
 
 		if (!link.verticalSceneId.isEmpty()) {
 			if (!layouts_.selectVerticalScene(link.verticalSceneId)) {
-				logWarning(QString("Failed to apply vertical scene link for %1: DSK scene is missing.")
-						   .arg(sceneName));
+				logWarning(QString("Failed to apply %1 scene link for %2: DSK scene is missing.")
+						   .arg(layoutOutputName(group), sceneName));
 				return false;
 			}
 		} else if (!link.legacyTemplateId.isEmpty()) {
@@ -4793,9 +4900,9 @@ bool OutputManager::applyLinkedScene(const QString &sceneName)
 		} else {
 			return false;
 		}
-		if (!saveVerticalLayout())
+		if (!saveVerticalLayout(group))
 			return false;
-		emit statusMessage(QString("DSK vertical scene linked to %1").arg(sceneName));
+		emit statusMessage(QString("%1 scene linked to %2").arg(layoutOutputName(group), sceneName));
 		return true;
 	}
 	return false;

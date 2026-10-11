@@ -131,11 +131,11 @@ QJsonObject sceneLayoutLinkToJson(const SceneLayoutLink &link)
 	return object;
 }
 
-VerticalLayout verticalLayoutFromJson(const QJsonObject &object)
+VerticalLayout verticalLayoutFromJson(const QJsonObject &object, int defaultWidth, int defaultHeight)
 {
 	VerticalLayout layout;
-	layout.width = object.value("width").toInt(1080);
-	layout.height = object.value("height").toInt(1920);
+	layout.width = object.value("width").toInt(defaultWidth);
+	layout.height = object.value("height").toInt(defaultHeight);
 	layout.templateId = object.value("templateId").toString("full-screen");
 
 	const QJsonArray items = object.value("items").toArray();
@@ -148,7 +148,7 @@ VerticalLayout verticalLayoutFromJson(const QJsonObject &object)
 		layout.items.push_back({
 			itemObject.value("id").toString(newTargetId()),
 			itemObject.value("sourceName").toString(),
-			QRectF(rect.value("x").toDouble(), rect.value("y").toDouble(), rect.value("w").toDouble(1080), rect.value("h").toDouble(1920)),
+			QRectF(rect.value("x").toDouble(), rect.value("y").toDouble(), rect.value("w").toDouble(layout.width), rect.value("h").toDouble(layout.height)),
 			QRectF(crop.value("left").toDouble(), crop.value("top").toDouble(), crop.value("right").toDouble(), crop.value("bottom").toDouble()),
 			fitModeFromString(itemObject.value("fitMode").toString("fill")),
 			itemObject.value("visible").toBool(true),
@@ -191,13 +191,13 @@ QJsonObject verticalLayoutToJson(const VerticalLayout &layout)
 	return object;
 }
 
-VerticalLayoutScene verticalLayoutSceneFromJson(const QJsonObject &object)
+VerticalLayoutScene verticalLayoutSceneFromJson(const QJsonObject &object, int defaultWidth, int defaultHeight)
 {
 	VerticalLayoutScene scene;
 	scene.id = object.value("id").toString(newTargetId());
 	scene.name = object.value("name").toString("Vertical Scene");
-	scene.layout = verticalLayoutFromJson(object.value("layout").toObject());
-	normalizeLoadedVerticalLayout(scene.layout);
+	scene.layout = verticalLayoutFromJson(object.value("layout").toObject(), defaultWidth, defaultHeight);
+	normalizeVerticalLayoutGeometry(scene.layout, defaultWidth, defaultHeight);
 	return scene;
 }
 

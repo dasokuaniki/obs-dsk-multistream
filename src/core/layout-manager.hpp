@@ -46,6 +46,7 @@ FitMode fitModeFromString(const QString &value);
 
 class LayoutManager {
 public:
+	explicit LayoutManager(int width = 1080, int height = 1920);
 	void initializeVerticalScenes(const QVector<VerticalLayoutScene> &scenes,
 				      const QString &activeSceneId,
 				      const VerticalLayout &fallbackLayout);

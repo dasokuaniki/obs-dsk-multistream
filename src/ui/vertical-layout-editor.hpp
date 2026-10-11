@@ -29,15 +29,16 @@ struct VerticalPreviewDiagnostics {
 	std::uint32_t sceneHeight = 0;
 };
 
-VerticalPreviewDiagnostics verticalPreviewDiagnostics();
-void resetVerticalPreviewDiagnostics();
+VerticalPreviewDiagnostics verticalPreviewDiagnostics(EncoderGroup group = EncoderGroup::DskVertical);
+void resetVerticalPreviewDiagnostics(EncoderGroup group = EncoderGroup::DskVertical);
 #endif
 
 class VerticalLayoutEditor : public QWidget {
 	Q_OBJECT
 
 public:
-	explicit VerticalLayoutEditor(OutputManager *manager, QWidget *parent = nullptr);
+	explicit VerticalLayoutEditor(OutputManager *manager, QWidget *parent = nullptr,
+				      EncoderGroup group = EncoderGroup::DskVertical);
 	void prepareForUnload();
 	void handleSceneCollectionChanged();
 #ifdef DSK_INCLUDE_E2E_HOOKS
@@ -45,6 +46,9 @@ public:
 	bool exerciseSourceVisibilityToggleForTest();
 	bool exerciseSetupVisibilityToggleForTest();
 #endif
+
+protected:
+	void showEvent(QShowEvent *event) override;
 
 private slots:
 	void refreshSourceList();
@@ -73,6 +77,7 @@ private slots:
 	void refreshItems();
 
 private:
+	QString directionText(QString text) const;
 	int selectedIndex() const;
 	void setSelectedItemRect(const QRectF &rect);
 	void scheduleSave();
@@ -85,6 +90,7 @@ private:
 	void clearSourceSelection();
 
 	OutputManager *manager_ = nullptr;
+	EncoderGroup outputGroup_ = EncoderGroup::DskVertical;
 	QCheckBox *followScene_ = nullptr;
 	QComboBox *sceneLinkScene_ = nullptr;
 	QComboBox *sceneLinkTemplate_ = nullptr;

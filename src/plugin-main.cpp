@@ -37,6 +37,7 @@ std::unique_ptr<dsk::E2eAutoRunner> e2eRunner;
 #endif
 std::unique_ptr<dsk::CommentViewerIntegration> commentViewerIntegration;
 QPointer<dsk::MainDock> mainDock;
+QPointer<QWidget> mainDockHost;
 QObject *timerContext = nullptr;
 QPointer<QTimer> verticalEditorLoadTimer;
 QPointer<QObject> mainWindowCloseFilter;
@@ -64,11 +65,13 @@ protected:
 
 class VerticalLayoutDockHost : public QWidget {
 public:
-	explicit VerticalLayoutDockHost(dsk::OutputManager *outputManager, QWidget *parent = nullptr)
+	explicit VerticalLayoutDockHost(dsk::OutputManager *outputManager, QWidget *parent = nullptr,
+					dsk::EncoderGroup group = dsk::EncoderGroup::DskVertical)
 		: QWidget(parent),
-		  manager_(outputManager),
+		  manager_(outputManager), group_(group),
 		  layout_(new QVBoxLayout(this)),
-		  placeholder_(new QLabel("DSK Vertical is loading.", this))
+		  placeholder_(new QLabel(group == dsk::EncoderGroup::DskHorizontalCanvas ? "DSK Horizontal is loading."
+											      : "DSK Vertical is loading.", this))
 	{
 		layout_->setContentsMargins(0, 0, 0, 0);
 		placeholder_->setAlignment(Qt::AlignCenter);
@@ -81,7 +84,7 @@ public:
 		if (editor_ || !manager_)
 			return;
 
-		editor_ = new dsk::VerticalLayoutEditor(manager_, this);
+		editor_ = new dsk::VerticalLayoutEditor(manager_, this, group_);
 		if (placeholder_) {
 			layout_->removeWidget(placeholder_);
 			placeholder_->deleteLater();
@@ -104,6 +107,7 @@ public:
 	}
 
 	bool hasEditor() const { return editor_ != nullptr; }
+	void setOutputManager(dsk::OutputManager *outputManager) { manager_ = outputManager; }
 #ifdef DSK_INCLUDE_E2E_HOOKS
 	bool exercisePreviewCanvasReplacementForTest()
 	{
@@ -123,7 +127,7 @@ protected:
 	void showEvent(QShowEvent *event) override
 	{
 		QWidget::showEvent(event);
-		if (!editor_)
+		if (!editor_ && manager_)
 			scheduleVerticalEditorLoad(0);
 	}
 
@@ -153,12 +157,15 @@ private:
 	}
 
 	dsk::OutputManager *manager_ = nullptr;
+	dsk::EncoderGroup group_ = dsk::EncoderGroup::DskVertical;
 	QVBoxLayout *layout_ = nullptr;
 	QLabel *placeholder_ = nullptr;
 	QPointer<dsk::VerticalLayoutEditor> editor_;
 };
 
 QPointer<VerticalLayoutDockHost> verticalDock;
+
+QPointer<VerticalLayoutDockHost> horizontalDock;
 
 void showDockForWidget(QWidget *widget)
 {
@@ -185,38 +192,32 @@ bool shouldCreateDocks()
 	return !frontendExiting && !shutdownPrepared;
 }
 
-void ensureMainDockRegistered()
+void registerFrontendDockShells()
 {
 	if (!shouldCreateDocks())
 		return;
+	auto *mainWindow = static_cast<QWidget *>(obs_frontend_get_main_window());
+	if (!mainWindow) {
+		dsk::logWarning("OBS main window is unavailable; DSK dock-shell registration is deferred.");
+		return;
+	}
 
-	if (!manager)
-		manager = std::make_unique<dsk::OutputManager>();
-
-	if (!mainDock) {
-		dsk::logInfo("Creating DSK Streaming dock");
-		mainDock = new dsk::MainDock(manager.get());
-		dsk::logInfo("Registering DSK Streaming dock");
-		const bool mainDockAdded = obs_frontend_add_dock_by_id("dsk_multistream", "DSK Streaming", mainDock);
-		dsk::logInfo(QString("Registered DSK Streaming dock: %1").arg(mainDockAdded ? "true" : "false"));
-		if (!mainDockAdded) {
-			delete mainDock.data();
-			mainDock = nullptr;
+	// OBS restores QMainWindow state after module post-load. Register only
+	// lightweight shells here; profile/scene/CEF content waits for FINISHED_LOADING.
+	if (!mainDockHost) {
+		mainDockHost = new QWidget(mainWindow);
+		mainDockHost->setObjectName(QStringLiteral("dskStreamingHost"));
+		auto *layout = new QVBoxLayout(mainDockHost);
+		layout->setContentsMargins(0, 0, 0, 0);
+		layout->setSpacing(0);
+		if (!obs_frontend_add_dock_by_id("dsk_multistream", "DSK Streaming", mainDockHost)) {
+			delete mainDockHost.data();
+			mainDockHost = nullptr;
 		}
 	}
-}
-
-void ensureVerticalDockRegistered()
-{
-	if (!shouldCreateDocks())
-		return;
-
-	if (!manager)
-		manager = std::make_unique<dsk::OutputManager>();
-
 	if (!verticalDock) {
 		dsk::logInfo("Creating DSK Vertical dock host");
-		verticalDock = new VerticalLayoutDockHost(manager.get());
+		verticalDock = new VerticalLayoutDockHost(nullptr, mainWindow);
 		dsk::logInfo("Registering DSK Vertical dock");
 		const bool verticalDockAdded =
 			obs_frontend_add_dock_by_id("dsk_vertical_layout", "DSK Vertical", verticalDock);
@@ -226,6 +227,42 @@ void ensureVerticalDockRegistered()
 			verticalDock = nullptr;
 		}
 	}
+	if (!horizontalDock) {
+		horizontalDock = new VerticalLayoutDockHost(nullptr, mainWindow, dsk::EncoderGroup::DskHorizontalCanvas);
+		if (!obs_frontend_add_dock_by_id("dsk_horizontal_layout", "DSK Horizontal", horizontalDock)) {
+			delete horizontalDock.data();
+			horizontalDock = nullptr;
+		}
+	}
+	if (!commentViewerIntegration)
+		commentViewerIntegration = std::make_unique<dsk::CommentViewerIntegration>();
+	commentViewerIntegration->prepareDockShell();
+	dsk::logInfo("Registered lightweight DSK dock shells before OBS window-state restoration.");
+}
+
+void ensureMainDockRegistered()
+{
+	if (!shouldCreateDocks() || !frontendUiInitialized || !manager)
+		return;
+	if (!mainDockHost)
+		registerFrontendDockShells();
+	if (!mainDock && mainDockHost) {
+		mainDock = new dsk::MainDock(manager.get(), mainDockHost);
+		mainDockHost->layout()->addWidget(mainDock);
+		dsk::logInfo("Loaded DSK Streaming content inside its registered dock shell.");
+	}
+}
+
+void ensureVerticalDockRegistered()
+{
+	if (!shouldCreateDocks() || !frontendUiInitialized || !manager)
+		return;
+	if (!verticalDock || !horizontalDock)
+		registerFrontendDockShells();
+	if (verticalDock)
+		verticalDock->setOutputManager(manager.get());
+	if (horizontalDock)
+		horizontalDock->setOutputManager(manager.get());
 }
 
 void ensureVerticalDockEditorLoaded()
@@ -234,13 +271,12 @@ void ensureVerticalDockEditorLoaded()
 		return;
 
 	ensureVerticalDockRegistered();
-	if (!verticalDock || verticalDock->hasEditor())
-		return;
-
 	QElapsedTimer loadTimer;
 	loadTimer.start();
-	dsk::logInfo("Loading DSK Vertical Layout editor");
-	verticalDock->loadEditor();
+	if (verticalDock && !verticalDock->hasEditor())
+		verticalDock->loadEditor();
+	if (horizontalDock && horizontalDock->isVisible() && !horizontalDock->hasEditor())
+		horizontalDock->loadEditor();
 	dsk::logInfo(QStringLiteral("Loaded DSK Vertical Layout editor in %1 ms").arg(loadTimer.elapsed()));
 }
 
@@ -265,7 +301,8 @@ void cancelVerticalEditorLoad()
 
 void scheduleVerticalEditorLoad(int delayMs)
 {
-	if (!shouldCreateDocks() || (verticalDock && verticalDock->hasEditor()))
+	if (!frontendUiInitialized || !shouldCreateDocks() || ((verticalDock && verticalDock->hasEditor()) &&
+				    (horizontalDock && horizontalDock->hasEditor())))
 		return;
 
 	cancelVerticalEditorLoad();
@@ -278,7 +315,7 @@ void scheduleVerticalEditorLoad(int delayMs)
 		timer->deleteLater();
 		if (!shouldCreateDocks())
 			return;
-		if (!verticalDock || !verticalDock->isVisible())
+		if ((!verticalDock || !verticalDock->isVisible()) && (!horizontalDock || !horizontalDock->isVisible()))
 			return;
 		ensureVerticalDockEditorLoaded();
 	});
@@ -304,8 +341,8 @@ void registerDskDocksDelayed()
 		ensureMainDockRegistered();
 		ensureVerticalDockRegistered();
 		dsk::logInfo("DSK dock shells registered for OBS restore/menu");
-		// Give OBS one event-cycle window to restore dock visibility. The host's
-		// showEvent path loads immediately when the dock is already visible.
+		// Only restored/visible shells need their editors. A new hidden dock
+		// keeps its lightweight host until the user opens it.
 		scheduleVerticalEditorLoad(250);
 	});
 }
@@ -492,8 +529,14 @@ void removeFrontendUi()
 		obs_frontend_remove_dock("dsk_vertical_layout");
 		verticalDock = nullptr;
 	}
-	if (mainDock) {
+	if (horizontalDock) {
+		horizontalDock->prepareForUnload();
+		obs_frontend_remove_dock("dsk_horizontal_layout");
+		horizontalDock = nullptr;
+	}
+	if (mainDockHost) {
 		obs_frontend_remove_dock("dsk_multistream");
+		mainDockHost = nullptr;
 		mainDock = nullptr;
 	}
 }
@@ -515,6 +558,8 @@ void releaseObsSceneReferences()
 	cancelVerticalEditorLoad();
 	if (verticalDock)
 		verticalDock->prepareForUnload();
+	if (horizontalDock)
+		horizontalDock->prepareForUnload();
 	if (manager)
 		manager->releaseObsSceneReferences();
 }
@@ -612,6 +657,8 @@ void frontendEvent(enum obs_frontend_event event, void *)
 	} else if (event == OBS_FRONTEND_EVENT_SCENE_COLLECTION_CHANGING) {
 		if (verticalDock)
 			verticalDock->prepareForUnload();
+		if (horizontalDock)
+			horizontalDock->prepareForUnload();
 		if (manager)
 			manager->prepareForSceneCollectionChange();
 	} else if (event == OBS_FRONTEND_EVENT_SCENE_COLLECTION_CHANGED) {
@@ -622,6 +669,8 @@ void frontendEvent(enum obs_frontend_event event, void *)
 		}
 		if (verticalDock)
 			verticalDock->handleSceneCollectionChanged();
+		if (horizontalDock)
+			horizontalDock->handleSceneCollectionChanged();
 		scheduleVerticalEditorLoad();
 	} else if (event == OBS_FRONTEND_EVENT_SCENE_COLLECTION_CLEANUP ||
 		   event == OBS_FRONTEND_EVENT_SCRIPTING_SHUTDOWN) {
@@ -647,6 +696,11 @@ bool obs_module_load()
 
 	dsk::logInfo("Loaded");
 	return true;
+}
+
+void obs_module_post_load()
+{
+	registerFrontendDockShells();
 }
 
 void obs_module_unload()

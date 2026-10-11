@@ -24,6 +24,7 @@ public:
 	~CommentViewerIntegration() override;
 
 	void initialize();
+	void prepareDockShell();
 	void shutdown();
 	void setEnabled(bool enabled);
 	bool enabled() const;

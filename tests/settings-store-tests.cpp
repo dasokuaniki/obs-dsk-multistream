@@ -273,6 +273,100 @@ void testNestedTypeCorruptionRecovery()
 		      "nested type quarantine preserves original bytes");
 }
 
+void testIndependentCanvasRoundTrip()
+{
+	QTemporaryDir temp;
+	check(temp.isValid(), "independent canvas temporary directory is available");
+	if (!temp.isValid())
+		return;
+	const QString path = QDir(temp.path()).filePath(QStringLiteral("dsk-multistream.json"));
+	dsk::PluginSettings settings = sampleSettings(QStringLiteral("Vertical destination"));
+	dsk::OutputTarget horizontal;
+	horizontal.id = QStringLiteral("horizontal-destination");
+	horizontal.name = QStringLiteral("Horizontal destination");
+	horizontal.encoderGroup = dsk::EncoderGroup::DskHorizontalCanvas;
+	settings.targets.push_back(horizontal);
+	settings.verticalLayout.items.push_back({QStringLiteral("vertical-source"), QStringLiteral("Camera"),
+		QRectF(0, 0, 1080, 1920), {}, dsk::FitMode::Fill, true});
+	settings.verticalScenes.push_back({QStringLiteral("vertical-scene"), QStringLiteral("Portrait"), settings.verticalLayout});
+	settings.activeVerticalSceneId = QStringLiteral("vertical-scene");
+	settings.horizontalLayout.items.push_back({QStringLiteral("horizontal-source"), QStringLiteral("Game"),
+		QRectF(10, 20, 1600, 900), {}, dsk::FitMode::Fit, true});
+	settings.horizontalScenes.push_back({QStringLiteral("horizontal-scene"), QStringLiteral("Landscape"), settings.horizontalLayout});
+	settings.activeHorizontalSceneId = QStringLiteral("horizontal-scene");
+	settings.horizontalFollowObsScene = false;
+	settings.horizontalSceneLinks.push_back({QStringLiteral("Game"), QStringLiteral("game-uuid"),
+		QStringLiteral("horizontal-scene"), {}});
+	dsk::SettingsStore store(path);
+	QString error;
+	check(store.save(settings, &error), "independent canvas settings save succeeds");
+	const QJsonObject saved = QJsonDocument::fromJson(readFile(path)).object();
+	check(saved.value(QStringLiteral("schemaVersion")).toInt() == 2,
+	      "new schema prevents old versions from silently routing horizontal canvas to OBS main");
+	dsk::SettingsStore reader(path);
+	const auto loaded = reader.load();
+	check(!reader.saveBlocked() && reader.lastLoadWarning().isEmpty(), "schema 2 settings can be loaded and saved");
+	check(loaded.targets.size() == 2 && loaded.targets[1].encoderGroup == dsk::EncoderGroup::DskHorizontalCanvas,
+	      "horizontal canvas destination round trips without becoming OBS main");
+	check(loaded.verticalLayout.width == 1080 && loaded.verticalLayout.height == 1920 &&
+	      loaded.verticalLayout.items.size() == 1 && loaded.verticalLayout.items[0].sourceName == QStringLiteral("Camera"),
+	      "horizontal settings preserve the independent portrait layout");
+	check(loaded.horizontalLayout.width == 1920 && loaded.horizontalLayout.height == 1080 &&
+	      loaded.horizontalLayout.items.size() == 1 && loaded.horizontalLayout.items[0].rect == QRectF(10, 20, 1600, 900),
+	      "horizontal settings preserve landscape geometry");
+	check(loaded.horizontalScenes.size() == 1 && loaded.horizontalScenes[0].layout.width == 1920 &&
+	      loaded.activeHorizontalSceneId == QStringLiteral("horizontal-scene"), "horizontal active scene round trips");
+	check(loaded.followObsScene && !loaded.horizontalFollowObsScene && loaded.horizontalSceneLinks.size() == 1 &&
+	      loaded.horizontalSceneLinks[0].verticalSceneId == QStringLiteral("horizontal-scene"),
+	      "each canvas has independent OBS linking state");
+}
+
+void testLegacyCanvasSettingsMigration()
+{
+	QTemporaryDir temp;
+	if (!temp.isValid()) {
+		check(false, "legacy canvas temporary directory is available");
+		return;
+	}
+	const QString path = QDir(temp.path()).filePath(QStringLiteral("dsk-multistream.json"));
+	QJsonObject root{{QStringLiteral("schemaVersion"), 1},
+		{QStringLiteral("targets"), QJsonArray{QJsonObject{{QStringLiteral("id"), QStringLiteral("legacy-main")},
+			{QStringLiteral("encoderGroup"), QStringLiteral("dsk-horizontal")}}}},
+		{QStringLiteral("verticalLayout"), QJsonObject{{QStringLiteral("width"), 1080}, {QStringLiteral("height"), 1920}}}};
+	const QByteArray original = QJsonDocument(root).toJson();
+	check(writeFile(path, original), "legacy canvas settings are created");
+	dsk::SettingsStore reader(path);
+	const auto loaded = reader.load();
+	check(!reader.saveBlocked() && reader.lastLoadWarning().isEmpty(), "schema 1 remains readable without a warning");
+	check(loaded.targets.size() == 1 && loaded.targets[0].encoderGroup == dsk::EncoderGroup::DskHorizontal,
+	      "legacy horizontal mode remains OBS main, not the new canvas");
+	check(loaded.horizontalLayout.width == 1920 && loaded.horizontalLayout.height == 1080 &&
+	      loaded.horizontalScenes.isEmpty() && !loaded.horizontalFollowObsScene,
+	      "legacy settings initialize only an empty independent landscape layout");
+	check(readFile(path) == original, "reading legacy settings does not rewrite the user's file");
+}
+
+void testMalformedHorizontalSettingsRecovery()
+{
+	QTemporaryDir temp;
+	if (!temp.isValid()) {
+		check(false, "malformed horizontal temporary directory is available");
+		return;
+	}
+	const QString path = QDir(temp.path()).filePath(QStringLiteral("dsk-multistream.json"));
+	QJsonObject root{{QStringLiteral("schemaVersion"), 2},
+		{QStringLiteral("horizontalLayout"), QJsonObject{{QStringLiteral("items"), QStringLiteral("not-an-array")}}}};
+	const QByteArray original = QJsonDocument(root).toJson();
+	check(writeFile(path, original), "malformed horizontal settings are created");
+	dsk::SettingsStore reader(path);
+	reader.load();
+	check(!reader.saveBlocked(), "invalid schema 2 layout can recover after preserving the file");
+	const auto quarantined = QDir(temp.path()).entryList({QStringLiteral("dsk-multistream.json.corrupt-*.json")}, QDir::Files);
+	check(quarantined.size() == 1, "invalid horizontal layout is quarantined");
+	if (quarantined.size() == 1)
+		check(readFile(QDir(temp.path()).filePath(quarantined[0])) == original, "invalid horizontal bytes are preserved exactly");
+}
+
 } // namespace
 
 int main(int argc, char **argv)
@@ -285,6 +379,9 @@ int main(int argc, char **argv)
 	testFractionalSchemaRecovery();
 	testBackupFailureBlocksOverwrite();
 	testNestedTypeCorruptionRecovery();
+	testIndependentCanvasRoundTrip();
+	testLegacyCanvasSettingsMigration();
+	testMalformedHorizontalSettingsRecovery();
 
 	if (failures > 0) {
 		std::cerr << failures << " settings-store checks failed.\n";

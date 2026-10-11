@@ -31,6 +31,8 @@ private:
 	void finish(bool success);
 	bool prepareVerticalLayout();
 	void restoreVerticalLayout();
+	bool prepareHorizontalLayout();
+	void restoreHorizontalLayout();
 	void removeE2eSource();
 	bool startRuntimeTarget(const OutputTarget &target, QString *targetId);
 	void stopRuntimeTarget(QString *targetId);
@@ -42,6 +44,7 @@ private:
 	bool started_ = false;
 	bool useCurrentVerticalLayout_ = false;
 	bool verticalLayoutOverridden_ = false;
+	bool horizontalLayoutOverridden_ = false;
 	QString routeMode_;
 	int startDelayMs_ = 6000;
 	int runMs_ = 7000;
@@ -50,6 +53,8 @@ private:
 	QString e2eSourceName_;
 	obs_source_t *e2eSource_ = nullptr;
 	VerticalLayout previousVerticalLayout_;
+	VerticalLayout previousHorizontalLayout_;
+	obs_source_t *horizontalE2eSource_ = nullptr;
 	OutputTarget target_;
 	OutputTarget secondTarget_;
 };

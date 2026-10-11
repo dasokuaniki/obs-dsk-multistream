@@ -8,6 +8,7 @@ namespace dsk {
 enum class EncoderGroup {
 	DskHorizontal,
 	DskVertical,
+	DskHorizontalCanvas,
 };
 
 enum class TargetState {

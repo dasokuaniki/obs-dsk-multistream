@@ -51,18 +51,16 @@ enum VerticalResizeEdge : int {
 	ResizeBottom = 1 << 3,
 };
 
-inline void normalizeVerticalLayoutGeometry(VerticalLayout &layout)
+inline void normalizeVerticalLayoutGeometry(VerticalLayout &layout, int defaultWidth = 1080, int defaultHeight = 1920)
 {
-	constexpr int DefaultWidth = 1080;
-	constexpr int DefaultHeight = 1920;
 	constexpr int MinimumCanvasDimension = 64;
 	constexpr int MaximumCanvasDimension = 16384;
 	constexpr int MaximumLayoutItems = 512;
 
 	if (layout.width < MinimumCanvasDimension || layout.width > MaximumCanvasDimension)
-		layout.width = DefaultWidth;
+		layout.width = defaultWidth;
 	if (layout.height < MinimumCanvasDimension || layout.height > MaximumCanvasDimension)
-		layout.height = DefaultHeight;
+		layout.height = defaultHeight;
 	if (layout.items.size() > MaximumLayoutItems)
 		layout.items.resize(MaximumLayoutItems);
 

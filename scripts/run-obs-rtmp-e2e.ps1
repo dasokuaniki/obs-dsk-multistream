@@ -15,10 +15,13 @@ param(
     [ValidateRange(1, 1000)]
     [int]$VerticalUiStressIterations = 100,
     [switch]$CleanupE2eConfig,
+    [switch]$IsolatedPortable,
+    [switch]$CaptureFrames,
     [switch]$ExpectStartFailure
 )
 
 $ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot 'obs-e2e-config-path.ps1')
 
 if ($VerticalUiStress) {
     # Leave enough time for each save/rebuild cycle to reach the graphics thread.
@@ -53,6 +56,10 @@ function Stop-ProcessIfRunning {
     param([System.Diagnostics.Process]$Process)
 
     if ($Process -and -not $Process.HasExited) {
+        if ($Process.ProcessName -eq 'obs64') {
+            Write-Warning 'OBS is still running. It was not force-terminated; inspect its output state before recovery.'
+            return
+        }
         Stop-Process -Id $Process.Id -Force -ErrorAction SilentlyContinue
         $Process.WaitForExit(10000) | Out-Null
     }
@@ -77,7 +84,7 @@ function Assert-ListenerReceived {
     if ($listenerLog -notmatch "Input #0" -or $listenerLog -notmatch "Stream #0" -or $listenerLog -notmatch "frame=") {
         throw "RTMP listener did not show received OBS media frames. See $ListenerErrPath"
     }
-    if ($ExpectedEncoderGroup -eq "dsk-horizontal" -and $listenerLog -notmatch "1920x1080") {
+    if (($ExpectedEncoderGroup -eq "dsk-horizontal" -or $ExpectedEncoderGroup -eq "dsk-horizontal-canvas") -and $listenerLog -notmatch "1920x1080") {
         throw "RTMP listener did not show expected 1920x1080 horizontal video. See $ListenerErrPath"
     }
     if ($ExpectedEncoderGroup -eq "dsk-vertical" -and $listenerLog -notmatch "1080x1920") {
@@ -110,7 +117,7 @@ function Assert-ListenerDidNotReceive {
 }
 
 function Backup-ObsUserState {
-    $userIni = Join-Path $env:APPDATA "obs-studio\user.ini"
+    $userIni = Join-Path $obsConfigRoot "user.ini"
     if (-not (Test-Path -LiteralPath $userIni)) {
         return @{
             Path = $userIni
@@ -147,10 +154,15 @@ function Restore-ObsUserState {
 function Remove-E2eObsConfig {
     param([string]$CollectionName)
 
-    $obsRoot = Join-Path $env:APPDATA "obs-studio"
+    if ($CollectionName -ne 'DSK E2E') { throw 'Only the owned DSK E2E config may be removed.' }
+    $obsRoot = $obsConfigRoot
     $scenePath = Join-Path $obsRoot "basic\scenes\$CollectionName.json"
     $sceneBackupPath = "$scenePath.bak"
     $profileDir = Join-Path $obsRoot "basic\profiles\$CollectionName"
+    $resolvedProfile = [IO.Path]::GetFullPath($profileDir)
+    if (-not $resolvedProfile.StartsWith([IO.Path]::GetFullPath($obsRoot).TrimEnd('\') + '\', [StringComparison]::OrdinalIgnoreCase)) {
+        throw 'E2E profile deletion escaped its OBS config root.'
+    }
 
     Remove-Item -LiteralPath $scenePath -Force -ErrorAction SilentlyContinue
     Remove-Item -LiteralPath $sceneBackupPath -Force -ErrorAction SilentlyContinue
@@ -195,12 +207,17 @@ function Ensure-E2eObsConfig {
     $sceneName = "DSK E2E Scene"
     $colorSourceName = "DSK E2E Horizontal Source"
     $mainCanvasUuid = "6c69626f-6273-4c00-9d88-c5136d61696e"
-    $obsRoot = Join-Path $env:APPDATA "obs-studio"
+    $obsRoot = $obsConfigRoot
     $scenesDir = Join-Path $obsRoot "basic\scenes"
     $profileDir = Join-Path $obsRoot "basic\profiles\$collectionName"
 
     New-Item -ItemType Directory -Force -Path $scenesDir | Out-Null
     New-Item -ItemType Directory -Force -Path $profileDir | Out-Null
+    if ($IsolatedPortable -and -not (Test-Path -LiteralPath (Join-Path $obsRoot 'user.ini'))) {
+        # A new isolated tree has no completed first-run marker. Do not show the
+        # auto-configuration wizard during a synthetic loopback-only canary.
+        Set-Content -LiteralPath (Join-Path $obsRoot 'user.ini') -Value "[General]`nFirstRun=true`nLanguage=en-US" -Encoding UTF8
+    }
 
     $colorSource = New-ObsSourceBase -Name $colorSourceName -Id "color_source" -Settings ([ordered]@{
         color = 4281171199
@@ -423,7 +440,7 @@ PeakMeterType=0
 function Suspend-ObsPluginManagerModules {
     param([string[]]$ModuleNames)
 
-    $modulesPath = Join-Path $env:APPDATA "obs-studio\plugin_manager\modules.json"
+    $modulesPath = Join-Path $obsConfigRoot "plugin_manager\modules.json"
     $backupPath = "$modulesPath.dsk-e2e.bak"
     if (Test-Path -LiteralPath $backupPath) {
         [System.IO.File]::WriteAllBytes($modulesPath, [System.IO.File]::ReadAllBytes($backupPath))
@@ -486,6 +503,10 @@ function Start-ObsWithEnvironment {
     $startInfo.CreateNoWindow = $true
     $startInfo.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
     $startInfo.Arguments = $Arguments
+    if ($IsolatedPortable) {
+        $startInfo.Environment.Remove('OBS_PLUGINS_PATH') | Out-Null
+        $startInfo.Environment.Remove('OBS_PLUGINS_DATA_PATH') | Out-Null
+    }
     foreach ($key in $Environment.Keys) {
         $startInfo.Environment[$key] = [string]$Environment[$key]
     }
@@ -497,15 +518,20 @@ $ffmpeg = Resolve-Ffmpeg $FfmpegPath
 if (-not (Test-Path -LiteralPath $ObsPath)) {
     throw "OBS executable was not found: $ObsPath"
 }
-$obsUserState = Backup-ObsUserState
-$e2eObsConfig = Ensure-E2eObsConfig
-$obsArguments = "--disable-shutdown-check --disable-missing-files-check --disable-updater --collection `"$($e2eObsConfig.Collection)`" --profile `"$($e2eObsConfig.Profile)`""
-
 $existingObs = Get-Process obs64 -ErrorAction SilentlyContinue
 if ($existingObs) {
     $ids = ($existingObs | Select-Object -ExpandProperty Id) -join ", "
     throw "OBS is already running. Close it before running this E2E test. Running obs64 process id(s): $ids"
 }
+$allowedEncoderGroups = @("dsk-horizontal", "dsk-horizontal-canvas", "dsk-vertical")
+if ($EncoderGroup -notin $allowedEncoderGroups -or ($SecondEncoderGroup -and $SecondEncoderGroup -notin $allowedEncoderGroups)) {
+    throw "Unsupported E2E output group. No OBS configuration was changed."
+}
+$obsConfigRoot = Resolve-ObsE2eConfigRoot -ObsPath $ObsPath -BuildRoot (Join-Path (Split-Path -Parent $PSScriptRoot) 'build') -IsolatedPortable:$IsolatedPortable
+$obsUserState = if ($IsolatedPortable) { $null } else { Backup-ObsUserState }
+$e2eObsConfig = Ensure-E2eObsConfig
+$obsArguments = "--disable-shutdown-check --disable-missing-files-check --disable-updater --collection `"$($e2eObsConfig.Collection)`" --profile `"$($e2eObsConfig.Profile)`""
+if ($IsolatedPortable) { $obsArguments = '--portable ' + $obsArguments }
 
 New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
 
@@ -529,8 +555,8 @@ if ($SecondPort -gt 0) {
     $secondKey = "dsk-e2e-second-$stamp"
     $secondRtmpUrl = "$secondServer/$secondKey"
 }
-$obsLogRoot = Join-Path $env:APPDATA "obs-studio\logs"
-$sentinelRoot = Join-Path $env:APPDATA "obs-studio\.sentinel"
+$obsLogRoot = Join-Path $obsConfigRoot "logs"
+$sentinelRoot = Join-Path $obsConfigRoot ".sentinel"
 if (Test-Path -LiteralPath $sentinelRoot) {
     Get-ChildItem -LiteralPath $sentinelRoot -Filter "run_*" -ErrorAction SilentlyContinue |
         Remove-Item -Force -ErrorAction SilentlyContinue
@@ -552,6 +578,10 @@ $listenerArgs = @(
     "-f", "null",
     "NUL"
 )
+$receivedFile = Join-Path (Resolve-Path -LiteralPath $LogDir).Path "received-$stamp-first.flv"
+if ($CaptureFrames) {
+    $listenerArgs = $listenerArgs[0..($listenerArgs.Length - 4)] + @('-c', 'copy', '-f', 'flv', $receivedFile)
+}
 
 $secondListenerArgs = @()
 if ($SecondPort -gt 0) {
@@ -564,6 +594,10 @@ if ($SecondPort -gt 0) {
         "-f", "null",
         "NUL"
     )
+    $secondReceivedFile = Join-Path (Resolve-Path -LiteralPath $LogDir).Path "received-$stamp-second.flv"
+    if ($CaptureFrames) {
+        $secondListenerArgs = $secondListenerArgs[0..($secondListenerArgs.Length - 4)] + @('-c', 'copy', '-f', 'flv', $secondReceivedFile)
+    }
 }
 
 $listener = $null
@@ -752,6 +786,7 @@ try {
     }
     Write-Host "ffmpeg: $ffmpeg"
     Write-Host "obs: $ObsPath"
+    Write-Host "obs config root: $obsConfigRoot"
     Write-Host "obs arguments: $obsArguments"
     Write-Host "encoderGroup: $EncoderGroup"
     Write-Host "routeMode: $RouteMode"
@@ -762,9 +797,11 @@ try {
     }
     if ($listener) {
         Write-Host "listener log: $listenerErr"
+        if ($CaptureFrames) { Write-Host "received frames: $receivedFile" }
     }
     if ($secondListener) {
         Write-Host "second listener log: $secondListenerErr"
+        if ($CaptureFrames) { Write-Host "second received frames: $secondReceivedFile" }
     }
     Write-Host "obs log: $($obsLog.FullName)"
 }
@@ -772,9 +809,13 @@ finally {
     Stop-ProcessIfRunning $obs
     Stop-ProcessIfRunning $secondListener
     Stop-ProcessIfRunning $listener
-    Restore-ObsPluginManagerModules $suspendedPlugins
-    Restore-ObsUserState $obsUserState
-    if ($CleanupE2eConfig) {
-        Remove-E2eObsConfig $e2eObsConfig.Collection
+    if (-not $obs -or $obs.HasExited) {
+        Restore-ObsPluginManagerModules $suspendedPlugins
+        Restore-ObsUserState $obsUserState
+        if ($CleanupE2eConfig) {
+            Remove-E2eObsConfig $e2eObsConfig.Collection
+        }
+    } else {
+        Write-Warning 'The test OBS was left open; config restoration/cleanup was deferred until it stops.'
     }
 }

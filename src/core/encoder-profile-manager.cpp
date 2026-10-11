@@ -6,6 +6,8 @@ EncoderProfile EncoderProfileManager::profileFor(EncoderGroup group) const
 {
 	if (group == EncoderGroup::DskVertical)
 		return vertical_;
+	if (group == EncoderGroup::DskHorizontalCanvas)
+		return horizontalCanvas_;
 	return horizontal_;
 }
 
@@ -17,6 +19,8 @@ void EncoderProfileManager::setProfile(const EncoderProfile &profile)
 	}
 	if (profile.group == EncoderGroup::DskHorizontal)
 		horizontal_ = profile;
+	if (profile.group == EncoderGroup::DskHorizontalCanvas)
+		horizontalCanvas_ = profile;
 }
 
 } // namespace dsk

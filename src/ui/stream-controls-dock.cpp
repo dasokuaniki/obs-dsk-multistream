@@ -112,6 +112,22 @@ QString rowDetailText(const OutputTarget &target, const TargetRuntimeStatus &run
 	return targetStateToString(target.state);
 }
 
+QString compactRowDetail(const OutputTarget &target, const QString &detail)
+{
+	const QString clean = detail.trimmed();
+	if (!isYouTubeTarget(target) || !clean.contains(QStringLiteral("archive"), Qt::CaseInsensitive))
+		return clean;
+
+	const QString lower = clean.toLower();
+	if (lower.contains(QStringLiteral("retry")))
+		return QStringLiteral("YouTube Live - retrying");
+	if (lower.contains(QStringLiteral("complete")))
+		return QStringLiteral("YouTube Live");
+	if (lower.contains(QStringLiteral("attention")))
+		return QStringLiteral("YouTube Live - action needed");
+	return QStringLiteral("YouTube Live - switching");
+}
+
 QString actionText(const OutputTarget &target, const TargetRuntimeStatus &runtime)
 {
 	if (target.state == TargetState::Starting || runtime.transport == TransportState::Starting)
@@ -842,7 +858,9 @@ StreamControlsDock::RowWidgets StreamControlsDock::createVisualRow(const QString
 
 	auto *name = new QLabel(displayName.isEmpty() ? QStringLiteral("Untitled") : displayName, row);
 	name->setObjectName(QStringLiteral("dskTargetName"));
-	name->setMinimumWidth(70);
+	name->setMinimumWidth(0);
+	name->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
+	name->setToolTip(displayName);
 	name->setStyleSheet(QStringLiteral(
 		"QLabel#dskTargetName { color: #f1f3f5; font-family: 'Bahnschrift SemiBold Condensed'; "
 		"font-size: 15px; font-weight: 650; letter-spacing: 0.5px; border: 0; background: transparent; }"));
@@ -855,6 +873,8 @@ StreamControlsDock::RowWidgets StreamControlsDock::createVisualRow(const QString
 
 	auto *statusLine = new QWidget(row);
 	statusLine->setObjectName(QStringLiteral("dskTargetStatusLine"));
+	statusLine->setMinimumWidth(0);
+	statusLine->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
 	statusLine->setStyleSheet(QStringLiteral("QWidget#dskTargetStatusLine { background: transparent; border: 0; }"));
 	auto *statusLayout = new QHBoxLayout(statusLine);
 	statusLayout->setContentsMargins(0, 0, 0, 0);
@@ -862,6 +882,8 @@ StreamControlsDock::RowWidgets StreamControlsDock::createVisualRow(const QString
 	auto *statusLight = new StatusLight(statusLine);
 	auto *details = new QLabel(row);
 	details->setObjectName(QStringLiteral("dskTargetState"));
+	details->setMinimumWidth(0);
+	details->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
 	details->setTextInteractionFlags(Qt::TextSelectableByMouse);
 	details->setStyleSheet(QStringLiteral(
 		"QLabel#dskTargetState { color: #aeb7c1; font-family: 'Bahnschrift Light Condensed'; "
@@ -884,6 +906,8 @@ StreamControlsDock::RowWidgets StreamControlsDock::createVisualRow(const QString
 		"QToolButton#dskTargetActionMenu:hover { background: transparent; }"));
 
 	auto *actionBar = new QWidget(row);
+	actionBar->setFixedWidth(80);
+	actionBar->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
 	auto *actionLayout = new QHBoxLayout(actionBar);
 	actionLayout->setContentsMargins(0, 0, 0, 0);
 	actionLayout->setSpacing(6);
@@ -919,7 +943,11 @@ void StreamControlsDock::updateTargetRow(const OutputTarget &target, const Targe
 	const bool startSuppressed = shouldBlockIndependentTwitchStart(target, suppressIndependentTwitch, running);
 	static_cast<PlatformBadge *>(widgets.badge)->setIdentity(target.platformId, target.name);
 	widgets.name->setText(target.name.isEmpty() ? QStringLiteral("Untitled") : target.name);
-	widgets.details->setText(rowDetailText(target, runtime, startSuppressed));
+	widgets.name->setToolTip(target.name);
+	const QString detail = rowDetailText(target, runtime, startSuppressed);
+	const QString compactDetail = compactRowDetail(target, detail);
+	widgets.details->setText(compactDetail);
+	widgets.details->setToolTip(compactDetail == detail ? QString() : detail);
 	const bool liveWarning = isYouTubeTarget(target) && runtimePlatformIsWarning(runtime.platform) &&
 				 runtimeTransportIsRunning(runtime);
 	const QString detailStyle = liveWarning

@@ -27,6 +27,7 @@ public:
 private:
 	EncoderProfile horizontal_{EncoderGroup::DskHorizontal, 1920, 1080, 60, 1, 6000, 160, 2, {}, {}};
 	EncoderProfile vertical_{EncoderGroup::DskVertical, 1080, 1920, 60, 1, 6000, 160, 2, {}, {}};
+	EncoderProfile horizontalCanvas_{EncoderGroup::DskHorizontalCanvas, 1920, 1080, 60, 1, 6000, 160, 2, {}, {}};
 };
 
 } // namespace dsk

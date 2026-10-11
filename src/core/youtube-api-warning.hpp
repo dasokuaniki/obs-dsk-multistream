@@ -99,7 +99,7 @@ inline QString userFacingYouTubePreflightWarningText(const QString &message)
 inline QString liveYouTubeApiWarningRowText(const QString &message)
 {
 	if (message.startsWith(QStringLiteral("YouTube archive rotation failed")))
-		return QStringLiteral("YouTube Live - archive split retrying");
+		return QStringLiteral("YouTube Live - retrying");
 	if (message.startsWith(QStringLiteral("YouTube token refresh failed"))) {
 		if (message.contains(QStringLiteral("invalid_grant"), Qt::CaseInsensitive))
 			return QStringLiteral("RTMP only - login expired");

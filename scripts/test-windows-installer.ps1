@@ -32,7 +32,7 @@ function Get-DskUninstallEntries {
 function Invoke-CheckedProcess {
     param([string]$FilePath, [string[]]$ArgumentList)
 
-    $process = Start-Process -FilePath $FilePath -ArgumentList $ArgumentList -Wait -PassThru
+    $process = Start-Process -FilePath $FilePath -ArgumentList $ArgumentList -WindowStyle Hidden -Wait -PassThru
     if ($process.ExitCode -ne 0) {
         throw "Process failed with exit code $($process.ExitCode): $FilePath $($ArgumentList -join ' ')"
     }
@@ -209,7 +209,7 @@ try {
     $uninstaller = Join-Path $installRoot "unins000.exe"
     if (Test-Path -LiteralPath $uninstaller -PathType Leaf) {
         try {
-            Start-Process -FilePath $uninstaller -ArgumentList @("/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART") -Wait | Out-Null
+            Start-Process -FilePath $uninstaller -ArgumentList @("/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART") -WindowStyle Hidden -Wait | Out-Null
         } catch {
             Write-Warning "Failed to clean up the E2E installer registration: $($_.Exception.Message)"
         }

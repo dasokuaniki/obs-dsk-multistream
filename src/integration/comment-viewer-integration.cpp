@@ -41,12 +41,21 @@ CommentViewerIntegration::~CommentViewerIntegration()
 
 void CommentViewerIntegration::initialize()
 {
-	enabled_ = commentViewerIntegrationEnabledAtStartup(isCommentViewerInstalled());
+	prepareDockShell();
 	registerOpenViewerMenu();
 	if (enabled_)
 		beginProbe();
 	else
 		removeDock();
+}
+
+void CommentViewerIntegration::prepareDockShell()
+{
+	if (shuttingDown_)
+		return;
+	enabled_ = commentViewerIntegrationEnabledAtStartup(isCommentViewerInstalled());
+	if (enabled_)
+		registerDockShell();
 }
 
 void CommentViewerIntegration::shutdown()

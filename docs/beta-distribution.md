@@ -1,4 +1,4 @@
-# DSK Multistream 0.3.8 public beta guide
+# DSK Multistream 0.5.0 public beta guide
 
 DSK Multistream is free and open-source software. This public beta is intended
 for evaluation before a stable release. Download it only from
@@ -28,6 +28,16 @@ running the installer.
 
 ## Updating and uninstalling
 
+0.5.0 adds **Docks > DSK Horizontal**, an independent 1920×1080 canvas. Choose
+**DSK Horizontal** in a destination's Edit dialog to use it; **OBS Main** retains
+the normal OBS composition. Horizontal and vertical video encoders are separate,
+while audio uses the existing OBS mix.
+
+The new settings writer uses schema 2. Before upgrading, keep a separate backup
+of each OBS profile's `dsk-multistream.json`. A rollback to 0.4.1 requires restoring
+that pre-upgrade file with OBS stopped, not only reinstalling the old DLL. Do not
+edit the schema number or canvas identifier to force compatibility.
+
 Run the newer installer to update the existing installation. Windows Settings >
 Apps > Installed apps can uninstall DSK Multistream. Normal uninstall removes
 the plugin and its installed files while preserving destinations and credentials
@@ -43,7 +53,7 @@ tokens, client secrets, and personal information before sending a log.
 
 ---
 
-# DSK Multistream 0.3.8 公開ベータ案内
+# DSK Multistream 0.5.0 公開ベータ案内
 
 DSK Multistreamは無料のオープンソースソフトウェアです。この公開ベータは、
 安定版公開前の評価を目的としています。インストーラーは
@@ -70,6 +80,16 @@ SHA-256と一致することを確認してください。
   公開・共有しないでください。
 
 ## 更新とアンインストール
+
+0.5.0では独立した1920×1080キャンバスの「ドック > DSK Horizontal」を追加しました。
+配信先のEdit画面で「DSK Horizontal」を選ぶと、この構成を送信します。
+「OBS Main」は従来のOBSメイン映像です。横型・縦型の映像エンコーダーは独立し、
+音声は既存のOBSミックスを使います。
+
+新しい設定の保存形式はschema 2です。更新前に各OBSプロファイルの
+`dsk-multistream.json` を別途バックアップしてください。0.4.1へ戻す場合は、
+OBSを停止し、旧DLLと更新前の設定ファイルを両方復元します。
+schema番号やキャンバスIDだけを変更して互換性を強制しないでください。
 
 新しいインストーラーを実行すると既存版を更新できます。Windowsの「設定 > アプリ >
 インストールされているアプリ」からDSK Multistreamをアンインストールできます。

@@ -26,6 +26,15 @@ When Viewer is installed, Multistream registers the plugin-owned `DSK Comments` 
 
 ## Known regression guard: intermittent white Dock
 
+Dock shells must register synchronously during `obs_module_post_load()`, before
+OBS restores its saved main-window state. Only empty shell widgets are created
+then; browser discovery and streaming/canvas content wait for
+`OBS_FRONTEND_EVENT_FINISHED_LOADING`. Registering through
+`obs_frontend_add_dock_by_id()` after restoration discards Qt's original saved
+placeholder and leaves the dock hidden/floating. A later `restoreDockWidget()`
+call does not recover that original state. Keep `dsk-dock-shell-startup-test`
+and `dsk-dock-state-restore-tests` alongside the browser regression checks.
+
 Do not make the API validation URL and the OBS Browser navigation URL use the same hostname.
 
 - Keep validating the Viewer contract against exactly the detected fixed endpoint: port `17321` for the standard Viewer or `17325` for the Twitch-focused Viewer.

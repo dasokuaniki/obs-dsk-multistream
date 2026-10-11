@@ -1,6 +1,7 @@
 #include "core/settings-store.hpp"
 #include "core/diagnostics.hpp"
 #include "core/settings-codec.hpp"
+#include "core/vertical-layout-geometry.hpp"
 #include "core/secret-store.hpp"
 
 #ifndef DSK_SETTINGS_STORE_STANDALONE
@@ -23,6 +24,10 @@
 
 namespace dsk {
 namespace {
+
+// Schema 2 adds an independent landscape canvas. Older readers must fail closed
+// rather than interpret its unknown output ID as the OBS main output.
+constexpr double SupportedSchemaVersion = 2.0;
 
 struct PendingSecretWrite {
 	QString credentialRef;
@@ -220,7 +225,7 @@ PluginSettings SettingsStore::load()
 	const double schemaNumber = schemaValue.isUndefined() ? 1.0 : schemaValue.toDouble();
 	if (schemaNumber < 1.0 || std::floor(schemaNumber) != schemaNumber)
 		return quarantineInvalidSettings(QStringLiteral("schemaVersion is not a positive integer"));
-	if (schemaNumber > 1.0) {
+	if (schemaNumber > SupportedSchemaVersion) {
 		saveBlocked_ = true;
 		lastLoadWarning_ = QStringLiteral("DSK settings use newer schema version %1. Saving is disabled to avoid data loss.")
 					   .arg(schemaNumber, 0, 'g', 16);
@@ -240,19 +245,30 @@ PluginSettings SettingsStore::load()
 	    (root.contains(QStringLiteral("verticalScenes")) && !root.value(QStringLiteral("verticalScenes")).isArray()) ||
 	    (root.contains(QStringLiteral("activeVerticalSceneId")) && !root.value(QStringLiteral("activeVerticalSceneId")).isString()) ||
 	    (root.contains(QStringLiteral("followObsScene")) && !root.value(QStringLiteral("followObsScene")).isBool()) ||
-	    (root.contains(QStringLiteral("sceneLinks")) && !root.value(QStringLiteral("sceneLinks")).isArray())) {
-		return quarantineInvalidSettings(QStringLiteral("schema 1 field types are invalid"));
+	    (root.contains(QStringLiteral("sceneLinks")) && !root.value(QStringLiteral("sceneLinks")).isArray()) ||
+	    (root.contains("horizontalLayout") && !root.value("horizontalLayout").isObject()) ||
+	    (root.contains("horizontalScenes") && !root.value("horizontalScenes").isArray()) ||
+	    (root.contains("activeHorizontalSceneId") && !root.value("activeHorizontalSceneId").isString()) ||
+	    (root.contains("horizontalFollowObsScene") && !root.value("horizontalFollowObsScene").isBool()) ||
+	    (root.contains("horizontalSceneLinks") && !root.value("horizontalSceneLinks").isArray())) {
+		return quarantineInvalidSettings(QStringLiteral("settings field types are invalid"));
 	}
 
 	const QJsonArray targetValues = root.value(QStringLiteral("targets")).toArray();
 	const QJsonArray verticalSceneValues = root.value(QStringLiteral("verticalScenes")).toArray();
 	const QJsonArray sceneLinkValues = root.value(QStringLiteral("sceneLinks")).toArray();
-	if (arrayHasNonObject(targetValues) || arrayHasNonObject(verticalSceneValues) || arrayHasNonObject(sceneLinkValues))
-		return quarantineInvalidSettings(QStringLiteral("schema 1 arrays contain non-object values"));
+	const QJsonArray horizontalSceneValues = root.value("horizontalScenes").toArray();
+	const QJsonArray horizontalLinkValues = root.value("horizontalSceneLinks").toArray();
+	if (arrayHasNonObject(targetValues) || arrayHasNonObject(verticalSceneValues) || arrayHasNonObject(sceneLinkValues) ||
+	    arrayHasNonObject(horizontalSceneValues) || arrayHasNonObject(horizontalLinkValues))
+		return quarantineInvalidSettings(QStringLiteral("settings arrays contain non-object values"));
 	const QJsonObject verticalLayoutObject = root.value(QStringLiteral("verticalLayout")).toObject();
 	const QString verticalLayoutError = validateLayoutObject(verticalLayoutObject);
 	if (!verticalLayoutError.isEmpty())
 		return quarantineInvalidSettings(verticalLayoutError);
+	const QString horizontalLayoutError = validateLayoutObject(root.value("horizontalLayout").toObject());
+	if (!horizontalLayoutError.isEmpty())
+		return quarantineInvalidSettings(horizontalLayoutError);
 	for (const QJsonValue &value : targetValues) {
 		const QJsonObject target = value.toObject();
 		if (hasWrongType(target,
@@ -282,7 +298,10 @@ PluginSettings SettingsStore::load()
 				return quarantineInvalidSettings(QStringLiteral("target scene route fields have invalid types"));
 		}
 	}
-	for (const QJsonValue &value : verticalSceneValues) {
+	QJsonArray allLayoutScenes = verticalSceneValues;
+	for (const auto &value : horizontalSceneValues)
+		allLayoutScenes.append(value);
+	for (const QJsonValue &value : allLayoutScenes) {
 		const QJsonObject scene = value.toObject();
 		if (hasWrongType(scene, QJsonValue::String, {"id", "name"}))
 			return quarantineInvalidSettings(QStringLiteral("vertical scene fields have invalid types"));
@@ -292,7 +311,10 @@ PluginSettings SettingsStore::load()
 		if (!sceneLayoutError.isEmpty())
 			return quarantineInvalidSettings(sceneLayoutError);
 	}
-	for (const QJsonValue &value : sceneLinkValues) {
+	QJsonArray allLayoutLinks = sceneLinkValues;
+	for (const auto &value : horizontalLinkValues)
+		allLayoutLinks.append(value);
+	for (const QJsonValue &value : allLayoutLinks) {
 		if (hasWrongType(value.toObject(), QJsonValue::String,
 				 {"sceneName", "sceneUuid", "verticalSceneId", "templateId"}))
 			return quarantineInvalidSettings(QStringLiteral("scene link fields have invalid types"));
@@ -326,6 +348,14 @@ PluginSettings SettingsStore::load()
 			settings.sceneLinks.push_back(sceneLayoutLinkFromJson(value.toObject()));
 	}
 
+	settings.horizontalLayout = verticalLayoutFromJson(root.value("horizontalLayout").toObject(), 1920, 1080);
+	normalizeVerticalLayoutGeometry(settings.horizontalLayout, 1920, 1080);
+	settings.activeHorizontalSceneId = root.value("activeHorizontalSceneId").toString();
+	for (const auto &value : horizontalSceneValues)
+		settings.horizontalScenes.push_back(verticalLayoutSceneFromJson(value.toObject(), 1920, 1080));
+	settings.horizontalFollowObsScene = root.value("horizontalFollowObsScene").toBool(false);
+	for (const auto &value : horizontalLinkValues)
+		settings.horizontalSceneLinks.push_back(sceneLayoutLinkFromJson(value.toObject()));
 	return settings;
 }
 
@@ -341,23 +371,12 @@ bool SettingsStore::saveBlocked() const
 
 bool SettingsStore::save(const PluginSettings &settings, QString *errorMessage) const
 {
-	return save(settings.targets,
-		    settings.verticalLayout,
-		    settings.verticalScenes,
-		    settings.activeVerticalSceneId,
-		    settings.followObsScene,
-		    settings.sceneLinks,
-		    errorMessage);
-}
-
-bool SettingsStore::save(const QVector<OutputTarget> &sourceTargets,
-			 const VerticalLayout &verticalLayout,
-			 const QVector<VerticalLayoutScene> &verticalScenes,
-			 const QString &activeVerticalSceneId,
-			 bool followObsScene,
-			 const QVector<SceneLayoutLink> &sceneLinks,
-			 QString *errorMessage) const
-{
+	const auto &sourceTargets = settings.targets;
+	const auto &verticalLayout = settings.verticalLayout;
+	const auto &verticalScenes = settings.verticalScenes;
+	const auto &activeVerticalSceneId = settings.activeVerticalSceneId;
+	const auto followObsScene = settings.followObsScene;
+	const auto &sceneLinks = settings.sceneLinks;
 	if (errorMessage)
 		errorMessage->clear();
 	if (saveBlocked_) {
@@ -368,7 +387,7 @@ bool SettingsStore::save(const QVector<OutputTarget> &sourceTargets,
 	}
 
 	QJsonObject root;
-	root.insert("schemaVersion", 1);
+	root.insert("schemaVersion", int(SupportedSchemaVersion));
 
 	QJsonArray targets;
 	QVector<PendingSecretWrite> pendingSecrets;
@@ -468,6 +487,17 @@ bool SettingsStore::save(const QVector<OutputTarget> &sourceTargets,
 	for (const auto &link : sceneLinks)
 		links.push_back(sceneLayoutLinkToJson(link));
 	root.insert("sceneLinks", links);
+	root.insert("horizontalLayout", verticalLayoutToJson(settings.horizontalLayout));
+	QJsonArray horizontalScenes;
+	for (const auto &scene : settings.horizontalScenes)
+		horizontalScenes.append(verticalLayoutSceneToJson(scene));
+	root.insert("horizontalScenes", horizontalScenes);
+	root.insert("activeHorizontalSceneId", settings.activeHorizontalSceneId);
+	root.insert("horizontalFollowObsScene", settings.horizontalFollowObsScene);
+	QJsonArray horizontalLinks;
+	for (const auto &link : settings.horizontalSceneLinks)
+		horizontalLinks.append(sceneLayoutLinkToJson(link));
+	root.insert("horizontalSceneLinks", horizontalLinks);
 
 	const QString path = settingsPath();
 	QDir().mkpath(QFileInfo(path).absolutePath());

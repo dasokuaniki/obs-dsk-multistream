@@ -45,6 +45,9 @@ VerticalLayout sanitizedVerticalLayout(VerticalLayout layout)
 		    sourceName == QStringLiteral("DSK Vertical Program") ||
 		    sourceName == QStringLiteral("DSK Vertical Preview")) {
 			layout.items.removeAt(i);
+		} else if (sourceName == QStringLiteral("DSK Horizontal Program") ||
+			   sourceName == QStringLiteral("DSK Horizontal Preview")) {
+			layout.items.removeAt(i);
 		}
 	}
 	return layout;
@@ -72,6 +75,13 @@ FitMode fitModeFromString(const QString &value)
 	if (value == "stretch")
 		return FitMode::Stretch;
 	return FitMode::Fill;
+}
+
+LayoutManager::LayoutManager(int width, int height)
+{
+	vertical_.width = width;
+	vertical_.height = height;
+	normalizeVerticalLayoutGeometry(vertical_);
 }
 
 const VerticalLayout &LayoutManager::verticalLayout() const
@@ -117,6 +127,11 @@ void LayoutManager::applyTemplate(const QString &templateId)
 
 	if (vertical_.items.isEmpty())
 		return;
+	const double width = vertical_.width;
+	const double height = vertical_.height;
+	const auto slot = [width, height](double x, double y, double w, double h) {
+		return QRectF(x * width / 1080.0, y * height / 1920.0, w * width / 1080.0, h * height / 1920.0);
+	};
 
 	auto applySlot = [this](int index, const QRectF &rect, FitMode fitMode) {
 		if (index >= vertical_.items.size())
@@ -127,27 +142,30 @@ void LayoutManager::applyTemplate(const QString &templateId)
 	};
 
 	if (templateId == "game-camera") {
-		applySlot(0, QRectF(0, 0, 1080, 1920), FitMode::Fill);
-		applySlot(1, QRectF(670, 1240, 360, 360), FitMode::Fill);
+		applySlot(0, QRectF(0, 0, width, height), FitMode::Fill);
+		const double cameraSize = std::min(width, height) / 3.0;
+		applySlot(1, width > height ? QRectF(width - cameraSize - 50, height - cameraSize - 50, cameraSize, cameraSize)
+					   : slot(670, 1240, 360, 360), FitMode::Fill);
 		syncActiveSceneLayout();
 		return;
 	}
 
 	if (templateId == "camera-first") {
-		applySlot(0, QRectF(0, 0, 1080, 1420), FitMode::Fill);
-		applySlot(1, QRectF(80, 1480, 920, 360), FitMode::Fit);
+		applySlot(0, width > height ? QRectF(0, 0, width * 0.75, height) : slot(0, 0, 1080, 1420), FitMode::Fill);
+		applySlot(1, width > height ? QRectF(width * 0.77, height * 0.05, width * 0.21, height * 0.9)
+					   : slot(80, 1480, 920, 360), FitMode::Fit);
 		syncActiveSceneLayout();
 		return;
 	}
 
 	if (templateId == "center-crop") {
-		applySlot(0, QRectF(0, 0, 1080, 1920), FitMode::Fill);
+		applySlot(0, QRectF(0, 0, width, height), FitMode::Fill);
 		syncActiveSceneLayout();
 		return;
 	}
 
 	vertical_.templateId = "full-screen";
-	applySlot(0, QRectF(0, 0, 1080, 1920), FitMode::Fit);
+	applySlot(0, QRectF(0, 0, width, height), FitMode::Fit);
 	syncActiveSceneLayout();
 }
 
@@ -181,6 +199,8 @@ QString LayoutManager::createVerticalScene(const QString &name)
 	scene.id = newTargetId();
 	scene.name = uniqueSceneName(verticalScenes_, name);
 	scene.layout = VerticalLayout{};
+	scene.layout.width = vertical_.width;
+	scene.layout.height = vertical_.height;
 	verticalScenes_.push_back(scene);
 	activeVerticalSceneId_ = scene.id;
 	vertical_ = scene.layout;

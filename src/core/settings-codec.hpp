@@ -12,9 +12,9 @@ void outputTargetFromJsonInto(const QJsonObject &object, OutputTarget &target);
 QJsonObject outputTargetToJson(const OutputTarget &target);
 SceneLayoutLink sceneLayoutLinkFromJson(const QJsonObject &object);
 QJsonObject sceneLayoutLinkToJson(const SceneLayoutLink &link);
-VerticalLayout verticalLayoutFromJson(const QJsonObject &object);
+VerticalLayout verticalLayoutFromJson(const QJsonObject &object, int defaultWidth = 1080, int defaultHeight = 1920);
 QJsonObject verticalLayoutToJson(const VerticalLayout &layout);
-VerticalLayoutScene verticalLayoutSceneFromJson(const QJsonObject &object);
+VerticalLayoutScene verticalLayoutSceneFromJson(const QJsonObject &object, int defaultWidth = 1080, int defaultHeight = 1920);
 QJsonObject verticalLayoutSceneToJson(const VerticalLayoutScene &scene);
 void normalizeLoadedVerticalLayout(VerticalLayout &layout);
 

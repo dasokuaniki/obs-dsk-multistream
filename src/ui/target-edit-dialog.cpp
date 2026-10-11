@@ -150,9 +150,11 @@ QString text(const char *key, const char *englishFallback)
 
 QString outputDisplayName(const QString &outputId)
 {
+	if (outputId == QStringLiteral("dsk-horizontal-canvas"))
+		return text("TargetEdit.OutputHorizontalName", "DSK Horizontal");
 	return outputId == QStringLiteral("dsk-vertical")
 		       ? text("TargetEdit.OutputVerticalName", "DSK Vertical")
-		       : text("TargetEdit.OutputHorizontalName", "DSK Horizontal");
+		       : text("TargetEdit.OutputMainName", "OBS Main");
 }
 
 QString authModeDisplayName(TargetAuthMode mode)
@@ -173,7 +175,7 @@ QString authModeDisplayName(TargetAuthMode mode)
 QString broadcastModeDisplayName(YouTubeBroadcastMode mode)
 {
 	return mode == YouTubeBroadcastMode::ArchiveRotation
-		       ? text("TargetEdit.BroadcastArchive", "Split every 11 h 30 min")
+		       ? text("TargetEdit.BroadcastArchive", "Archive rotation")
 		       : text("TargetEdit.BroadcastNormal", "Normal");
 }
 
@@ -365,8 +367,10 @@ TargetEditDialog::TargetEditDialog(const PlatformPresetRegistry &platforms, QWid
 	keyRow->addWidget(showStreamKey_);
 
 	encoderGroup_ = new QComboBox(this);
-	encoderGroup_->addItem(text("TargetEdit.OutputHorizontal", "Horizontal (16:9)"),
+	encoderGroup_->addItem(text("TargetEdit.OutputMain", "OBS Main"),
 			      encoderGroupToString(EncoderGroup::DskHorizontal));
+	encoderGroup_->addItem(text("TargetEdit.OutputHorizontalCanvas", "DSK Horizontal (16:9)"),
+			      encoderGroupToString(EncoderGroup::DskHorizontalCanvas));
 	encoderGroup_->addItem(text("TargetEdit.OutputVertical", "Vertical (9:16)"),
 			      encoderGroupToString(EncoderGroup::DskVertical));
 

@@ -5,6 +5,7 @@
 #include "ui/layout-widget-utils.hpp"
 #include "ui/neutral-platform-badge.hpp"
 #include "ui/target-edit-dialog.hpp"
+#include "ui/vertical-toolbar-widget.hpp"
 
 #include <QApplication>
 #include <QCheckBox>
@@ -20,6 +21,7 @@
 #include <QPushButton>
 #include <QPainter>
 #include <QScrollArea>
+#include <QStyle>
 #include <QString>
 #include <QToolButton>
 #include <QVBoxLayout>
@@ -101,6 +103,89 @@ void testTargetEditDialogAddDefaults()
 			check(platformHint->text().contains("supplied by the platform"),
 			      "custom target explains where to get its RTMP URL");
 	}
+}
+
+void testCanvasToolbarActualWidgetGeometry()
+{
+	QWidget host;
+	host.setStyleSheet(QStringLiteral("QToolButton { padding: 6px 12px; font-size: 14px; }"));
+	auto *root = new QVBoxLayout(&host);
+	root->setContentsMargins(0, 0, 0, 0);
+	auto *status = new QLabel(QStringLiteral("Horizontal Program: Default"), &host);
+	status->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
+	auto *snap = new QCheckBox(QStringLiteral("Snap"), &host);
+	auto makeButton = [&host](const QString &text) {
+		auto *button = new QToolButton(&host);
+		button->setText(text);
+		button->setToolTip(text);
+		button->setIcon(host.style()->standardIcon(QStyle::SP_FileDialogDetailedView));
+		return button;
+	};
+	auto *setup = makeButton(QStringLiteral("Setup"));
+	auto *transform = makeButton(QStringLiteral("Transform"));
+	auto *links = makeButton(QStringLiteral("OBS Link"));
+	auto *toolbar = new dsk::VerticalToolbarWidget(status, snap, setup, transform, links, &host);
+	root->addWidget(toolbar);
+	host.resize(300, 140);
+	host.show();
+	QCoreApplication::processEvents();
+	check(setup->toolButtonStyle() == Qt::ToolButtonIconOnly,
+	      "canvas toolbar uses compact mode when actual styled text buttons do not fit");
+	for (const int width : {700, 160, 300, 700, 160}) {
+		host.resize(width, 140);
+		QCoreApplication::processEvents();
+		check(toolbar->layout()->count() == 5, "canvas toolbar mode changes preserve exactly five layout items");
+		const QList<QWidget *> controls{status, snap, setup, transform, links};
+		for (int i = 0; i < controls.size(); ++i) {
+			check(controls[i]->parentWidget() == toolbar, "toolbar owns all controls after a mode change");
+			check(toolbar->rect().contains(controls[i]->geometry()), "toolbar contains every control rectangle");
+			for (int j = i + 1; j < controls.size(); ++j)
+				check(!controls[i]->geometry().intersects(controls[j]->geometry()),
+				      "toolbar controls never overlap after resizing");
+		}
+	}
+	host.resize(500, 140);
+	host.setStyleSheet(QStringLiteral("QToolButton { padding: 12px 24px; font-size: 28px; }"));
+	QCoreApplication::processEvents();
+	QCoreApplication::processEvents();
+	check(setup->toolButtonStyle() == Qt::ToolButtonIconOnly,
+	      "canvas toolbar remeasures text after an OBS theme or font scale change");
+	check(toolbar->layout()->count() == 5, "theme changes do not duplicate toolbar controls");
+	host.hide();
+}
+
+void testIndependentCanvasOutputSelection()
+{
+	dsk::PlatformPresetRegistry platforms;
+	for (const QByteArray locale : {QByteArrayLiteral("en-US"), QByteArrayLiteral("ja-JP")}) {
+		qputenv("DSK_UI_TEST_LOCALE", locale);
+		dsk::TargetEditDialog dialog(platforms);
+		dialog.setNewTargetDefaults(QStringLiteral("canvas-choice"));
+		QComboBox *outputs = nullptr;
+		for (auto *combo : dialog.findChildren<QComboBox *>()) {
+			if (combo->findData(QStringLiteral("dsk-horizontal-canvas")) >= 0)
+				outputs = combo;
+		}
+		check(outputs != nullptr, "destination editor offers the independent horizontal canvas");
+		if (!outputs)
+			continue;
+		check(outputs->count() == 3, "destination editor has three distinct canvas choices");
+		const int mainIndex = outputs->findData(QStringLiteral("dsk-horizontal"));
+		const int horizontalIndex = outputs->findData(QStringLiteral("dsk-horizontal-canvas"));
+		check(mainIndex >= 0 && horizontalIndex >= 0 && mainIndex != horizontalIndex,
+		      "legacy OBS main and new horizontal canvas are separate UI choices");
+		check(mainIndex >= 0 && outputs->itemText(mainIndex).contains(
+			locale == "ja-JP" ? QStringLiteral("OBS メイン") : QStringLiteral("OBS Main")),
+		      "OBS main label is explicit in both locales");
+		for (const auto group : {dsk::EncoderGroup::DskHorizontal, dsk::EncoderGroup::DskHorizontalCanvas,
+					 dsk::EncoderGroup::DskVertical}) {
+			outputs->setCurrentIndex(outputs->findData(dsk::encoderGroupToString(group)));
+			dsk::OutputTarget accepted;
+			dialog.fillTarget(accepted);
+			check(accepted.encoderGroup == group, "canvas choice round trips through the destination editor");
+		}
+	}
+	qputenv("DSK_UI_TEST_LOCALE", QByteArrayLiteral("en-US"));
 }
 
 bool dialogHasLabel(const dsk::TargetEditDialog &dialog, const QString &text)
@@ -1095,6 +1180,8 @@ int main(int argc, char **argv)
 		std::cerr << "DONE: " << name << '\n';
 	};
 	run("target add defaults", testTargetEditDialogAddDefaults);
+	run("canvas toolbar actual geometry", testCanvasToolbarActualWidgetGeometry);
+	run("independent canvas output selection", testIndependentCanvasOutputSelection);
 	run("target localization and advanced settings", testTargetEditDialogLocalizationAndAdvancedSettings);
 	run("clear vertical preview selection", testListSelectionCanBeClearedForPreviewBackgroundClick);
 	run("scene routing hidden by default", testSceneRoutingControlsAreHiddenByDefault);

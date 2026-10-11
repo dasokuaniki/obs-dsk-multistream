@@ -92,6 +92,7 @@ E2eAutoRunner::~E2eAutoRunner()
 	stopRuntimeTarget(&secondTargetId_);
 	stopRuntimeTarget(&targetId_);
 	restoreVerticalLayout();
+	restoreHorizontalLayout();
 	removeE2eSource();
 }
 
@@ -161,6 +162,12 @@ void E2eAutoRunner::start()
 		finish(false);
 		return;
 	}
+	const bool needsHorizontalLayout = primaryTarget.encoderGroup == EncoderGroup::DskHorizontalCanvas ||
+		(secondTargetEnabled_ && secondaryTarget.encoderGroup == EncoderGroup::DskHorizontalCanvas);
+	if (needsHorizontalLayout && !prepareHorizontalLayout()) {
+		finish(false);
+		return;
+	}
 
 	if (!startRuntimeTarget(primaryTarget, &targetId_)) {
 		finish(false);
@@ -200,6 +207,12 @@ void E2eAutoRunner::startRouteMode()
 	const bool needsVerticalLayout = target_.encoderGroup == EncoderGroup::DskVertical ||
 					 (secondTargetEnabled_ && secondTarget_.encoderGroup == EncoderGroup::DskVertical);
 	if (needsVerticalLayout && !prepareVerticalLayout()) {
+		finish(false);
+		return;
+	}
+	const bool needsHorizontalLayout = target_.encoderGroup == EncoderGroup::DskHorizontalCanvas ||
+		(secondTargetEnabled_ && secondTarget_.encoderGroup == EncoderGroup::DskHorizontalCanvas);
+	if (needsHorizontalLayout && !prepareHorizontalLayout()) {
 		finish(false);
 		return;
 	}
@@ -246,6 +259,7 @@ void E2eAutoRunner::stopRouteMode()
 	stopRuntimeTarget(&secondTargetId_);
 	stopRuntimeTarget(&targetId_);
 	restoreVerticalLayout();
+	restoreHorizontalLayout();
 	removeE2eSource();
 	finish(true);
 }
@@ -260,6 +274,7 @@ void E2eAutoRunner::stop()
 	stopRuntimeTarget(&secondTargetId_);
 	stopRuntimeTarget(&targetId_);
 	restoreVerticalLayout();
+	restoreHorizontalLayout();
 	removeE2eSource();
 	finish(true);
 }
@@ -269,6 +284,7 @@ void E2eAutoRunner::finish(bool success)
 	stopRuntimeTarget(&secondTargetId_);
 	stopRuntimeTarget(&targetId_);
 	restoreVerticalLayout();
+	restoreHorizontalLayout();
 	removeE2eSource();
 
 	logInfo(success ? QStringLiteral("E2E auto-run complete.") : QStringLiteral("E2E auto-run failed."));
@@ -364,6 +380,43 @@ void E2eAutoRunner::restoreVerticalLayout()
 	manager_->layouts().setVerticalLayout(previousVerticalLayout_);
 	verticalLayoutOverridden_ = false;
 	logInfo("E2E vertical layout restored.");
+}
+
+bool E2eAutoRunner::prepareHorizontalLayout()
+{
+	if (!manager_)
+		return false;
+	const QString sourceName = QStringLiteral("DSK E2E Independent Horizontal Source ") + newTargetId();
+	obs_data_t *settings = obs_data_create();
+	obs_data_set_int(settings, "color", 0xFFFF8C2D);
+	obs_data_set_int(settings, "width", 1920);
+	obs_data_set_int(settings, "height", 1080);
+	horizontalE2eSource_ = obs_source_create("color_source", sourceName.toUtf8().constData(), settings, nullptr);
+	obs_data_release(settings);
+	if (!horizontalE2eSource_)
+		return false;
+	const QString actualSourceName = QString::fromUtf8(obs_source_get_name(horizontalE2eSource_));
+	const auto group = EncoderGroup::DskHorizontalCanvas;
+	previousHorizontalLayout_ = manager_->layouts(group).verticalLayout();
+	VerticalLayout layout{1920, 1080, QStringLiteral("e2e-horizontal"), {}};
+	layout.items.push_back({newTargetId(), actualSourceName, QRectF(0, 0, 1920, 1080), {}, FitMode::Stretch, true});
+	manager_->layouts(group).setVerticalLayout(layout);
+	horizontalLayoutOverridden_ = true;
+	logInfo(QStringLiteral("E2E independent horizontal layout prepared: 1920x1080."));
+	return true;
+}
+
+void E2eAutoRunner::restoreHorizontalLayout()
+{
+	if (manager_ && horizontalLayoutOverridden_) {
+		manager_->layouts(EncoderGroup::DskHorizontalCanvas).setVerticalLayout(previousHorizontalLayout_);
+		horizontalLayoutOverridden_ = false;
+	}
+	if (horizontalE2eSource_) {
+		obs_source_remove(horizontalE2eSource_);
+		obs_source_release(horizontalE2eSource_);
+		horizontalE2eSource_ = nullptr;
+	}
 }
 
 void E2eAutoRunner::removeE2eSource()

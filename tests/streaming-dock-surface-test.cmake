@@ -53,6 +53,13 @@ if(NOT controls_cpp MATCHES "setFixedSize\\(42, 30\\)" OR
    controls_cpp MATCHES "setMinimumSize\\(164, 84\\)")
   message(FATAL_ERROR "Per-stream action controls must use the compact icon-button footprint")
 endif()
+if(NOT controls_cpp MATCHES "name->setMinimumWidth\\(0\\)" OR
+   NOT controls_cpp MATCHES "details->setSizePolicy\\(QSizePolicy::Ignored" OR
+   NOT controls_cpp MATCHES "statusLine->setSizePolicy\\(QSizePolicy::Ignored" OR
+   NOT controls_cpp MATCHES "actionBar->setFixedWidth\\(80\\)" OR
+   NOT controls_cpp MATCHES "actionBar->setSizePolicy\\(QSizePolicy::Fixed")
+  message(FATAL_ERROR "Narrow docks must reserve the action controls while allowing status text to shrink")
+endif()
 if(controls_cpp MATCHES "dskTargetOverflow" OR controls_hpp MATCHES "QToolButton \\*menu")
   message(FATAL_ERROR "The new card design must consolidate actions into the chevron menu")
 endif()

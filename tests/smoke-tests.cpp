@@ -108,6 +108,8 @@ void testOutputTargetHelpers()
 	      "archive rotation YouTube broadcast mode string");
 	check(youtubeBroadcastModeFromString("archive-rotation") == YouTubeBroadcastMode::ArchiveRotation,
 	      "archive rotation YouTube broadcast mode parse");
+	check(youtubeBroadcastModeDisplayName(YouTubeBroadcastMode::ArchiveRotation) == "Archive rotation",
+	      "archive rotation display name stays compact for narrow OBS docks");
 	check(youtubeBroadcastModeFromString("unknown") == YouTubeBroadcastMode::Normal,
 	      "unknown YouTube broadcast mode defaults normal");
 
@@ -988,7 +990,7 @@ void testYouTubeApiWarningHelpers()
 	check(targetHasLiveYouTubeApiWarning(youtube), "archive rotation failure is a live YouTube warning");
 	check(userFacingYouTubeApiWarningText(youtube.lastError).contains("remains live"),
 	      "archive rotation warning confirms that the current frame is safe");
-	check(liveYouTubeApiWarningRowText(youtube.lastError) == "YouTube Live - archive split retrying",
+	check(liveYouTubeApiWarningRowText(youtube.lastError) == "YouTube Live - retrying",
 	      "archive rotation warning keeps the live state visible");
 
 	OutputTarget twitch = youtube;

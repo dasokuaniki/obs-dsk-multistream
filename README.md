@@ -2,14 +2,15 @@
 
 DSK Multistream is an OBS Studio plugin for sending one OBS session to Twitch, YouTube, Kick, and Manual RTMP destinations.
 
-This repository targets the current OBS 32.x plugin stack on Windows x64. It provides native OBS docks, profile-based target settings, independent horizontal and vertical output groups, and a built-in vertical layout editor.
+This repository targets the OBS 32.x plugin stack on Windows x64. It provides native OBS docks, profile-based target settings, and independent horizontal and vertical canvas editors. The working tree contains the 0.5.0 Beta candidate; publication is subject to the release checks below.
 
 ## Scope
 
 - Start OBS plus all selected targets / stop all outputs.
 - Start / stop each target independently.
-- Shared or dedicated encoders within the DSK Horizontal and DSK Vertical groups.
-- A 9:16 vertical canvas with mouse editing, snapping, source ordering, and persistent layouts.
+- OBS Main, DSK Horizontal (1920×1080), and DSK Vertical (1080×1920) are distinct output choices.
+- Shared or dedicated encoders within each canvas group. Video encoders are not shared across different canvases; audio uses the existing OBS mix.
+- Horizontal and vertical canvases with mouse editing, snapping, source ordering, and independent saved layouts and OBS scene links.
 - One-click Twitch and Kick publisher login with automatic stream-key retrieval, publisher-configured YouTube OAuth, and manual RTMP targets.
 - Manual RTMP also supports domestic services such as TwitCasting and OPENREC when the service has issued an RTMP URL and stream key for the account.
 - Stream keys and OAuth secrets stored in Windows Credential Manager; JSON settings contain references only.
@@ -19,9 +20,17 @@ This repository targets the current OBS 32.x plugin stack on Windows x64. It pro
 
 - OBS main streaming remains controlled by OBS; the Stream Controls dock mirrors the detected service icon and invokes OBS' normal start/stop action.
 - `DSK Horizontal`: independent output with selectable shared or dedicated hardware/software encoders.
-- `DSK Vertical`: private 1080x1920 scene/canvas output with its own encoder group.
+- `DSK Vertical`: 1080x1920 scene/canvas output with its own encoder group; its existing persistent OBS canvas is retained.
 - Individual target starts work even when the target is excluded from `Start All`.
 - Scene Routing remains an experimental implementation and is hidden from the beta UI by default. Internal testing can enable it before starting OBS with `DSK_EXPERIMENTAL_SCENE_ROUTING=1`.
+
+## Separate scenes for different destinations
+
+Open **Docks > DSK Horizontal** or **Docks > DSK Vertical**, then create a scene and add existing OBS sources with the `+` controls. In a destination's Edit dialog, select the matching DSK canvas and a DSK video encoder. Selecting **OBS Main** instead sends the normal OBS program composition.
+
+The canvas preview shows the composition before encoding, not confirmation that a remote platform received it. OBS Link is off initially; enable it only when the DSK scene should follow an explicitly linked OBS scene. Horizontal and vertical Setup visibility and links are independent.
+
+Version 0.5.0 writes settings schema 2 and reads schema 1 or 2. Before updating, preserve a separate copy of each OBS profile's `dsk-multistream.json`. To return to 0.4.1, close OBS and restore that pre-update copy as well as the old plugin. Do not change only the schema number or canvas identifier. See the [horizontal output test plan](docs/horizontal-output-test-plan.md).
 
 ## Twitch Login
 
@@ -78,9 +87,9 @@ DSK Multistream has no analytics or advertising. Network requests occur only for
 ## Code signing policy
 
 Release builds are produced from reviewed source and must have valid Authenticode
-signatures on both the plugin DLL and Windows installer before public download.
-The current unsigned candidate is withheld while a publicly trusted signing
-identity is arranged. See the [code signing policy](docs/code-signing-policy.md).
+signatures and trusted timestamps on the plugin DLL, generated uninstaller, and
+Windows installer before public download. The unsigned development candidate is
+not the public signed artifact. See the [code signing policy](docs/code-signing-policy.md).
 
 ## Support the project
 

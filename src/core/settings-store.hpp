@@ -15,6 +15,11 @@ struct PluginSettings {
 	QString activeVerticalSceneId;
 	bool followObsScene = false;
 	QVector<SceneLayoutLink> sceneLinks;
+	VerticalLayout horizontalLayout{1920, 1080, "full-screen", {}};
+	QVector<VerticalLayoutScene> horizontalScenes;
+	QString activeHorizontalSceneId;
+	bool horizontalFollowObsScene = false;
+	QVector<SceneLayoutLink> horizontalSceneLinks;
 };
 
 class SettingsStore {
@@ -22,13 +27,6 @@ public:
 	explicit SettingsStore(QString pathOverride = {});
 	PluginSettings load();
 	bool save(const PluginSettings &settings, QString *errorMessage = nullptr) const;
-	bool save(const QVector<OutputTarget> &targets,
-		  const VerticalLayout &verticalLayout,
-		  const QVector<VerticalLayoutScene> &verticalScenes,
-		  const QString &activeVerticalSceneId,
-		  bool followObsScene,
-		  const QVector<SceneLayoutLink> &sceneLinks,
-		  QString *errorMessage = nullptr) const;
 	QString settingsPath() const;
 	QString lastLoadWarning() const;
 	bool saveBlocked() const;

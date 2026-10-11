@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.28...3.30)
 
-project(obs-dsk-multistream VERSION 0.4.1 LANGUAGES CXX)
+project(obs-dsk-multistream VERSION 0.5.0 LANGUAGES CXX)
 
 # CMake 4.2 can mojibake the UTF-8 /showIncludes prefix from Japanese MSVC,
 # leaving Ninja with no header dependencies and stale incremental objects.
@@ -314,6 +314,28 @@ if(DSK_BUILD_TESTS)
   )
   dsk_configure_test_runtime(dsk-smoke-tests Qt6::Core)
 
+  add_executable(dsk-additional-layout-tests
+    tests/additional-layout-tests.cpp
+    src/core/encoder-profile-manager.cpp
+    src/core/layout-manager.cpp
+    src/core/output-target.cpp
+    src/core/settings-codec.cpp)
+  target_include_directories(dsk-additional-layout-tests PRIVATE src)
+  target_link_libraries(dsk-additional-layout-tests PRIVATE Qt6::Core)
+  add_test(NAME dsk-additional-layout-tests COMMAND dsk-additional-layout-tests)
+  set_tests_properties(dsk-additional-layout-tests PROPERTIES LABELS "unit;layout;no-obs")
+  dsk_configure_test_runtime(dsk-additional-layout-tests Qt6::Core)
+  add_test(NAME dsk-additional-output-contract-test COMMAND "${CMAKE_COMMAND}"
+    "-DSOURCE_ROOT=${CMAKE_CURRENT_SOURCE_DIR}"
+    -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/additional-output-contract-test.cmake")
+  set_tests_properties(dsk-additional-output-contract-test PROPERTIES LABELS "contract;layout;no-obs")
+  if(WIN32)
+    find_program(DSK_POWERSHELL_EXECUTABLE NAMES pwsh.exe powershell.exe REQUIRED)
+    add_test(NAME dsk-obs-e2e-isolation-tests COMMAND "${DSK_POWERSHELL_EXECUTABLE}"
+      -NoProfile -ExecutionPolicy Bypass -File "${CMAKE_CURRENT_SOURCE_DIR}/tests/obs-e2e-isolation-tests.ps1")
+    set_tests_properties(dsk-obs-e2e-isolation-tests PROPERTIES LABELS "unit;harness;no-obs")
+  endif()
+
   add_executable(
     dsk-youtube-archive-rotation-simulation-tests
     tests/youtube-archive-rotation-simulation-tests.cpp
@@ -559,6 +581,17 @@ if(DSK_BUILD_TESTS)
       LABELS "unit;ui;no-obs"
   )
   dsk_configure_test_runtime(dsk-ui-smoke-tests Qt6::Widgets)
+
+  add_executable(dsk-dock-state-restore-tests tests/dock-state-restore-tests.cpp)
+  target_include_directories(dsk-dock-state-restore-tests PRIVATE src)
+  target_link_libraries(dsk-dock-state-restore-tests PRIVATE Qt6::Widgets)
+  add_test(NAME dsk-dock-state-restore-tests COMMAND dsk-dock-state-restore-tests)
+  set_tests_properties(dsk-dock-state-restore-tests PROPERTIES LABELS "unit;ui;lifecycle;no-obs")
+  dsk_configure_test_runtime(dsk-dock-state-restore-tests Qt6::Widgets)
+  add_test(NAME dsk-dock-shell-startup-test COMMAND "${CMAKE_COMMAND}"
+    "-DSOURCE_ROOT=${CMAKE_CURRENT_SOURCE_DIR}"
+    -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/dock-shell-startup-test.cmake")
+  set_tests_properties(dsk-dock-shell-startup-test PROPERTIES LABELS "contract;ui;lifecycle;no-obs")
 
   add_executable(
     dsk-http-client-tests

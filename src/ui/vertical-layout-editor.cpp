@@ -7,7 +7,7 @@
 #include "ui/layout-widget-utils.hpp"
 #include "ui/vertical-source-icon-loader.hpp"
 #include "ui/vertical-layout-metrics.hpp"
-#include "ui/vertical-toolbar-layout.hpp"
+#include "ui/vertical-toolbar-widget.hpp"
 
 #include <obs-frontend-api.h>
 #include <obs.h>
@@ -64,12 +64,19 @@ namespace dsk {
 namespace {
 
 #ifdef DSK_INCLUDE_E2E_HOOKS
-std::atomic<std::uint64_t> previewCallbackCount{0};
-std::atomic<std::uint64_t> previewRenderedSnapshotCount{0};
-std::atomic<std::uint64_t> previewRenderedGenerationCount{0};
-std::atomic<std::uint64_t> previewLastRenderedGeneration{0};
-std::atomic<std::uint32_t> previewSceneWidth{0};
-std::atomic<std::uint32_t> previewSceneHeight{0};
+struct PreviewCounters {
+	std::atomic<std::uint64_t> callbackCount{0};
+	std::atomic<std::uint64_t> renderedSnapshotCount{0};
+	std::atomic<std::uint64_t> renderedGenerationCount{0};
+	std::atomic<std::uint64_t> lastRenderedGeneration{0};
+	std::atomic<std::uint32_t> sceneWidth{0};
+	std::atomic<std::uint32_t> sceneHeight{0};
+};
+PreviewCounters previewCounters[2];
+PreviewCounters &countersFor(EncoderGroup group)
+{
+	return previewCounters[group == EncoderGroup::DskHorizontalCanvas ? 1 : 0];
+}
 #endif
 
 QString itemLabel(const VerticalLayoutItem &item, int index)
@@ -95,87 +102,6 @@ bool sceneLinkMatches(const SceneLayoutLink &link, const QString &sceneName, con
 	return link.sceneName.trimmed() == sceneName.trimmed();
 }
 
-class VerticalToolbarWidget final : public QWidget {
-public:
-	VerticalToolbarWidget(QLabel *status, QCheckBox *snapping, QToolButton *setup,
-			      QToolButton *transform, QToolButton *obsLinks, QWidget *parent)
-		: QWidget(parent),
-		  status_(status),
-		  snapping_(snapping),
-		  setup_(setup),
-		  transform_(transform),
-		  obsLinks_(obsLinks),
-		  layout_(new QGridLayout(this))
-	{
-		layout_->setContentsMargins(0, 0, 0, 0);
-		layout_->setHorizontalSpacing(VerticalToolbarMaximumSpacing);
-		layout_->setVerticalSpacing(2);
-		setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
-		applyMode(verticalToolbarUsesCompactMode(width()));
-	}
-
-	QSize minimumSizeHint() const override
-	{
-		return QSize(VerticalPreviewMinimumWidth, layout_->minimumSize().height());
-	}
-
-protected:
-	void resizeEvent(QResizeEvent *event) override
-	{
-		QWidget::resizeEvent(event);
-		applyMode(verticalToolbarUsesCompactMode(event->size().width()));
-	}
-
-private:
-	void applyMode(bool compact)
-	{
-		if (initialized_ && compact_ == compact)
-			return;
-		initialized_ = true;
-		compact_ = compact;
-		for (QWidget *widget : {static_cast<QWidget *>(status_), static_cast<QWidget *>(snapping_),
-					static_cast<QWidget *>(setup_), static_cast<QWidget *>(transform_),
-					static_cast<QWidget *>(obsLinks_)}) {
-			layout_->removeWidget(widget);
-		}
-		if (compact_) {
-			snapping_->setText(QString());
-			for (QToolButton *button : {setup_, transform_, obsLinks_})
-				button->setToolButtonStyle(Qt::ToolButtonIconOnly);
-			layout_->addWidget(status_, 0, 0, 1, 2);
-			layout_->addWidget(snapping_, 1, 0);
-			layout_->addWidget(setup_, 1, 1);
-			layout_->addWidget(transform_, 2, 0);
-			layout_->addWidget(obsLinks_, 2, 1);
-			layout_->setColumnStretch(0, 1);
-			layout_->setColumnStretch(1, 1);
-		} else {
-			snapping_->setText(QStringLiteral("Snap"));
-			for (QToolButton *button : {setup_, transform_, obsLinks_})
-				button->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
-			layout_->addWidget(status_, 0, 0);
-			layout_->addWidget(snapping_, 0, 1);
-			layout_->addWidget(setup_, 0, 2);
-			layout_->addWidget(transform_, 0, 3);
-			layout_->addWidget(obsLinks_, 0, 4);
-			layout_->setColumnStretch(0, 1);
-			for (int column = 1; column <= 4; ++column)
-				layout_->setColumnStretch(column, 0);
-		}
-		layout_->invalidate();
-		updateGeometry();
-	}
-
-	QLabel *status_ = nullptr;
-	QCheckBox *snapping_ = nullptr;
-	QToolButton *setup_ = nullptr;
-	QToolButton *transform_ = nullptr;
-	QToolButton *obsLinks_ = nullptr;
-	QGridLayout *layout_ = nullptr;
-	bool initialized_ = false;
-	bool compact_ = false;
-};
-
 constexpr int SceneLinkNameRole = Qt::UserRole;
 constexpr int SceneLinkUuidRole = Qt::UserRole + 1;
 constexpr int SceneLinkVerticalSceneIdRole = Qt::UserRole + 2;
@@ -195,21 +121,23 @@ QVector<QString> listStableIds(const QListWidget *list)
 	return ids;
 }
 
-bool verticalSetupVisiblePreference()
+bool verticalSetupVisiblePreference(EncoderGroup group)
 {
 	config_t *config = obs_frontend_get_profile_config();
 	if (!config)
 		return true;
-	config_set_default_bool(config, VerticalUiConfigSection, SetupVisibleConfigKey, true);
-	return config_get_bool(config, VerticalUiConfigSection, SetupVisibleConfigKey);
+	const char *section = group == EncoderGroup::DskHorizontalCanvas ? "DSKHorizontalLayout" : VerticalUiConfigSection;
+	config_set_default_bool(config, section, SetupVisibleConfigKey, true);
+	return config_get_bool(config, section, SetupVisibleConfigKey);
 }
 
-void saveVerticalSetupVisiblePreference(bool visible)
+void saveVerticalSetupVisiblePreference(bool visible, EncoderGroup group)
 {
 	config_t *config = obs_frontend_get_profile_config();
 	if (!config)
 		return;
-	config_set_bool(config, VerticalUiConfigSection, SetupVisibleConfigKey, visible);
+	const char *section = group == EncoderGroup::DskHorizontalCanvas ? "DSKHorizontalLayout" : VerticalUiConfigSection;
+	config_set_bool(config, section, SetupVisibleConfigKey, visible);
 	config_save_safe(config, "tmp", "bak");
 }
 
@@ -289,32 +217,36 @@ void drawHandle(float x, float y, float size, const QColor &color)
 } // namespace
 
 #ifdef DSK_INCLUDE_E2E_HOOKS
-VerticalPreviewDiagnostics verticalPreviewDiagnostics()
+VerticalPreviewDiagnostics verticalPreviewDiagnostics(EncoderGroup group)
 {
+	const auto &counters = countersFor(group);
 	return {
-		previewCallbackCount.load(std::memory_order_relaxed),
-		previewRenderedSnapshotCount.load(std::memory_order_relaxed),
-		previewRenderedGenerationCount.load(std::memory_order_relaxed),
-		previewSceneWidth.load(std::memory_order_relaxed),
-		previewSceneHeight.load(std::memory_order_relaxed),
+		counters.callbackCount.load(std::memory_order_relaxed),
+		counters.renderedSnapshotCount.load(std::memory_order_relaxed),
+		counters.renderedGenerationCount.load(std::memory_order_relaxed),
+		counters.sceneWidth.load(std::memory_order_relaxed),
+		counters.sceneHeight.load(std::memory_order_relaxed),
 	};
 }
 
-void resetVerticalPreviewDiagnostics()
+void resetVerticalPreviewDiagnostics(EncoderGroup group)
 {
-	previewCallbackCount.store(0, std::memory_order_relaxed);
-	previewRenderedSnapshotCount.store(0, std::memory_order_relaxed);
-	previewRenderedGenerationCount.store(0, std::memory_order_relaxed);
-	previewLastRenderedGeneration.store(0, std::memory_order_relaxed);
-	previewSceneWidth.store(0, std::memory_order_relaxed);
-	previewSceneHeight.store(0, std::memory_order_relaxed);
+	auto &counters = countersFor(group);
+	counters.callbackCount.store(0, std::memory_order_relaxed);
+	counters.renderedSnapshotCount.store(0, std::memory_order_relaxed);
+	counters.renderedGenerationCount.store(0, std::memory_order_relaxed);
+	counters.lastRenderedGeneration.store(0, std::memory_order_relaxed);
+	counters.sceneWidth.store(0, std::memory_order_relaxed);
+	counters.sceneHeight.store(0, std::memory_order_relaxed);
 }
 #endif
 
 class VerticalRenderWidget : public QWidget {
 public:
-	explicit VerticalRenderWidget(QWidget *parent = nullptr)
-		: QWidget(parent), sceneBuilder_(QStringLiteral("DSK Vertical Preview"))
+	explicit VerticalRenderWidget(QWidget *parent = nullptr, EncoderGroup group = EncoderGroup::DskVertical)
+		: QWidget(parent), sceneBuilder_(group == EncoderGroup::DskHorizontalCanvas ? QStringLiteral("DSK Horizontal Preview")
+									 : QStringLiteral("DSK Vertical Preview")),
+		  horizontal_(group == EncoderGroup::DskHorizontalCanvas)
 	{
 		setAttribute(Qt::WA_PaintOnScreen);
 		setAttribute(Qt::WA_StaticContents);
@@ -494,12 +426,13 @@ private:
 
 	static void drawPreview(void *param, uint32_t cx, uint32_t cy)
 	{
-#ifdef DSK_INCLUDE_E2E_HOOKS
-		previewCallbackCount.fetch_add(1, std::memory_order_relaxed);
-#endif
 		auto *self = static_cast<VerticalRenderWidget *>(param);
 		if (!self || cx == 0 || cy == 0)
 			return;
+#ifdef DSK_INCLUDE_E2E_HOOKS
+		auto &counters = countersFor(self->horizontal_ ? EncoderGroup::DskHorizontalCanvas : EncoderGroup::DskVertical);
+		counters.callbackCount.fetch_add(1, std::memory_order_relaxed);
+#endif
 
 		RenderSnapshot snapshot;
 		if (!self->tryTakeRenderSnapshot(snapshot))
@@ -522,11 +455,11 @@ private:
 		gs_set_viewport(viewportX, viewportY, viewportWidth, viewportHeight);
 		obs_source_video_render(snapshot.sceneSource);
 #ifdef DSK_INCLUDE_E2E_HOOKS
-		previewRenderedSnapshotCount.fetch_add(1, std::memory_order_relaxed);
+		counters.renderedSnapshotCount.fetch_add(1, std::memory_order_relaxed);
 		const std::uint64_t previousGeneration =
-			previewLastRenderedGeneration.exchange(snapshot.layoutGeneration, std::memory_order_relaxed);
+			counters.lastRenderedGeneration.exchange(snapshot.layoutGeneration, std::memory_order_relaxed);
 		if (previousGeneration != snapshot.layoutGeneration)
-			previewRenderedGenerationCount.fetch_add(1, std::memory_order_relaxed);
+			counters.renderedGenerationCount.fetch_add(1, std::memory_order_relaxed);
 #endif
 		self->drawOverlay(snapshot, float(scale));
 		gs_set_linear_srgb(previous);
@@ -700,6 +633,9 @@ private:
 
 	void rebuildSceneIfVisible()
 	{
+#ifdef DSK_INCLUDE_E2E_HOOKS
+		auto &counters = countersFor(horizontal_ ? EncoderGroup::DskHorizontalCanvas : EncoderGroup::DskVertical);
+#endif
 		VerticalLayout layout;
 		{
 			QMutexLocker<QRecursiveMutex> locker(&renderStateMutex_);
@@ -714,8 +650,8 @@ private:
 		obs_video_info previewInfo = {};
 		if (layout.width <= 0 || layout.height <= 0 || !obs_get_video_info(&previewInfo)) {
 #ifdef DSK_INCLUDE_E2E_HOOKS
-			previewSceneWidth.store(0, std::memory_order_relaxed);
-			previewSceneHeight.store(0, std::memory_order_relaxed);
+			counters.sceneWidth.store(0, std::memory_order_relaxed);
+			counters.sceneHeight.store(0, std::memory_order_relaxed);
 #endif
 			return;
 		}
@@ -740,13 +676,13 @@ private:
 		if (!previewCanvas_) {
 			constexpr uint32_t previewFlags = ACTIVATE | SCENE_REF | EPHEMERAL;
 			previewCanvas_ =
-				obs_canvas_create_private("DSK Vertical Preview Canvas", &previewInfo, previewFlags);
+				obs_canvas_create_private(horizontal_ ? "DSK Horizontal Preview Canvas" : "DSK Vertical Preview Canvas", &previewInfo, previewFlags);
 		}
 		previewCanvas = previewCanvas_;
 		if (!previewCanvas) {
 #ifdef DSK_INCLUDE_E2E_HOOKS
-			previewSceneWidth.store(0, std::memory_order_relaxed);
-			previewSceneHeight.store(0, std::memory_order_relaxed);
+			counters.sceneWidth.store(0, std::memory_order_relaxed);
+			counters.sceneHeight.store(0, std::memory_order_relaxed);
 #endif
 			return;
 		}
@@ -754,8 +690,8 @@ private:
 		obs_source_t *rebuiltSource = sceneBuilder_.rebuild(layout, previewCanvas, &errorMessage);
 		setSceneSource(rebuiltSource);
 #ifdef DSK_INCLUDE_E2E_HOOKS
-		previewSceneWidth.store(rebuiltSource ? obs_source_get_width(rebuiltSource) : 0, std::memory_order_relaxed);
-		previewSceneHeight.store(rebuiltSource ? obs_source_get_height(rebuiltSource) : 0, std::memory_order_relaxed);
+		counters.sceneWidth.store(rebuiltSource ? obs_source_get_width(rebuiltSource) : 0, std::memory_order_relaxed);
+		counters.sceneHeight.store(rebuiltSource ? obs_source_get_height(rebuiltSource) : 0, std::memory_order_relaxed);
 #endif
 		QMutexLocker<QRecursiveMutex> locker(&renderStateMutex_);
 		sceneDirty_ = rebuiltSource == nullptr;
@@ -798,6 +734,7 @@ private:
 	bool drawCallbackAdded_ = false;
 	bool sceneSourceShowing_ = false;
 	bool sceneDirty_ = true;
+	bool horizontal_ = false;
 #ifdef DSK_INCLUDE_E2E_HOOKS
 	std::uint64_t layoutGeneration_ = 0;
 #endif
@@ -806,12 +743,15 @@ private:
 
 class VerticalPreviewWidget : public QWidget {
 public:
-	explicit VerticalPreviewWidget(QWidget *parent = nullptr) : QWidget(parent)
+	explicit VerticalPreviewWidget(QWidget *parent = nullptr, EncoderGroup group = EncoderGroup::DskVertical) : QWidget(parent)
 	{
-		setMinimumSize(VerticalPreviewMinimumWidth, VerticalPreviewMinimumHeight);
+		if (group == EncoderGroup::DskHorizontalCanvas)
+			setMinimumSize(VerticalPreviewMinimumHeight, VerticalPreviewMinimumWidth);
+		else
+			setMinimumSize(VerticalPreviewMinimumWidth, VerticalPreviewMinimumHeight);
 		setMouseTracking(true);
 		setFocusPolicy(Qt::StrongFocus);
-		render_ = new VerticalRenderWidget(this);
+		render_ = new VerticalRenderWidget(this, group);
 	}
 
 	void prepareForUnload()
@@ -1325,9 +1265,18 @@ private:
 	std::function<void(int, const QRectF &, bool)> rectChanged_;
 };
 
-VerticalLayoutEditor::VerticalLayoutEditor(OutputManager *manager, QWidget *parent)
+QString VerticalLayoutEditor::directionText(QString text) const
+{
+	if (outputGroup_ == EncoderGroup::DskHorizontalCanvas) {
+		text.replace(QStringLiteral("Vertical"), QStringLiteral("Horizontal"));
+		text.replace(QStringLiteral("vertical"), QStringLiteral("horizontal"));
+	}
+	return text;
+}
+
+VerticalLayoutEditor::VerticalLayoutEditor(OutputManager *manager, QWidget *parent, EncoderGroup group)
 	: QWidget(parent),
-	  manager_(manager)
+	  manager_(manager), outputGroup_(group)
 {
 	auto *root = new QVBoxLayout(this);
 	root->setContentsMargins(4, 4, 4, 4);
@@ -1336,7 +1285,10 @@ VerticalLayoutEditor::VerticalLayoutEditor(OutputManager *manager, QWidget *pare
 	saveTimer_->setSingleShot(true);
 	saveTimer_->setInterval(250);
 	connect(saveTimer_, &QTimer::timeout, this, [this]() { saveNow(); });
-	connect(manager_, &OutputManager::verticalLayoutChanged, this, &VerticalLayoutEditor::refreshItems);
+	if (outputGroup_ == EncoderGroup::DskHorizontalCanvas)
+		connect(manager_, &OutputManager::horizontalLayoutChanged, this, &VerticalLayoutEditor::refreshItems);
+	else
+		connect(manager_, &OutputManager::verticalLayoutChanged, this, &VerticalLayoutEditor::refreshItems);
 
 	const auto makeTextToolButton = [this](const QString &text, const QString &toolTip) {
 		auto *button = new QToolButton(this);
@@ -1359,7 +1311,7 @@ VerticalLayoutEditor::VerticalLayoutEditor(OutputManager *manager, QWidget *pare
 	};
 
 	activeSceneStatus_ = new QLabel(this);
-	activeSceneStatus_->setObjectName(QStringLiteral("dskVerticalProgramLabel"));
+	activeSceneStatus_->setObjectName(directionText(QStringLiteral("dskVerticalProgramLabel")));
 	activeSceneStatus_->setStyleSheet(QStringLiteral("QLabel { font-weight: 700; padding: 2px 4px; }"));
 	// The program label must not define the dock's minimum width. At compact
 	// widths Qt clips the text while leaving Snap and Setup usable.
@@ -1371,20 +1323,20 @@ VerticalLayoutEditor::VerticalLayoutEditor(OutputManager *manager, QWidget *pare
 	snapping_->setToolTip("Snap source edges and centers. Hold Alt while dragging to bypass.");
 
 	setupToggle_ = new QToolButton(this);
-	setupToggle_->setObjectName(QStringLiteral("dskVerticalSetupToggle"));
+	setupToggle_->setObjectName(directionText(QStringLiteral("dskVerticalSetupToggle")));
 	setupToggle_->setText(QStringLiteral("Setup"));
 	setupToggle_->setIcon(style()->standardIcon(QStyle::SP_FileDialogDetailedView));
 	setupToggle_->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
 	setupToggle_->setCheckable(true);
-	setupToggle_->setChecked(verticalSetupVisiblePreference());
+	setupToggle_->setChecked(verticalSetupVisiblePreference(outputGroup_));
 	setupToggle_->setAutoRaise(true);
-	setupToggle_->setToolTip(QStringLiteral("Show vertical scene and source setup."));
+	setupToggle_->setToolTip(directionText(QStringLiteral("Show vertical scene and source setup.")));
 	transformToggle_ = new QToolButton(this);
 	transformToggle_->setText(QStringLiteral("Transform"));
 	transformToggle_->setIcon(style()->standardIcon(QStyle::SP_FileDialogContentsView));
 	transformToggle_->setCheckable(true);
 	transformToggle_->setAutoRaise(true);
-	transformToggle_->setToolTip(QStringLiteral("Show transform controls for the selected vertical source."));
+	transformToggle_->setToolTip(directionText(QStringLiteral("Show transform controls for the selected vertical source.")));
 	obsLinksToggle_ = new QToolButton(this);
 	obsLinksToggle_->setText(QStringLiteral("OBS Link"));
 	obsLinksToggle_->setIcon(style()->standardIcon(QStyle::SP_BrowserReload));
@@ -1394,11 +1346,11 @@ VerticalLayoutEditor::VerticalLayoutEditor(OutputManager *manager, QWidget *pare
 
 	auto *topBar = new VerticalToolbarWidget(activeSceneStatus_, snapping_, setupToggle_, transformToggle_,
 					       obsLinksToggle_, this);
-	topBar->setObjectName(QStringLiteral("dskVerticalResponsiveToolbar"));
+	topBar->setObjectName(directionText(QStringLiteral("dskVerticalResponsiveToolbar")));
 	root->addWidget(topBar);
 
-	preview_ = new VerticalPreviewWidget(this);
-	preview_->setObjectName(QStringLiteral("dskVerticalPreview"));
+	preview_ = new VerticalPreviewWidget(this, outputGroup_);
+	preview_->setObjectName(directionText(QStringLiteral("dskVerticalPreview")));
 	connect(snapping_, &QCheckBox::toggled, preview_, &VerticalPreviewWidget::setSnappingEnabled);
 	preview_->setSelectionChanged([this](int row) {
 		if (row < 0) {
@@ -1415,7 +1367,7 @@ VerticalLayoutEditor::VerticalLayoutEditor(OutputManager *manager, QWidget *pare
 	root->addWidget(preview_, 1);
 
 	auto *transformPanel = new QWidget(this);
-	transformPanel->setObjectName(QStringLiteral("dskVerticalTransformPanel"));
+	transformPanel->setObjectName(directionText(QStringLiteral("dskVerticalTransformPanel")));
 	auto *transformLayout = new QGridLayout(transformPanel);
 	transformLayout->setContentsMargins(4, 3, 4, 3);
 	transformLayout->setHorizontalSpacing(5);
@@ -1465,7 +1417,7 @@ VerticalLayoutEditor::VerticalLayoutEditor(OutputManager *manager, QWidget *pare
 	root->addWidget(transformPanel);
 
 	auto *workspace = new QSplitter(Qt::Horizontal, this);
-	workspace->setObjectName(QStringLiteral("dskVerticalLists"));
+	workspace->setObjectName(directionText(QStringLiteral("dskVerticalLists")));
 	setupPanel_ = workspace;
 	workspace->setChildrenCollapsible(false);
 	workspace->setMinimumHeight(170);
@@ -1474,16 +1426,16 @@ VerticalLayoutEditor::VerticalLayoutEditor(OutputManager *manager, QWidget *pare
 	auto *scenesLayout = new QVBoxLayout(scenesPanel);
 	scenesLayout->setContentsMargins(0, 0, 0, 0);
 	scenesLayout->setSpacing(3);
-	auto *scenesLabel = new QLabel(QStringLiteral("Vertical Scenes"), scenesPanel);
+	auto *scenesLabel = new QLabel(directionText(QStringLiteral("Vertical Scenes")), scenesPanel);
 	scenesLabel->setStyleSheet(QStringLiteral("QLabel { font-weight: 700; padding-left: 2px; }"));
 	verticalScenes_ = new QListWidget(scenesPanel);
-	verticalScenes_->setObjectName(QStringLiteral("dskVerticalScenes"));
+	verticalScenes_->setObjectName(directionText(QStringLiteral("dskVerticalScenes")));
 	verticalScenes_->setSelectionMode(QAbstractItemView::SingleSelection);
 	verticalScenes_->setIconSize(QSize(16, 16));
 	verticalScenes_->setDragDropMode(QAbstractItemView::InternalMove);
 	verticalScenes_->setDefaultDropAction(Qt::MoveAction);
 	verticalScenes_->setDropIndicatorShown(true);
-	verticalScenes_->setAccessibleName(QStringLiteral("Vertical scenes. Drag to reorder."));
+	verticalScenes_->setAccessibleName(directionText(QStringLiteral("Vertical scenes. Drag to reorder.")));
 	verticalScenes_->setContextMenuPolicy(Qt::CustomContextMenu);
 	connect(verticalScenes_, &QListWidget::currentRowChanged, this, &VerticalLayoutEditor::selectVerticalScene);
 	connect(verticalScenes_, &QListWidget::itemDoubleClicked, this, [this](QListWidgetItem *) { renameScene(); });
@@ -1503,7 +1455,7 @@ VerticalLayoutEditor::VerticalLayoutEditor(OutputManager *manager, QWidget *pare
 				return;
 			const QVector<QString> orderedIds = listStableIds(verticalScenes_);
 			QTimer::singleShot(0, this, [this, orderedIds]() {
-				if (!manager_->reorderVerticalScenes(orderedIds))
+				if (!manager_->reorderVerticalScenes(orderedIds, outputGroup_))
 					refreshItems();
 			});
 		});
@@ -1511,10 +1463,10 @@ VerticalLayoutEditor::VerticalLayoutEditor(OutputManager *manager, QWidget *pare
 	auto *sceneTools = new QHBoxLayout();
 	sceneTools->setContentsMargins(0, 0, 0, 0);
 	sceneTools->setSpacing(1);
-	auto *newScene = makeTextToolButton("+", QStringLiteral("Create vertical scene"));
-	auto *removeSceneButton = makeTextToolButton("-", QStringLiteral("Remove vertical scene"));
-	auto *sceneUp = makeIconToolButton(QStyle::SP_ArrowUp, QStringLiteral("Move vertical scene up"));
-	auto *sceneDown = makeIconToolButton(QStyle::SP_ArrowDown, QStringLiteral("Move vertical scene down"));
+	auto *newScene = makeTextToolButton("+", directionText(QStringLiteral("Create vertical scene")));
+	auto *removeSceneButton = makeTextToolButton("-", directionText(QStringLiteral("Remove vertical scene")));
+	auto *sceneUp = makeIconToolButton(QStyle::SP_ArrowUp, directionText(QStringLiteral("Move vertical scene up")));
+	auto *sceneDown = makeIconToolButton(QStyle::SP_ArrowDown, directionText(QStringLiteral("Move vertical scene down")));
 	connect(newScene, &QToolButton::clicked, this, &VerticalLayoutEditor::createScene);
 	connect(removeSceneButton, &QToolButton::clicked, this, &VerticalLayoutEditor::removeScene);
 	connect(sceneUp, &QToolButton::clicked, this, &VerticalLayoutEditor::moveSceneUp);
@@ -1533,7 +1485,7 @@ VerticalLayoutEditor::VerticalLayoutEditor(OutputManager *manager, QWidget *pare
 	sourcesLayout->setContentsMargins(0, 0, 0, 0);
 	sourcesLayout->setSpacing(3);
 	auto *sourcesTitleRow = new QHBoxLayout();
-	auto *sourcesLabel = new QLabel(QStringLiteral("Vertical Sources"), sourcesPanel);
+	auto *sourcesLabel = new QLabel(directionText(QStringLiteral("Vertical Sources")), sourcesPanel);
 	sourcesLabel->setStyleSheet(QStringLiteral("QLabel { font-weight: 700; padding-left: 2px; }"));
 	sourcesHeader_ = new QLabel(sourcesPanel);
 	sourcesHeader_->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
@@ -1541,13 +1493,13 @@ VerticalLayoutEditor::VerticalLayoutEditor(OutputManager *manager, QWidget *pare
 	sourcesTitleRow->addWidget(sourcesLabel);
 	sourcesTitleRow->addWidget(sourcesHeader_, 1);
 	items_ = new QListWidget(sourcesPanel);
-	items_->setObjectName(QStringLiteral("dskVerticalSources"));
+	items_->setObjectName(directionText(QStringLiteral("dskVerticalSources")));
 	items_->setSelectionMode(QAbstractItemView::SingleSelection);
 	items_->setIconSize(QSize(16, 16));
 	items_->setDragDropMode(QAbstractItemView::InternalMove);
 	items_->setDefaultDropAction(Qt::MoveAction);
 	items_->setDropIndicatorShown(true);
-	items_->setAccessibleName(QStringLiteral("Vertical sources. Drag to reorder layers."));
+	items_->setAccessibleName(directionText(QStringLiteral("Vertical sources. Drag to reorder layers.")));
 	connect(items_, &QListWidget::currentRowChanged, this, &VerticalLayoutEditor::selectItem);
 	connect(items_, &QListWidget::itemChanged, this, &VerticalLayoutEditor::updateItemVisibility);
 	connect(items_, &QListWidget::itemDoubleClicked, this,
@@ -1558,7 +1510,7 @@ VerticalLayoutEditor::VerticalLayoutEditor(OutputManager *manager, QWidget *pare
 				return;
 			const QVector<QString> orderedIds = listStableIds(items_);
 			QTimer::singleShot(0, this, [this, orderedIds]() {
-				VerticalLayout layout = manager_->layouts().verticalLayout();
+				VerticalLayout layout = manager_->layouts(outputGroup_).verticalLayout();
 				QVector<VerticalLayoutItem> reordered;
 				if (!reorderValuesByStableIds(layout.items, orderedIds, &reordered)) {
 					refreshItems();
@@ -1576,8 +1528,8 @@ VerticalLayoutEditor::VerticalLayoutEditor(OutputManager *manager, QWidget *pare
 					return;
 				}
 				layout.items = std::move(reordered);
-				manager_->layouts().setVerticalLayout(layout);
-				manager_->saveVerticalLayout();
+				manager_->layouts(outputGroup_).setVerticalLayout(layout);
+				manager_->saveVerticalLayout(outputGroup_);
 			});
 		});
 
@@ -1586,7 +1538,7 @@ VerticalLayoutEditor::VerticalLayoutEditor(OutputManager *manager, QWidget *pare
 	auto *sourceTools = new QHBoxLayout();
 	sourceTools->setContentsMargins(0, 0, 0, 0);
 	sourceTools->setSpacing(1);
-	auto *addSourceButton = makeTextToolButton("+", QStringLiteral("Add OBS source to vertical scene"));
+	auto *addSourceButton = makeTextToolButton("+", directionText(QStringLiteral("Add OBS source to vertical scene")));
 	auto *sourceMenu = new QMenu(addSourceButton);
 	connect(sourceMenu, &QMenu::aboutToShow, this, [this, sourceMenu]() {
 		refreshSourceList();
@@ -1609,7 +1561,7 @@ VerticalLayoutEditor::VerticalLayoutEditor(OutputManager *manager, QWidget *pare
 	connect(addSourceButton, &QToolButton::clicked, this, [addSourceButton, sourceMenu]() {
 		sourceMenu->popup(addSourceButton->mapToGlobal(QPoint(0, addSourceButton->height())));
 	});
-	auto *removeSourceButton = makeTextToolButton("-", QStringLiteral("Remove vertical source"));
+	auto *removeSourceButton = makeTextToolButton("-", directionText(QStringLiteral("Remove vertical source")));
 	auto *sourceUp = makeIconToolButton(QStyle::SP_ArrowUp, QStringLiteral("Move source up"));
 	auto *sourceDown = makeIconToolButton(QStyle::SP_ArrowDown, QStringLiteral("Move source down"));
 	connect(removeSourceButton, &QToolButton::clicked, this, &VerticalLayoutEditor::removeItem);
@@ -1633,7 +1585,7 @@ VerticalLayoutEditor::VerticalLayoutEditor(OutputManager *manager, QWidget *pare
 
 	followScene_ = new QCheckBox("Follow OBS scene", this);
 	followScene_->setToolTip("Activate the linked DSK vertical scene when the main OBS scene changes.");
-	followScene_->setChecked(manager_->followObsScene());
+	followScene_->setChecked(manager_->followObsScene(outputGroup_));
 	connect(followScene_, &QCheckBox::checkStateChanged, this,
 		[this](Qt::CheckState state) { updateFollowScene(int(state)); });
 
@@ -1641,7 +1593,7 @@ VerticalLayoutEditor::VerticalLayoutEditor(OutputManager *manager, QWidget *pare
 	sceneLinkScene_ = new QComboBox(this);
 	sceneLinkScene_->setObjectName(QStringLiteral("dskObsLinkScene"));
 	sceneLinkTemplate_ = new QComboBox(this);
-	sceneLinkTemplate_->setObjectName(QStringLiteral("dskObsLinkVerticalScene"));
+	sceneLinkTemplate_->setObjectName(directionText(QStringLiteral("dskObsLinkVerticalScene")));
 	sceneLinkTemplate_->setToolTip("DSK vertical scene to activate when the selected OBS scene becomes active.");
 	auto *linkScene = new QPushButton("Link", this);
 	auto *unlinkScene = new QPushButton("Unlink", this);
@@ -1698,6 +1650,19 @@ void VerticalLayoutEditor::prepareForUnload()
 		preview_->prepareForUnload();
 }
 
+void VerticalLayoutEditor::showEvent(QShowEvent *event)
+{
+	QWidget::showEvent(event);
+	// Loading into an already-visible dock creates a native OBS display before
+	// the outer layout has settled. Repaint once after its final geometry is set
+	// so the initial wide/compact toolbar positions cannot remain on screen.
+	QTimer::singleShot(0, this, [this]() {
+		if (layout())
+			layout()->activate();
+		update();
+	});
+}
+
 void VerticalLayoutEditor::handleSceneCollectionChanged()
 {
 	refreshSceneList();
@@ -1719,13 +1684,13 @@ bool VerticalLayoutEditor::exerciseSourceVisibilityToggleForTest()
 		return false;
 	const int row = items_->currentRow() >= 0 ? items_->currentRow() : 0;
 	auto *item = items_->item(row);
-	const auto &layout = manager_->layouts().verticalLayout();
+	const auto &layout = manager_->layouts(outputGroup_).verticalLayout();
 	if (!item || row < 0 || row >= layout.items.size())
 		return false;
 	const bool initiallyVisible = layout.items[row].visible;
 	item->setCheckState(initiallyVisible ? Qt::Unchecked : Qt::Checked);
 	item->setCheckState(initiallyVisible ? Qt::Checked : Qt::Unchecked);
-	return manager_->layouts().verticalLayout().items[row].visible == initiallyVisible;
+	return manager_->layouts(outputGroup_).verticalLayout().items[row].visible == initiallyVisible;
 }
 
 bool VerticalLayoutEditor::exerciseSetupVisibilityToggleForTest()
@@ -1771,7 +1736,9 @@ void VerticalLayoutEditor::refreshSourceList()
 			const QString sourceName = name ? QString::fromUtf8(name) : QString();
 			if (!sourceName.isEmpty() && sourceName != QStringLiteral("DSK Vertical Layout") &&
 			    sourceName != QStringLiteral("DSK Vertical Program") &&
-			    sourceName != QStringLiteral("DSK Vertical Preview"))
+			    sourceName != QStringLiteral("DSK Vertical Preview") &&
+			    sourceName != QStringLiteral("DSK Horizontal Program") &&
+			    sourceName != QStringLiteral("DSK Horizontal Preview"))
 				combo->addItem(obsSourceTypeIcon(source), sourceName);
 			return true;
 		},
@@ -1804,13 +1771,13 @@ void VerticalLayoutEditor::createScene()
 {
 	bool accepted = false;
 	const QString requestedName =
-		QInputDialog::getText(this, QStringLiteral("New DSK Vertical Scene"), QStringLiteral("Scene name"),
-				      QLineEdit::Normal, QStringLiteral("Vertical Scene"), &accepted)
+		QInputDialog::getText(this, directionText(QStringLiteral("New DSK Vertical Scene")), QStringLiteral("Scene name"),
+				      QLineEdit::Normal, directionText(QStringLiteral("Vertical Scene")), &accepted)
 			.trimmed();
 	if (!accepted || requestedName.isEmpty())
 		return;
 
-	const QString id = manager_->createVerticalScene(requestedName);
+	const QString id = manager_->createVerticalScene(requestedName, outputGroup_);
 	if (id.isEmpty())
 		return;
 	refreshItems();
@@ -1825,7 +1792,7 @@ void VerticalLayoutEditor::createScene()
 void VerticalLayoutEditor::removeScene()
 {
 	const int row = verticalScenes_ ? verticalScenes_->currentRow() : -1;
-	if (row < 0 || manager_->layouts().verticalScenes().size() <= 1)
+	if (row < 0 || manager_->layouts(outputGroup_).verticalScenes().size() <= 1)
 		return;
 	const auto *item = verticalScenes_->item(row);
 	if (!item)
@@ -1833,12 +1800,12 @@ void VerticalLayoutEditor::removeScene()
 	const QString sceneId = item->data(Qt::UserRole).toString();
 	const QString sceneName = item->text();
 	if (QMessageBox::question(this,
-				  QStringLiteral("Remove Vertical Scene"),
+				  directionText(QStringLiteral("Remove Vertical Scene")),
 				  QStringLiteral("Remove '%1'?").arg(sceneName),
 				  QMessageBox::Yes | QMessageBox::No,
 				  QMessageBox::No) != QMessageBox::Yes)
 		return;
-	manager_->removeVerticalScene(sceneId);
+	manager_->removeVerticalScene(sceneId, outputGroup_);
 }
 
 void VerticalLayoutEditor::renameScene()
@@ -1853,14 +1820,14 @@ void VerticalLayoutEditor::renameScene()
 	const QString currentName = item->text();
 	bool accepted = false;
 	const QString name = QInputDialog::getText(this,
-						     QStringLiteral("Rename Vertical Scene"),
+						     directionText(QStringLiteral("Rename Vertical Scene")),
 						     QStringLiteral("Scene name"),
 						     QLineEdit::Normal,
 						     currentName,
 						     &accepted)
 				     .trimmed();
 	if (accepted && !name.isEmpty())
-		manager_->renameVerticalScene(sceneId, name);
+		manager_->renameVerticalScene(sceneId, name, outputGroup_);
 }
 
 void VerticalLayoutEditor::moveSceneUp()
@@ -1869,7 +1836,7 @@ void VerticalLayoutEditor::moveSceneUp()
 	if (row <= 0)
 		return;
 	const auto *item = verticalScenes_->item(row);
-	if (item && manager_->moveVerticalScene(item->data(Qt::UserRole).toString(), -1))
+	if (item && manager_->moveVerticalScene(item->data(Qt::UserRole).toString(), -1, outputGroup_))
 		verticalScenes_->setCurrentRow(row - 1);
 }
 
@@ -1879,7 +1846,7 @@ void VerticalLayoutEditor::moveSceneDown()
 	if (row < 0 || row >= verticalScenes_->count() - 1)
 		return;
 	const auto *item = verticalScenes_->item(row);
-	if (item && manager_->moveVerticalScene(item->data(Qt::UserRole).toString(), 1))
+	if (item && manager_->moveVerticalScene(item->data(Qt::UserRole).toString(), 1, outputGroup_))
 		verticalScenes_->setCurrentRow(row + 1);
 }
 
@@ -1890,9 +1857,9 @@ void VerticalLayoutEditor::selectVerticalScene(int row)
 	const auto *item = verticalScenes_->item(row);
 	if (!item)
 		return;
-	if (!manager_->layouts().selectVerticalScene(item->data(Qt::UserRole).toString()))
+	if (!manager_->layouts(outputGroup_).selectVerticalScene(item->data(Qt::UserRole).toString()))
 		return;
-	QTimer::singleShot(0, this, [this]() { manager_->saveVerticalLayout(); });
+	QTimer::singleShot(0, this, [this]() { manager_->saveVerticalLayout(outputGroup_); });
 }
 
 void VerticalLayoutEditor::addSceneLink()
@@ -1902,7 +1869,7 @@ void VerticalLayoutEditor::addSceneLink()
 	SceneLayoutLink link;
 	link.sceneName = sceneLinkScene_->currentText();
 	link.verticalSceneId = sceneLinkTemplate_->currentData().toString();
-	manager_->upsertSceneLink(link);
+	manager_->upsertSceneLink(link, outputGroup_);
 	refreshItems();
 	selectSceneLinkForObsScene(link.sceneName);
 }
@@ -1917,7 +1884,7 @@ void VerticalLayoutEditor::removeSceneLink()
 	}
 	if (sceneName.trimmed().isEmpty())
 		return;
-	manager_->removeSceneLink(sceneName, sceneUuid);
+	manager_->removeSceneLink(sceneName, sceneUuid, outputGroup_);
 	refreshItems();
 }
 
@@ -1960,14 +1927,14 @@ void VerticalLayoutEditor::selectSceneLinkForObsScene(const QString &sceneName)
 
 void VerticalLayoutEditor::updateFollowScene(int state)
 {
-	manager_->setFollowObsScene(state == Qt::Checked);
+	manager_->setFollowObsScene(state == Qt::Checked, outputGroup_);
 	updateObsLinkStatus();
 }
 
 void VerticalLayoutEditor::centerSelectedItem()
 {
 	const int index = selectedIndex();
-	const auto &layout = manager_->layouts().verticalLayout();
+	const auto &layout = manager_->layouts(outputGroup_).verticalLayout();
 	if (index < 0 || index >= layout.items.size())
 		return;
 
@@ -1979,7 +1946,7 @@ void VerticalLayoutEditor::centerSelectedItem()
 void VerticalLayoutEditor::fitSelectedItemToCanvas()
 {
 	const int index = selectedIndex();
-	VerticalLayout layout = manager_->layouts().verticalLayout();
+	VerticalLayout layout = manager_->layouts(outputGroup_).verticalLayout();
 	if (index < 0 || index >= layout.items.size())
 		return;
 
@@ -1987,7 +1954,7 @@ void VerticalLayoutEditor::fitSelectedItemToCanvas()
 	sourceSize = croppedSourceSize(layout.items[index], sourceSize);
 	layout.items[index].fitMode = FitMode::Fit;
 	layout.items[index].rect = centeredAspectFitRect(sourceSize, QSizeF(layout.width, layout.height));
-	manager_->layouts().setVerticalLayout(layout);
+	manager_->layouts(outputGroup_).setVerticalLayout(layout);
 	saveNow();
 	refreshItems();
 	items_->setCurrentRow(index);
@@ -1996,7 +1963,7 @@ void VerticalLayoutEditor::fitSelectedItemToCanvas()
 void VerticalLayoutEditor::fillSelectedItemToCanvas()
 {
 	const int index = selectedIndex();
-	VerticalLayout layout = manager_->layouts().verticalLayout();
+	VerticalLayout layout = manager_->layouts(outputGroup_).verticalLayout();
 	if (index < 0 || index >= layout.items.size())
 		return;
 
@@ -2013,7 +1980,7 @@ void VerticalLayoutEditor::fillSelectedItemToCanvas()
 	}
 	layout.items[index].fitMode = FitMode::Fill;
 	layout.items[index].rect = rect;
-	manager_->layouts().setVerticalLayout(layout);
+	manager_->layouts(outputGroup_).setVerticalLayout(layout);
 	saveNow();
 	refreshItems();
 	items_->setCurrentRow(index);
@@ -2025,15 +1992,15 @@ void VerticalLayoutEditor::addItem()
 	if (sourceName.isEmpty())
 		return;
 
-	VerticalLayout layout = manager_->layouts().verticalLayout();
+	VerticalLayout layout = manager_->layouts(outputGroup_).verticalLayout();
 	VerticalLayoutItem item;
 	item.id = newTargetId();
 	item.sourceName = sourceName;
 	item.fitMode = FitMode::Fit;
 	item.rect = centeredAspectFitRect(sourceVideoSize(sourceName), QSizeF(layout.width, layout.height));
 	layout.items.push_back(item);
-	manager_->layouts().setVerticalLayout(layout);
-	manager_->saveVerticalLayout();
+	manager_->layouts(outputGroup_).setVerticalLayout(layout);
+	manager_->saveVerticalLayout(outputGroup_);
 	refreshItems();
 	items_->setCurrentRow(layout.items.size() - 1);
 }
@@ -2043,10 +2010,10 @@ void VerticalLayoutEditor::removeItem()
 	const int index = selectedIndex();
 	if (index < 0)
 		return;
-	VerticalLayout layout = manager_->layouts().verticalLayout();
+	VerticalLayout layout = manager_->layouts(outputGroup_).verticalLayout();
 	layout.items.removeAt(index);
-	manager_->layouts().setVerticalLayout(layout);
-	manager_->saveVerticalLayout();
+	manager_->layouts(outputGroup_).setVerticalLayout(layout);
+	manager_->saveVerticalLayout(outputGroup_);
 	refreshItems();
 }
 
@@ -2055,9 +2022,9 @@ void VerticalLayoutEditor::moveItemUp()
 	const int index = selectedIndex();
 	if (index <= 0)
 		return;
-	VerticalLayout layout = manager_->layouts().verticalLayout();
+	VerticalLayout layout = manager_->layouts(outputGroup_).verticalLayout();
 	layout.items.move(index, index - 1);
-	manager_->layouts().setVerticalLayout(layout);
+	manager_->layouts(outputGroup_).setVerticalLayout(layout);
 	saveNow();
 	refreshItems();
 	items_->setCurrentRow(index - 1);
@@ -2066,12 +2033,12 @@ void VerticalLayoutEditor::moveItemUp()
 void VerticalLayoutEditor::moveItemDown()
 {
 	const int index = selectedIndex();
-	const auto &current = manager_->layouts().verticalLayout();
+	const auto &current = manager_->layouts(outputGroup_).verticalLayout();
 	if (index < 0 || index >= current.items.size() - 1)
 		return;
 	VerticalLayout layout = current;
 	layout.items.move(index, index + 1);
-	manager_->layouts().setVerticalLayout(layout);
+	manager_->layouts(outputGroup_).setVerticalLayout(layout);
 	saveNow();
 	refreshItems();
 	items_->setCurrentRow(index + 1);
@@ -2079,7 +2046,7 @@ void VerticalLayoutEditor::moveItemDown()
 
 void VerticalLayoutEditor::selectItem(int row)
 {
-	const auto &layout = manager_->layouts().verticalLayout();
+	const auto &layout = manager_->layouts(outputGroup_).verticalLayout();
 	if (row < 0 || row >= layout.items.size()) {
 		preview_->setSelectedIndex(-1);
 		setLayerControlsEnabled(false);
@@ -2105,7 +2072,7 @@ void VerticalLayoutEditor::updateItemVisibility(QListWidgetItem *item)
 	if (loading_ || !item || !items_)
 		return;
 	const int row = items_->row(item);
-	const auto &current = manager_->layouts().verticalLayout();
+	const auto &current = manager_->layouts(outputGroup_).verticalLayout();
 	if (row < 0 || row >= current.items.size())
 		return;
 	const bool visible = item->checkState() == Qt::Checked;
@@ -2113,7 +2080,7 @@ void VerticalLayoutEditor::updateItemVisibility(QListWidgetItem *item)
 		return;
 	VerticalLayout layout = current;
 	layout.items[row].visible = visible;
-	manager_->layouts().setVerticalLayout(layout);
+	manager_->layouts(outputGroup_).setVerticalLayout(layout);
 	preview_->setLayoutData(layout);
 	QTimer::singleShot(0, this, [this]() { saveNow(); });
 }
@@ -2126,13 +2093,13 @@ void VerticalLayoutEditor::updateSelectedItem()
 	if (index < 0)
 		return;
 
-	VerticalLayout layout = manager_->layouts().verticalLayout();
+	VerticalLayout layout = manager_->layouts(outputGroup_).verticalLayout();
 	auto &item = layout.items[index];
 	item.rect = QRectF(x_->value(), y_->value(), w_->value(), h_->value());
 	item.fitMode = fitModeFromString(fit_->currentData().toString());
 	item.visible = visible_->isChecked();
-	manager_->layouts().setVerticalLayout(layout);
-	manager_->saveVerticalLayout();
+	manager_->layouts(outputGroup_).setVerticalLayout(layout);
+	manager_->saveVerticalLayout(outputGroup_);
 	refreshItems();
 	items_->setCurrentRow(index);
 }
@@ -2160,13 +2127,13 @@ void VerticalLayoutEditor::refreshItems()
 	const QString selectedLinkedSceneId = sceneLinkTemplate_->currentData().toString();
 	sceneLinkTemplate_->clear();
 	int activeVerticalSceneRow = -1;
-	for (const auto &scene : manager_->layouts().verticalScenes()) {
-		const bool activeScene = scene.id == manager_->layouts().activeVerticalSceneId();
+	for (const auto &scene : manager_->layouts(outputGroup_).verticalScenes()) {
+		const bool activeScene = scene.id == manager_->layouts(outputGroup_).activeVerticalSceneId();
 		auto *sceneItem = new QListWidgetItem(activeScene ? style()->standardIcon(QStyle::SP_MediaPlay) : QIcon(),
 						      scene.name);
 		sceneItem->setData(Qt::UserRole, scene.id);
-		sceneItem->setToolTip(activeScene ? QStringLiteral("Active DSK vertical output scene")
-						  : QStringLiteral("DSK vertical scene"));
+		sceneItem->setToolTip(activeScene ? directionText(QStringLiteral("Active DSK vertical output scene"))
+						  : directionText(QStringLiteral("DSK vertical scene")));
 		verticalScenes_->addItem(sceneItem);
 		if (activeScene)
 			activeVerticalSceneRow = verticalScenes_->count() - 1;
@@ -2178,8 +2145,8 @@ void VerticalLayoutEditor::refreshItems()
 	if (linkedSceneIndex >= 0)
 		sceneLinkTemplate_->setCurrentIndex(linkedSceneIndex);
 	int selectedSceneLinkRow = -1;
-	for (const auto &link : manager_->sceneLinks()) {
-		const QString sceneName = manager_->layouts().verticalSceneName(link.verticalSceneId);
+	for (const auto &link : manager_->sceneLinks(outputGroup_)) {
+		const QString sceneName = manager_->layouts(outputGroup_).verticalSceneName(link.verticalSceneId);
 		const QString linkedObsScene = manager_->resolvedObsSceneName(link.sceneUuid, link.sceneName);
 		const QString linkedObsSceneDisplay = linkedObsScene.isEmpty()
 						      ? QStringLiteral("Missing: %1").arg(link.sceneName)
@@ -2204,7 +2171,7 @@ void VerticalLayoutEditor::refreshItems()
 			selectedSceneLinkRow = sceneLinks_->count() - 1;
 	}
 	updateObsLinkStatus();
-	const auto &layout = manager_->layouts().verticalLayout();
+	const auto &layout = manager_->layouts(outputGroup_).verticalLayout();
 	for (int i = 0; i < layout.items.size(); ++i) {
 		const auto &layoutItem = layout.items[i];
 		auto *sourceItem = new QListWidgetItem(obsSourceTypeIcon(layoutItem.sourceName),
@@ -2233,19 +2200,17 @@ void VerticalLayoutEditor::refreshItems()
 	} else if (selected >= 0 && selected < layout.items.size()) {
 		items_->setCurrentRow(selected);
 		selectItem(selected);
-	} else if (!layout.items.isEmpty()) {
-		items_->setCurrentRow(0);
-		selectItem(0);
 	} else {
-		preview_->setSelectedIndex(-1);
-		setLayerControlsEnabled(false);
+		// OBS scene/source notifications also refresh this list. Preserve an
+		// explicitly cleared selection instead of restoring the first source.
+		clearSourceSelection();
 	}
 }
 
 int VerticalLayoutEditor::selectedIndex() const
 {
 	const int row = items_->currentRow();
-	const auto &layout = manager_->layouts().verticalLayout();
+	const auto &layout = manager_->layouts(outputGroup_).verticalLayout();
 	if (row < 0 || row >= layout.items.size())
 		return -1;
 	return row;
@@ -2254,13 +2219,13 @@ int VerticalLayoutEditor::selectedIndex() const
 void VerticalLayoutEditor::setSelectedItemRect(const QRectF &rect)
 {
 	const int row = selectedIndex();
-	const auto &currentLayout = manager_->layouts().verticalLayout();
+	const auto &currentLayout = manager_->layouts(outputGroup_).verticalLayout();
 	if (row < 0 || row >= currentLayout.items.size())
 		return;
 
 	VerticalLayout layout = currentLayout;
 	layout.items[row].rect = rect;
-	manager_->layouts().setVerticalLayout(layout);
+	manager_->layouts(outputGroup_).setVerticalLayout(layout);
 	saveNow();
 	refreshItems();
 	items_->setCurrentRow(row);
@@ -2277,7 +2242,7 @@ void VerticalLayoutEditor::saveNow()
 	if (saveTimer_)
 		saveTimer_->stop();
 	if (manager_)
-		manager_->saveVerticalLayout();
+		manager_->saveVerticalLayout(outputGroup_);
 }
 
 void VerticalLayoutEditor::setSetupVisible(bool visible, bool persist)
@@ -2300,7 +2265,7 @@ void VerticalLayoutEditor::setSetupVisible(bool visible, bool persist)
 	}
 
 	if (persist)
-		saveVerticalSetupVisiblePreference(visible);
+		saveVerticalSetupVisiblePreference(visible, outputGroup_);
 }
 
 void VerticalLayoutEditor::clearSourceSelection()
@@ -2317,13 +2282,13 @@ void VerticalLayoutEditor::clearSourceSelection()
 
 void VerticalLayoutEditor::updateItemRectFromPreview(int row, const QRectF &rect, bool save)
 {
-	const auto &currentLayout = manager_->layouts().verticalLayout();
+	const auto &currentLayout = manager_->layouts(outputGroup_).verticalLayout();
 	if (row < 0 || row >= currentLayout.items.size())
 		return;
 
 	VerticalLayout layout = currentLayout;
 	layout.items[row].rect = rect;
-	manager_->layouts().setVerticalLayout(layout);
+	manager_->layouts(outputGroup_).setVerticalLayout(layout);
 	if (save)
 		saveNow();
 	else
@@ -2361,15 +2326,15 @@ void VerticalLayoutEditor::updateSceneStatus()
 	if (!manager_)
 		return;
 
-	const QString active = manager_->layouts().activeVerticalSceneName().isEmpty() ?
+	const QString active = manager_->layouts(outputGroup_).activeVerticalSceneName().isEmpty() ?
 				       QStringLiteral("(none)") :
-				       manager_->layouts().activeVerticalSceneName();
+				       manager_->layouts(outputGroup_).activeVerticalSceneName();
 
 	if (activeSceneStatus_)
-		activeSceneStatus_->setText(QStringLiteral("Vertical Program: %1").arg(active));
+		activeSceneStatus_->setText(directionText(QStringLiteral("Vertical Program: %1")).arg(active));
 
 	if (sourcesHeader_)
-		sourcesHeader_->setText(QString::number(manager_->layouts().verticalLayout().items.size()));
+		sourcesHeader_->setText(QString::number(manager_->layouts(outputGroup_).verticalLayout().items.size()));
 }
 
 void VerticalLayoutEditor::updateObsLinkStatus()
@@ -2380,9 +2345,9 @@ void VerticalLayoutEditor::updateObsLinkStatus()
 	const QString obsScene = currentFrontendSceneName();
 	const QString obsSceneUuid = manager_->currentObsSceneUuid();
 	QString linkedScene;
-	for (const auto &link : manager_->sceneLinks()) {
+	for (const auto &link : manager_->sceneLinks(outputGroup_)) {
 		if (sceneLinkMatches(link, obsScene, obsSceneUuid)) {
-			linkedScene = manager_->layouts().verticalSceneName(link.verticalSceneId);
+			linkedScene = manager_->layouts(outputGroup_).verticalSceneName(link.verticalSceneId);
 			if (linkedScene.isEmpty())
 				linkedScene = QStringLiteral("(missing DSK scene)");
 			break;

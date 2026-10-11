@@ -13,6 +13,8 @@ QString encoderGroupToString(EncoderGroup group)
 		return "dsk-horizontal";
 	case EncoderGroup::DskVertical:
 		return "dsk-vertical";
+	case EncoderGroup::DskHorizontalCanvas:
+		return "dsk-horizontal-canvas";
 	}
 	return "dsk-horizontal";
 }
@@ -21,6 +23,8 @@ EncoderGroup encoderGroupFromString(const QString &value)
 {
 	if (value == "dsk-vertical")
 		return EncoderGroup::DskVertical;
+	if (value == "dsk-horizontal-canvas")
+		return EncoderGroup::DskHorizontalCanvas;
 	return EncoderGroup::DskHorizontal;
 }
 
@@ -106,7 +110,7 @@ QString youtubeBroadcastModeDisplayName(YouTubeBroadcastMode mode)
 	case YouTubeBroadcastMode::Normal:
 		return QStringLiteral("Normal - keep one YouTube broadcast");
 	case YouTubeBroadcastMode::ArchiveRotation:
-		return QStringLiteral("Split archives every 11 h 30 min");
+		return QStringLiteral("Archive rotation");
 	}
 	return QStringLiteral("Normal - keep one YouTube broadcast");
 }
