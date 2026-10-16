@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.28...3.30)
 
-project(obs-dsk-multistream VERSION 0.5.0 LANGUAGES CXX)
+project(obs-dsk-multistream VERSION 0.5.1 LANGUAGES CXX)
 
 # CMake 4.2 can mojibake the UTF-8 /showIncludes prefix from Japanese MSVC,
 # leaving Ninja with no header dependencies and stale incremental objects.
@@ -133,6 +133,7 @@ target_sources(
     src/integration/comment-viewer-integration.hpp
     src/ui/main-dock.cpp
     src/ui/main-dock.hpp
+    src/ui/canvas-settings-panels.hpp
     src/ui/layout-widget-utils.hpp
     src/ui/scene-router-dock.cpp
     src/ui/scene-router-dock.hpp
@@ -581,6 +582,13 @@ if(DSK_BUILD_TESTS)
       LABELS "unit;ui;no-obs"
   )
   dsk_configure_test_runtime(dsk-ui-smoke-tests Qt6::Widgets)
+
+  add_executable(dsk-canvas-settings-panels-tests tests/canvas-settings-panels-tests.cpp)
+  target_include_directories(dsk-canvas-settings-panels-tests PRIVATE src)
+  target_link_libraries(dsk-canvas-settings-panels-tests PRIVATE Qt6::Widgets)
+  add_test(NAME dsk-canvas-settings-panels-tests COMMAND dsk-canvas-settings-panels-tests)
+  set_tests_properties(dsk-canvas-settings-panels-tests PROPERTIES LABELS "unit;ui;no-obs")
+  dsk_configure_test_runtime(dsk-canvas-settings-panels-tests Qt6::Widgets)
 
   add_executable(dsk-dock-state-restore-tests tests/dock-state-restore-tests.cpp)
   target_include_directories(dsk-dock-state-restore-tests PRIVATE src)

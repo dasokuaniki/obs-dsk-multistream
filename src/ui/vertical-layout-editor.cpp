@@ -4,6 +4,7 @@
 #include "core/vertical-layout-geometry.hpp"
 #include "core/vertical-scene-builder.hpp"
 #include "core/stable-id-order.hpp"
+#include "ui/canvas-settings-panels.hpp"
 #include "ui/layout-widget-utils.hpp"
 #include "ui/vertical-source-icon-loader.hpp"
 #include "ui/vertical-layout-metrics.hpp"
@@ -16,7 +17,6 @@
 #include <QCheckBox>
 #include <QAbstractItemModel>
 #include <QComboBox>
-#include <QGridLayout>
 #include <QHBoxLayout>
 #include <QIcon>
 #include <QInputDialog>
@@ -1366,12 +1366,6 @@ VerticalLayoutEditor::VerticalLayoutEditor(OutputManager *manager, QWidget *pare
 		[this](int row, const QRectF &rect, bool save) { updateItemRectFromPreview(row, rect, save); });
 	root->addWidget(preview_, 1);
 
-	auto *transformPanel = new QWidget(this);
-	transformPanel->setObjectName(directionText(QStringLiteral("dskVerticalTransformPanel")));
-	auto *transformLayout = new QGridLayout(transformPanel);
-	transformLayout->setContentsMargins(4, 3, 4, 3);
-	transformLayout->setHorizontalSpacing(5);
-	transformLayout->setVerticalSpacing(3);
 	x_ = new QSpinBox(this);
 	y_ = new QSpinBox(this);
 	w_ = new QSpinBox(this);
@@ -1399,19 +1393,9 @@ VerticalLayoutEditor::VerticalLayoutEditor(OutputManager *manager, QWidget *pare
 	connect(fitCanvas, &QPushButton::clicked, this, &VerticalLayoutEditor::fitSelectedItemToCanvas);
 	connect(fillCanvas, &QPushButton::clicked, this, &VerticalLayoutEditor::fillSelectedItemToCanvas);
 
-	transformLayout->addWidget(new QLabel("X", this), 0, 0);
-	transformLayout->addWidget(x_, 0, 1);
-	transformLayout->addWidget(new QLabel("Y", this), 0, 2);
-	transformLayout->addWidget(y_, 0, 3);
-	transformLayout->addWidget(new QLabel("W", this), 0, 4);
-	transformLayout->addWidget(w_, 0, 5);
-	transformLayout->addWidget(new QLabel("H", this), 0, 6);
-	transformLayout->addWidget(h_, 0, 7);
-	transformLayout->addWidget(fit_, 1, 0, 1, 2);
-	transformLayout->addWidget(visible_, 1, 2);
-	transformLayout->addWidget(center, 1, 3, 1, 2);
-	transformLayout->addWidget(fitCanvas, 1, 5);
-	transformLayout->addWidget(fillCanvas, 1, 6, 1, 2);
+	auto *transformPanel = createCanvasTransformPanel(this, {x_, y_, w_, h_}, fit_, visible_,
+							{center, fitCanvas, fillCanvas});
+	transformPanel->setObjectName(directionText(QStringLiteral("dskVerticalTransformPanel")));
 	transformPanel->setVisible(false);
 	connect(transformToggle_, &QToolButton::toggled, transformPanel, &QWidget::setVisible);
 	root->addWidget(transformPanel);
@@ -1589,7 +1573,6 @@ VerticalLayoutEditor::VerticalLayoutEditor(OutputManager *manager, QWidget *pare
 	connect(followScene_, &QCheckBox::checkStateChanged, this,
 		[this](Qt::CheckState state) { updateFollowScene(int(state)); });
 
-	auto *sceneLinkRow = new QHBoxLayout();
 	sceneLinkScene_ = new QComboBox(this);
 	sceneLinkScene_->setObjectName(QStringLiteral("dskObsLinkScene"));
 	sceneLinkTemplate_ = new QComboBox(this);
@@ -1603,30 +1586,17 @@ VerticalLayoutEditor::VerticalLayoutEditor(OutputManager *manager, QWidget *pare
 	connect(unlinkScene, &QPushButton::clicked, this, &VerticalLayoutEditor::removeSceneLink);
 	connect(refreshScenes, &QPushButton::clicked, this, &VerticalLayoutEditor::refreshSceneList);
 	connect(sceneLinkScene_, &QComboBox::currentTextChanged, this, &VerticalLayoutEditor::selectSceneLinkForObsScene);
-	sceneLinkRow->addWidget(sceneLinkScene_, 1);
-	sceneLinkRow->addWidget(sceneLinkTemplate_);
-	sceneLinkRow->addWidget(linkScene);
-	sceneLinkRow->addWidget(unlinkScene);
-	sceneLinkRow->addWidget(refreshScenes);
 
 	sceneLinks_ = new QListWidget(this);
 	sceneLinks_->setObjectName(QStringLiteral("dskObsSceneLinks"));
 	sceneLinks_->setMaximumHeight(68);
 	connect(sceneLinks_, &QListWidget::currentRowChanged, this, &VerticalLayoutEditor::selectSceneLink);
 
-	auto *obsLinksPage = new QWidget(this);
-	auto *obsLinksControls = new QVBoxLayout(obsLinksPage);
-	obsLinksControls->setContentsMargins(4, 3, 4, 3);
-	obsLinksControls->setSpacing(4);
 	obsLinkStatus_ = new QLabel(this);
 	obsLinkStatus_->setTextInteractionFlags(Qt::TextSelectableByMouse);
 	obsLinkStatus_->setStyleSheet(QStringLiteral("QLabel { color: #cfd4dc; padding: 2px; }"));
-	auto *followRow = new QHBoxLayout();
-	followRow->addWidget(followScene_);
-	followRow->addWidget(obsLinkStatus_, 1);
-	obsLinksControls->addLayout(followRow);
-	obsLinksControls->addLayout(sceneLinkRow);
-	obsLinksControls->addWidget(sceneLinks_, 1);
+	auto *obsLinksPage = createCanvasObsLinksPanel(this, followScene_, obsLinkStatus_, sceneLinkScene_,
+						      sceneLinkTemplate_, {linkScene, unlinkScene, refreshScenes}, sceneLinks_);
 	obsLinksPage->setVisible(false);
 	connect(obsLinksToggle_, &QToolButton::toggled, obsLinksPage, &QWidget::setVisible);
 	root->addWidget(obsLinksPage);
@@ -2357,6 +2327,7 @@ void VerticalLayoutEditor::updateObsLinkStatus()
 	const QString obsName = obsScene.isEmpty() ? QStringLiteral("(no OBS scene)") : obsScene;
 	const QString linkText = linkedScene.isEmpty() ? QStringLiteral("Not linked") : linkedScene;
 	obsLinkStatus_->setText(QStringLiteral("%1 -> %2").arg(obsName, linkText));
+	obsLinkStatus_->setToolTip(obsLinkStatus_->text());
 	updateSceneStatus();
 }
 

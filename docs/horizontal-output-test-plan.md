@@ -2,6 +2,64 @@
 
 Status: implemented and tested with an isolated OBS runtime. On 2026-10-10, a separate non-instrumented development build was installed into the user's existing Codex PC developer-plugin slot and its visible DSK Horizontal dock was verified. It remains unsigned and unpublished, and release qualification is incomplete. See [local installation and recovery record](horizontal-output-local-install-20261010.md).
 
+2026-10-15 working-tree correction, **locally installed later that day; not published**: the shared
+Vertical/Horizontal Transform and OBS Link panels now use vertically arranged,
+wrapping forms inside bounded scroll areas. Opening advanced controls or using
+long scene names must not increase the surrounding dock's minimum width; a
+horizontal scrolling fallback preserves access under large fonts. Link status is
+plain text with a full-name tooltip. No canvas, output, settings schema, or
+startup/Comments lifecycle was changed in this correction.
+
+The actual production-panel factories have a failing-before/passing-after Qt
+regression check at preview minimum widths 110 and 195, font sizes 10/12/16,
+long Latin/Japanese names, repeated and simultaneous panel opening, rendered
+width bounds, and scrolling to the final action. Hidden-window Qt 6.11.1 renders
+were inspected; this is not an OBS integration test. The Windows Ninja test-only
+build succeeded and 29 selected CTests passed. The two existing tests that show
+top-level windows (`dsk-ui-smoke-tests`, `dsk-dock-state-restore-tests`) and actual
+OBS resize/restart checks were not run while production OBS was active.
+
+Build: `build/windows-layout-fix-20261015-ninja` (bundled OAuth off, E2E hooks
+off, unsigned, **not a distribution artifact**). An earlier Visual Studio
+generator build passed, but subsequent regeneration fast-failed in CMake;
+standard `scripts/configure-windows.ps1` with Ninja and the MSVC environment
+completed the final build and checks. Existing installed developer DLL and the
+frozen 2026-10-12 0.5.0 signing candidate were not modified. That frozen candidate
+does not contain this working-tree correction. Future distribution requires a
+newly fixed source/candidate and the normal signing, installer and native OBS
+verification gates; do not silently reuse the old candidate for this fix.
+
+Later on 2026-10-15, after the user closed OBS and authorized installation, a
+separate `build/local-layout-install-20261015` was built with the existing
+approved Multistream bundled OAuth configuration and E2E hooks OFF. It is an
+unsigned local developer build, not a public 0.5.0 release. All 31 CTests passed,
+including the two previously deferred GUI tests. The staged package passed
+Defender with exit 0 and no threats. All 8 payload files were verified after an
+atomic install to the existing `obs-dsk-multistream-dev` slot. Installed DLL:
+SHA-256 `4AA791EE4A09F2124920ACB80E202969B3A91DA3C9CBDF00A1F901815F65CBEF`.
+The 120-file source fingerprint was
+`7566F66D8DE24EA8AF82987C470206ED7031958AE57EB5A3612FAC4359A78FC0`
+(base commit 2c01e063 plus the reviewed working-tree correction).
+
+The previous 9 plugin files and 25 configuration files were privately backed up
+and hash-checked under LocalAppData/DSK/Multistream/Backups. Do not distribute
+that recovery data. Two normal OBS 33.0.0-beta5 starts loaded the exact installed
+DLL; Horizontal preview and unchanged main-preview placement were inspected.
+Opening Transform and OBS Link together did not widen the dock. Both panels were
+returned to hidden, and Horizontal placement survived normal restart. The two
+DSK profile JSON files remained byte-identical. First shutdown reported two
+allocations of undetermined origin; no new crash report was observed. This is
+not a leak-free or real-delivery qualification. OBS was left open after the
+second start; no streaming, recording or virtual camera was started by this work.
+
+Comments acceptance remains incomplete: the first start logged localhost
+navigation and the Viewer title, but actual dock contents were not visually
+confirmed when temporarily enabled. It was restored to its original hidden
+state. The second start retained that hidden state without a confirmed browser
+navigation/title cycle. Do not treat the two successful Horizontal starts as a
+complete Comments rendering regression pass. The public release, GAME PC, NAS,
+and frozen 2026-10-12 signing candidate were not changed.
+
 On 2026-10-12, the 0.5.0 Beta publisher candidate passed CTest 30/30 and two native OBS 32.1.2 starts with restored Horizontal, Vertical, Streaming and Comments docks. The checks found and fixed selection reappearing after refresh and late dock registration losing saved placement. Independent Main/Horizontal switching, OBS Link on/off, narrow dock resizing and separate Setup preferences were exercised. Both final native exits reported zero unfreed allocations and no crash report. An isolated unsigned installer passed six lifecycle checks; this is not the final signed/public-AppId or clean-PC qualification. See [release check record](horizontal-output-release-check-20261012.md). Signed public 0.4.1 and the installed developer DLL have not been replaced by this candidate.
 
 Verified on 2026-10-08: full Windows plugin build succeeded; CTest 28/28 passed, including the actual toolbar widget at narrow/wide widths and after font/theme changes. The PowerShell RTMP harness parses without errors. Eight staged payload files match their package manifest. In a build-local portable OBS 33.0.0-beta5 clone, decoded local RTMP frames confirmed separate Main/Horizontal and Horizontal/Vertical content. Both native previews displayed the corresponding compositions, and hiding a Horizontal source changed only its own preview and transmitted frames. Outputs stopped and OBS exited normally. The runtime still reports one unfreed allocation; its origin is unresolved. See [native canary evidence](horizontal-output-native-canary-20261008.md).

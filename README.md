@@ -2,7 +2,7 @@
 
 DSK Multistream is an OBS Studio plugin for sending one OBS session to Twitch, YouTube, Kick, and Manual RTMP destinations.
 
-This repository targets the OBS 32.x plugin stack on Windows x64. It provides native OBS docks, profile-based target settings, and independent horizontal and vertical canvas editors. The working tree contains the 0.5.0 Beta candidate; publication is subject to the release checks below.
+This repository targets the OBS 32.x plugin stack on Windows x64. It provides native OBS docks, profile-based target settings, and independent horizontal and vertical canvas editors. The working tree contains the 0.5.1 Beta candidate; publication is subject to the release checks below.
 
 ## Scope
 

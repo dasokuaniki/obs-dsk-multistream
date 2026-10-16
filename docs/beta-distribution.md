@@ -1,4 +1,4 @@
-# DSK Multistream 0.5.0 public beta guide
+# DSK Multistream 0.5.1 public beta guide
 
 DSK Multistream is free and open-source software. This public beta is intended
 for evaluation before a stable release. Download it only from
@@ -28,6 +28,9 @@ running the installer.
 
 ## Updating and uninstalling
 
+0.5.1 keeps the advanced Vertical/Horizontal controls in bounded, wrapping
+scroll areas so opening Transform or OBS Link does not push other docks wider.
+
 0.5.0 adds **Docks > DSK Horizontal**, an independent 1920×1080 canvas. Choose
 **DSK Horizontal** in a destination's Edit dialog to use it; **OBS Main** retains
 the normal OBS composition. Horizontal and vertical video encoders are separate,
@@ -53,7 +56,7 @@ tokens, client secrets, and personal information before sending a log.
 
 ---
 
-# DSK Multistream 0.5.0 公開ベータ案内
+# DSK Multistream 0.5.1 公開ベータ案内
 
 DSK Multistreamは無料のオープンソースソフトウェアです。この公開ベータは、
 安定版公開前の評価を目的としています。インストーラーは
@@ -80,6 +83,9 @@ SHA-256と一致することを確認してください。
   公開・共有しないでください。
 
 ## 更新とアンインストール
+
+0.5.1では縦型・横型の詳細設定を折返し・スクロール可能な領域へ収めました。
+TransformやOBS Linkを開いても、他のドックを押し広げないようにしています。
 
 0.5.0では独立した1920×1080キャンバスの「ドック > DSK Horizontal」を追加しました。
 配信先のEdit画面で「DSK Horizontal」を選ぶと、この構成を送信します。

@@ -2,6 +2,23 @@
 
 All notable user-facing changes are documented in this file.
 
+## [0.5.1] - Beta candidate - Unreleased
+
+### Fixed
+
+- Opening Transform or OBS Link in DSK Vertical/Horizontal no longer increases
+  the dock's minimum width. The controls wrap inside bounded scroll areas,
+  including with long scene names and larger fonts.
+- OBS Link status displays scene names as plain text and keeps the full text in
+  a tooltip without forcing the surrounding OBS layout wider.
+
+### Release identity
+
+- This candidate includes the Horizontal functionality from the unreleased
+  0.5.0 candidate. The earlier 0.5.0 signing input and tag remain unchanged;
+  they do not contain this correction. Publication still requires the normal
+  signature and installation-lifecycle gates.
+
 ## [0.5.0] - Beta candidate - Unreleased
 
 ### Added
