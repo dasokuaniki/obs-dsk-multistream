@@ -96,13 +96,18 @@ jobs:
             throw "Inno Setup installation failed with exit code $($process.ExitCode)."
           }
           $iscc = Join-Path $toolRoot 'ISCC.exe'
-          $info = (Get-Item -LiteralPath $iscc -ErrorAction Stop).VersionInfo
-          $actualVersion = '{0}.{1}.{2}' -f $info.FileMajorPart, $info.FileMinorPart, $info.FileBuildPart
-          if ($actualVersion -ne $version) {
-            throw "Unexpected installed ISCC version: $actualVersion. Expected $version."
+          # ISCC.exe has no useful PE version; load the compiler with a no-output probe.
+          $probe = @('[Setup]', 'AppName=DSK CI compiler check', 'AppVersion=0',
+            'CreateAppDir=no', 'Uninstallable=no', 'Output=no', "OutputDir=$toolRoot")
+          $compilerOutput = ($probe | & $iscc '-' 2>&1 | Out-String)
+          $compilerExitCode = $LASTEXITCODE
+          $compilerVersionMatch = [regex]::Match($compilerOutput, 'Compiler engine version: Inno Setup (\d+\.\d+\.\d+)')
+          if ($compilerExitCode -ne 0 -or -not $compilerVersionMatch.Success -or $compilerVersionMatch.Groups[1].Value -ne $version) {
+            Write-Host $compilerOutput
+            throw "Installed ISCC did not report required version $version (exit $compilerExitCode)."
           }
           "iscc=$iscc" >> $env:GITHUB_OUTPUT
-          Write-Host "Verified Inno Setup $actualVersion at $iscc"
+          Write-Host "Verified Inno Setup $version at $iscc"
 
       - name: Prepare publisher OAuth build input
         id: oauth
