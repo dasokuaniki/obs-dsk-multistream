@@ -117,13 +117,20 @@ Scene Routing is retained for internal testing but hidden from normal beta users
 
 ## Build the Distribution Installer
 
-Install Inno Setup 7, then build the plugin and run:
+Install the required Inno Setup 6.7.3 compiler, then build the plugin and run:
 
 ```powershell
 powershell.exe -ExecutionPolicy Bypass -File scripts\build-windows-installer.ps1 -BuildDir build\windows-x64-sdk3
 ```
 
 The packaging script rejects build trees or DLLs that contain E2E automation hooks. If this build directory was used for OBS-integrated E2E testing, run the normal configure command again without `-EnableE2eHooks` and rebuild before packaging.
+
+Windows CI installs the same fixed compiler into its temporary runner directory,
+after checking the official immutable release asset's SHA-256 and upstream
+Authenticode signature/timestamp. It passes that compiler via `-IsccPath` rather
+than relying on the runner image's preinstalled Inno Setup version. The packaging
+script's exact compiler-version check remains mandatory. CI artifacts do not
+replace the separately verified and signed public download.
 
 The script stages only the runtime DLL, locale files, platform presets, and a SHA-256 manifest. It validates the staged layout, rejects development artifacts, compiles the installer without warnings, and writes:
 
