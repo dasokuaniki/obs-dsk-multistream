@@ -69,6 +69,46 @@ jobs:
             Write-Warning 'SignPath is not configured. This tag will produce an explicitly unsigned beta artifact.'
           }
 
+      - name: Install pinned Inno Setup
+        id: inno
+        shell: pwsh
+        run: |
+          $version = '6.7.3'
+          $url = 'https://github.com/jrsoftware/issrc/releases/download/is-6_7_3/innosetup-6.7.3.exe'
+          # Upstream immutable release asset digest, also published in its .issig.
+          $expectedSha256 = '9C73C3BAE7ED48D44112A0F48E66742C00090BDB5BEF71D9D3C056C66E97B732'
+          $downloadPath = Join-Path $env:RUNNER_TEMP "innosetup-$version.exe"
+          $toolRoot = Join-Path $env:RUNNER_TEMP "inno-setup-$version"
+          Invoke-WebRequest -Uri $url -OutFile $downloadPath
+          if ((Get-FileHash -LiteralPath $downloadPath -Algorithm SHA256).Hash -ne $expectedSha256) {
+            throw 'The pinned Inno Setup download hash does not match.'
+          }
+          $signature = Get-AuthenticodeSignature -LiteralPath $downloadPath
+          if ($signature.Status -ne [Management.Automation.SignatureStatus]::Valid -or
+              -not $signature.TimeStamperCertificate -or
+              $signature.SignerCertificate.GetNameInfo([Security.Cryptography.X509Certificates.X509NameType]::SimpleName, $false) -ne 'Pyrsys B.V.') {
+            throw 'The pinned Inno Setup download must have a valid upstream signature and timestamp.'
+          }
+          $process = Start-Process -FilePath $downloadPath -ArgumentList @(
+            '/CURRENTUSER', '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/SP-', '/NOICONS', "/DIR=`"$toolRoot`""
+          ) -WindowStyle Hidden -Wait -PassThru
+          if ($process.ExitCode -ne 0) {
+            throw "Inno Setup installation failed with exit code $($process.ExitCode)."
+          }
+          $iscc = Join-Path $toolRoot 'ISCC.exe'
+          # ISCC.exe has no useful PE version; load the compiler with a no-output probe.
+          $probe = @('[Setup]', 'AppName=DSK CI compiler check', 'AppVersion=0',
+            'CreateAppDir=no', 'Uninstallable=no', 'Output=no', "OutputDir=$toolRoot")
+          $compilerOutput = ($probe | & $iscc '-' 2>&1 | Out-String)
+          $compilerExitCode = $LASTEXITCODE
+          $compilerVersionMatch = [regex]::Match($compilerOutput, 'Compiler engine version: Inno Setup (\d+\.\d+\.\d+)')
+          if ($compilerExitCode -ne 0 -or -not $compilerVersionMatch.Success -or $compilerVersionMatch.Groups[1].Value -ne $version) {
+            Write-Host $compilerOutput
+            throw "Installed ISCC did not report required version $version (exit $compilerExitCode)."
+          }
+          "iscc=$iscc" >> $env:GITHUB_OUTPUT
+          Write-Host "Verified Inno Setup $version at $iscc"
+
       - name: Prepare publisher OAuth build input
         id: oauth
         shell: pwsh
@@ -161,16 +201,11 @@ jobs:
           }
           Copy-Item -LiteralPath $signed.FullName -Destination '${{ steps.plugin.outputs.dll }}' -Force
 
-      - name: Install Inno Setup
-        shell: pwsh
-        run: |
-          choco install innosetup --yes --no-progress --limit-output
-
       - name: Build installer
         shell: pwsh
         run: |
           $requireSignature = '${{ steps.signing.outputs.enabled }}' -eq 'true'
-          & scripts/build-windows-installer.ps1 -BuildDir build/windows-ci-x64 -Configuration RelWithDebInfo -RequireValidPluginSignature:$requireSignature
+          & scripts/build-windows-installer.ps1 -BuildDir build/windows-ci-x64 -Configuration RelWithDebInfo -IsccPath '${{ steps.inno.outputs.iscc }}' -RequireValidPluginSignature:$requireSignature
 
       - name: Validate installer metadata
         shell: pwsh
