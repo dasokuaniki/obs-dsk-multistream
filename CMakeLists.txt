@@ -663,4 +663,10 @@ if(DSK_BUILD_TESTS)
       LABELS "unit;settings;no-obs"
   )
   dsk_configure_test_runtime(dsk-settings-store-tests Qt6::Core)
+  if(WIN32)
+    add_test(NAME dsk-signpath-ci-test COMMAND powershell.exe -NoProfile -ExecutionPolicy Bypass
+      -File "${CMAKE_CURRENT_SOURCE_DIR}/tests/signpath-ci-tests.ps1"
+      -HelperScript "${CMAKE_CURRENT_SOURCE_DIR}/scripts/signpath-ci.ps1")
+    set_tests_properties(dsk-signpath-ci-test PROPERTIES LABELS "unit;security;packaging;no-obs")
+  endif()
 endif()

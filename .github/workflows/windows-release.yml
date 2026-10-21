@@ -27,6 +27,9 @@ jobs:
       SIGNPATH_ORGANIZATION_ID: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
       SIGNPATH_PROJECT_SLUG: ${{ vars.SIGNPATH_PROJECT_SLUG }}
       SIGNPATH_SIGNING_POLICY_SLUG: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG }}
+      SIGNPATH_RELEASE_SIGNING_APPROVED: ${{ vars.SIGNPATH_RELEASE_SIGNING_APPROVED }}
+      SIGNPATH_EXPECTED_SIGNER_THUMBPRINT: ${{ vars.SIGNPATH_EXPECTED_SIGNER_THUMBPRINT }}
+      SIGNPATH_UNINSTALLER_ARTIFACT_CONFIGURATION_SLUG: ${{ vars.SIGNPATH_UNINSTALLER_ARTIFACT_CONFIGURATION_SLUG }}
       SIGNPATH_PLUGIN_ARTIFACT_CONFIGURATION_SLUG: ${{ vars.SIGNPATH_PLUGIN_ARTIFACT_CONFIGURATION_SLUG }}
       SIGNPATH_INSTALLER_ARTIFACT_CONFIGURATION_SLUG: ${{ vars.SIGNPATH_INSTALLER_ARTIFACT_CONFIGURATION_SLUG }}
     steps:
@@ -49,24 +52,44 @@ jobs:
           "version=$($spec.version)" >> $env:GITHUB_OUTPUT
           "installer=DSK-Multistream-$($spec.version)-Windows-x64-Setup.exe" >> $env:GITHUB_OUTPUT
 
+      - name: Prepare publisher OAuth build input
+        id: oauth
+        shell: pwsh
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:DSK_OAUTH_APP_CONFIG_JSON)) {
+            "configured=false" >> $env:GITHUB_OUTPUT
+            exit 0
+          }
+          $oauthPath = Join-Path $env:RUNNER_TEMP 'dsk-oauth-app-config.json'
+          [IO.File]::WriteAllText($oauthPath, $env:DSK_OAUTH_APP_CONFIG_JSON, [Text.UTF8Encoding]::new($false))
+          $parsed = Get-Content -LiteralPath $oauthPath -Raw | ConvertFrom-Json
+          if ([string]::IsNullOrWhiteSpace([string]$parsed.youtube.clientId) -or
+              [string]::IsNullOrWhiteSpace([string]$parsed.youtube.clientSecret)) {
+            throw 'DSK_OAUTH_APP_CONFIG_JSON must contain youtube.clientId and youtube.clientSecret.'
+          }
+          "configured=true" >> $env:GITHUB_OUTPUT
+          "path=$oauthPath" >> $env:GITHUB_OUTPUT
+
       - name: Determine release-signing mode
         id: signing
         shell: pwsh
         run: |
-          $required = @(
-            $env:SIGNPATH_API_TOKEN,
-            $env:SIGNPATH_ORGANIZATION_ID,
-            $env:SIGNPATH_PROJECT_SLUG,
-            $env:SIGNPATH_SIGNING_POLICY_SLUG,
-            $env:SIGNPATH_PLUGIN_ARTIFACT_CONFIGURATION_SLUG,
-            $env:SIGNPATH_INSTALLER_ARTIFACT_CONFIGURATION_SLUG
-          )
-          $enabled = $env:GITHUB_REF.StartsWith('refs/tags/v') -and -not ($required | Where-Object { [string]::IsNullOrWhiteSpace($_) })
-          "enabled=$($enabled.ToString().ToLowerInvariant())" >> $env:GITHUB_OUTPUT
-          $label = if ($enabled) { 'signed-release' } elseif ($env:GITHUB_REF.StartsWith('refs/tags/v')) { 'unsigned-beta' } else { 'unsigned-development' }
-          "artifact-label=$label" >> $env:GITHUB_OUTPUT
-          if ($env:GITHUB_REF.StartsWith('refs/tags/v') -and -not $enabled) {
-            Write-Warning 'SignPath is not configured. This tag will produce an explicitly unsigned beta artifact.'
+          . scripts/signpath-ci.ps1
+          $mode = Get-SignPathSigningMode -Ref $env:GITHUB_REF -PublisherOAuthConfigured:('${{ steps.oauth.outputs.configured }}' -eq 'true') -Inputs @{
+            ReleaseSigningApproved = $env:SIGNPATH_RELEASE_SIGNING_APPROVED
+            ApiToken = $env:SIGNPATH_API_TOKEN
+            OrganizationId = $env:SIGNPATH_ORGANIZATION_ID
+            ProjectSlug = $env:SIGNPATH_PROJECT_SLUG
+            SigningPolicySlug = $env:SIGNPATH_SIGNING_POLICY_SLUG
+            PluginConfigurationSlug = $env:SIGNPATH_PLUGIN_ARTIFACT_CONFIGURATION_SLUG
+            UninstallerConfigurationSlug = $env:SIGNPATH_UNINSTALLER_ARTIFACT_CONFIGURATION_SLUG
+            InstallerConfigurationSlug = $env:SIGNPATH_INSTALLER_ARTIFACT_CONFIGURATION_SLUG
+            ExpectedSignerThumbprint = $env:SIGNPATH_EXPECTED_SIGNER_THUMBPRINT
+          }
+          "enabled=$($mode.Enabled.ToString().ToLowerInvariant())" >> $env:GITHUB_OUTPUT
+          "unsigned-label=$($mode.UnsignedArtifactLabel)" >> $env:GITHUB_OUTPUT
+          if (-not $mode.Enabled -and $env:GITHUB_REF.StartsWith('refs/tags/v')) {
+            Write-Warning 'SignPath release signing is inactive. This artifact is unsigned and not approved for distribution.'
           }
 
       - name: Install pinned Inno Setup
@@ -109,28 +132,12 @@ jobs:
           "iscc=$iscc" >> $env:GITHUB_OUTPUT
           Write-Host "Verified Inno Setup $version at $iscc"
 
-      - name: Prepare publisher OAuth build input
-        id: oauth
-        shell: pwsh
-        run: |
-          if ([string]::IsNullOrWhiteSpace($env:DSK_OAUTH_APP_CONFIG_JSON)) {
-            "configured=false" >> $env:GITHUB_OUTPUT
-            exit 0
-          }
-          $oauthPath = Join-Path $env:RUNNER_TEMP 'dsk-oauth-app-config.json'
-          [IO.File]::WriteAllText($oauthPath, $env:DSK_OAUTH_APP_CONFIG_JSON, [Text.UTF8Encoding]::new($false))
-          $parsed = Get-Content -LiteralPath $oauthPath -Raw | ConvertFrom-Json
-          if ([string]::IsNullOrWhiteSpace([string]$parsed.youtube.clientId) -or
-              [string]::IsNullOrWhiteSpace([string]$parsed.youtube.clientSecret)) {
-            throw 'DSK_OAUTH_APP_CONFIG_JSON must contain youtube.clientId and youtube.clientSecret.'
-          }
-          "configured=true" >> $env:GITHUB_OUTPUT
-          "path=$oauthPath" >> $env:GITHUB_OUTPUT
-
       - name: Configure clean Windows build
         shell: pwsh
         run: |
           $arguments = @('--preset', 'windows-ci-x64')
+          $publisherReleaseFlag = if ('${{ steps.signing.outputs.enabled }}' -eq 'true') { 'ON' } else { 'OFF' }
+          $arguments += "-DDSK_PUBLISHER_RELEASE=$publisherReleaseFlag"
           if ('${{ steps.oauth.outputs.configured }}' -eq 'true') {
             $arguments += "-DDSK_OAUTH_APP_CONFIG=${{ steps.oauth.outputs.path }}"
           } else {
@@ -164,6 +171,12 @@ jobs:
           Copy-Item -LiteralPath $dll -Destination (Join-Path $input 'obs-dsk-multistream.dll') -Force
           "dll=$dll" >> $env:GITHUB_OUTPUT
 
+      - name: Stage publisher signing input
+        if: steps.signing.outputs.enabled == 'true'
+        shell: pwsh
+        run: |
+          & scripts/external-windows-signing.ps1 -Phase StagePlugin -BuildDir build/windows-ci-x64 -WorkDir build/signpath-ci -OutputDir build/signpath-verified -IsccPath '${{ steps.inno.outputs.iscc }}' -ExpectedSignerThumbprint $env:SIGNPATH_EXPECTED_SIGNER_THUMBPRINT
+
       - name: Upload unsigned plugin for origin verification
         id: upload_plugin
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
@@ -193,24 +206,81 @@ jobs:
         if: steps.signing.outputs.enabled == 'true'
         shell: pwsh
         run: |
-          $signed = Get-ChildItem -LiteralPath build/signed-plugin -Recurse -Filter obs-dsk-multistream.dll | Select-Object -First 1
-          if (-not $signed) { throw 'SignPath did not return obs-dsk-multistream.dll.' }
-          $signature = Get-AuthenticodeSignature -LiteralPath $signed.FullName
-          if ($signature.Status -ne [Management.Automation.SignatureStatus]::Valid) {
-            throw "Plugin signature is not valid: $($signature.Status)"
+          . scripts/signpath-ci.ps1
+          $destination = 'build/signpath-ci/signed-build/obs-dsk-multistream.dll'
+          Copy-SignPathSignedFile -Directory build/signed-plugin -FileName obs-dsk-multistream.dll -Destination $destination -ExpectedSignerThumbprint $env:SIGNPATH_EXPECTED_SIGNER_THUMBPRINT
+
+      - name: Prepare unsigned uninstaller
+        id: uninstaller
+        if: steps.signing.outputs.enabled == 'true'
+        shell: pwsh
+        run: |
+          & scripts/external-windows-signing.ps1 -Phase PrepareUninstaller -WorkDir build/signpath-ci -IsccPath '${{ steps.inno.outputs.iscc }}' -ExpectedSignerThumbprint $env:SIGNPATH_EXPECTED_SIGNER_THUMBPRINT
+          $files = @(Get-ChildItem -LiteralPath build/signpath-ci/signed-uninstaller -File -Filter '*.e32')
+          if ($files.Count -ne 1 -or $files[0].Name -notmatch '^uninst-[0-9A-Za-z._-]+\.e32$') {
+            throw 'Expected exactly one safe Inno uninstaller filename.'
           }
-          Copy-Item -LiteralPath $signed.FullName -Destination '${{ steps.plugin.outputs.dll }}' -Force
+          $input = Join-Path $env:GITHUB_WORKSPACE 'build/signing-input/uninstaller'
+          New-Item -ItemType Directory -Path $input -Force | Out-Null
+          $copy = Join-Path $input $files[0].Name
+          Copy-Item -LiteralPath $files[0].FullName -Destination $copy
+          if ((Get-FileHash -LiteralPath $copy).Hash -ne (Get-FileHash -LiteralPath $files[0].FullName).Hash) {
+            throw 'Uninstaller upload copy changed.'
+          }
+          "name=$($files[0].Name)" >> $env:GITHUB_OUTPUT
+          # The validated first Inno pass intentionally exits nonzero to hand off .e32.
+          # GitHub pwsh must not propagate that expected native exit code.
+          $global:LASTEXITCODE = 0
+
+      - name: Upload unsigned uninstaller for origin verification
+        id: upload_uninstaller
+        if: steps.signing.outputs.enabled == 'true'
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: dsk-uninstaller-unsigned-${{ github.sha }}
+          path: build/signing-input/uninstaller/${{ steps.uninstaller.outputs.name }}
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Submit uninstaller signing request
+        if: steps.signing.outputs.enabled == 'true'
+        uses: signpath/github-action-submit-signing-request@b9d91eadd323de506c0c81cf0c7fe7438f3360fd # v2
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+          signing-policy-slug: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG }}
+          artifact-configuration-slug: ${{ vars.SIGNPATH_UNINSTALLER_ARTIFACT_CONFIGURATION_SLUG }}
+          github-artifact-id: ${{ steps.upload_uninstaller.outputs.artifact-id }}
+          wait-for-completion: true
+          wait-for-completion-timeout-in-seconds: 1800
+          output-artifact-directory: ${{ github.workspace }}/build/signed-uninstaller
+          parameters: |
+            version: "${{ steps.metadata.outputs.version }}"
+            uninstaller: "${{ steps.uninstaller.outputs.name }}"
+
+      - name: Use and verify signed uninstaller
+        if: steps.signing.outputs.enabled == 'true'
+        shell: pwsh
+        run: |
+          . scripts/signpath-ci.ps1
+          $name = '${{ steps.uninstaller.outputs.name }}'
+          Copy-SignPathSignedFile -Directory build/signed-uninstaller -FileName $name -Destination (Join-Path build/signpath-ci/signed-uninstaller $name) -ExpectedSignerThumbprint $env:SIGNPATH_EXPECTED_SIGNER_THUMBPRINT
 
       - name: Build installer
         shell: pwsh
         run: |
-          $requireSignature = '${{ steps.signing.outputs.enabled }}' -eq 'true'
-          & scripts/build-windows-installer.ps1 -BuildDir build/windows-ci-x64 -Configuration RelWithDebInfo -IsccPath '${{ steps.inno.outputs.iscc }}' -RequireValidPluginSignature:$requireSignature
+          if ('${{ steps.signing.outputs.enabled }}' -eq 'true') {
+            & scripts/external-windows-signing.ps1 -Phase BuildInstaller -WorkDir build/signpath-ci -IsccPath '${{ steps.inno.outputs.iscc }}' -ExpectedSignerThumbprint $env:SIGNPATH_EXPECTED_SIGNER_THUMBPRINT
+          } else {
+            & scripts/build-windows-installer.ps1 -BuildDir build/windows-ci-x64 -Configuration RelWithDebInfo -IsccPath '${{ steps.inno.outputs.iscc }}'
+          }
 
       - name: Validate installer metadata
         shell: pwsh
         run: |
-          $installer = Join-Path release '${{ steps.metadata.outputs.installer }}'
+          $directory = if ('${{ steps.signing.outputs.enabled }}' -eq 'true') { 'build/signpath-ci/installer' } else { 'release' }
+          $installer = Join-Path $directory '${{ steps.metadata.outputs.installer }}'
           $versionInfo = (Get-Item -LiteralPath $installer).VersionInfo
           $expected = '${{ steps.metadata.outputs.version }}.0'
           if ($versionInfo.ProductName.Trim() -ne 'DSK Multistream' -or
@@ -247,34 +317,39 @@ jobs:
           parameters: |
             version: "${{ steps.metadata.outputs.version }}"
 
-      - name: Assemble final release artifact
+      - name: Verify and assemble final artifact
+        id: assemble
         shell: pwsh
         run: |
           $name = '${{ steps.metadata.outputs.installer }}'
-          $releaseInstaller = Join-Path release $name
           if ('${{ steps.signing.outputs.enabled }}' -eq 'true') {
-            $signed = Get-ChildItem -LiteralPath build/signed-installer -Recurse -Filter $name | Select-Object -First 1
-            if (-not $signed) { throw "SignPath did not return $name." }
-            $signature = Get-AuthenticodeSignature -LiteralPath $signed.FullName
-            if ($signature.Status -ne [Management.Automation.SignatureStatus]::Valid) {
-              throw "Installer signature is not valid: $($signature.Status)"
-            }
-            Copy-Item -LiteralPath $signed.FullName -Destination $releaseInstaller -Force
+            . scripts/signpath-ci.ps1
+            $workingInstaller = Join-Path build/signpath-ci/installer $name
+            Copy-SignPathSignedFile -Directory build/signed-installer -FileName $name -Destination $workingInstaller -ExpectedSignerThumbprint $env:SIGNPATH_EXPECTED_SIGNER_THUMBPRINT
+            & scripts/external-windows-signing.ps1 -Phase VerifyRelease -WorkDir build/signpath-ci -OutputDir build/signpath-verified -ExpectedSignerThumbprint $env:SIGNPATH_EXPECTED_SIGNER_THUMBPRINT
+            $releaseInstaller = Join-Path build/signpath-verified $name
+            # Signatures do not certify Defender or the installation lifecycle.
+            $artifactLabel = 'signed-candidate'
+          } else {
+            $releaseInstaller = Join-Path release $name
+            $artifactLabel = '${{ steps.signing.outputs.unsigned-label }}'
           }
           $hash = (Get-FileHash -LiteralPath $releaseInstaller -Algorithm SHA256).Hash
           [IO.File]::WriteAllText("$releaseInstaller.sha256", "$hash *$name`r`n", [Text.ASCIIEncoding]::new())
+          "installer=$releaseInstaller" >> $env:GITHUB_OUTPUT
+          "artifact-label=$artifactLabel" >> $env:GITHUB_OUTPUT
 
       - name: Upload final Windows artifact
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
-          name: DSK-Multistream-${{ steps.metadata.outputs.version }}-Windows-x64-${{ steps.signing.outputs.artifact-label }}
+          name: DSK-Multistream-${{ steps.metadata.outputs.version }}-Windows-x64-${{ steps.assemble.outputs.artifact-label }}
           path: |
-            release/${{ steps.metadata.outputs.installer }}
-            release/${{ steps.metadata.outputs.installer }}.sha256
+            ${{ steps.assemble.outputs.installer }}
+            ${{ steps.assemble.outputs.installer }}.sha256
           if-no-files-found: error
           retention-days: 30
 
       - name: Remove temporary OAuth input
-        if: always() && steps.oauth.outputs.configured == 'true'
+        if: always()
         shell: pwsh
-        run: Remove-Item -LiteralPath '${{ steps.oauth.outputs.path }}' -Force -ErrorAction SilentlyContinue
+        run: Remove-Item -LiteralPath (Join-Path $env:RUNNER_TEMP 'dsk-oauth-app-config.json') -Force -ErrorAction SilentlyContinue

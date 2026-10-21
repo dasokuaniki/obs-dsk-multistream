@@ -81,6 +81,59 @@ if(provisioning_position GREATER packaging_position)
   message(FATAL_ERROR "Windows CI must provision Inno Setup before packaging")
 endif()
 
+# SignPath must use the same three-layer publisher gates as the external route.
+foreach(required_signpath_guard IN ITEMS
+    "Get-SignPathSigningMode"
+    "SIGNPATH_RELEASE_SIGNING_APPROVED"
+    "SIGNPATH_EXPECTED_SIGNER_THUMBPRINT"
+    "SIGNPATH_UNINSTALLER_ARTIFACT_CONFIGURATION_SLUG"
+    "-DDSK_PUBLISHER_RELEASE=$publisherReleaseFlag"
+    "-Phase StagePlugin"
+    "-Phase PrepareUninstaller"
+    "-Phase BuildInstaller"
+    "-Phase VerifyRelease"
+    "Copy-SignPathSignedFile"
+    "$global:LASTEXITCODE = 0"
+    "uninstaller:"
+    "'signed-candidate'")
+  string(FIND "${workflow_source}" "${required_signpath_guard}" guard_position)
+  if(guard_position LESS 0)
+    message(FATAL_ERROR "SignPath CI must require all three signed layers: ${required_signpath_guard}")
+  endif()
+endforeach()
+if(workflow_source MATCHES "'signed-release'")
+  message(FATAL_ERROR "CI signature verification alone must not label an artifact a signed release")
+endif()
+set(previous_signpath_step -1)
+foreach(signpath_step IN ITEMS
+    "- name: Stage publisher signing input"
+    "- name: Submit plugin signing request"
+    "- name: Prepare unsigned uninstaller"
+    "- name: Submit uninstaller signing request"
+    "- name: Build installer"
+    "- name: Submit installer signing request"
+    "- name: Verify and assemble final artifact"
+    "- name: Upload final Windows artifact")
+  string(FIND "${workflow_source}" "${signpath_step}" step_position)
+  if(step_position LESS 0 OR step_position LESS_EQUAL previous_signpath_step)
+    message(FATAL_ERROR "SignPath CI signing order is invalid at ${signpath_step}")
+  endif()
+  set(previous_signpath_step ${step_position})
+endforeach()
+if(NOT EXISTS "${source_root}/signing/signpath-uninstaller.xml")
+  message(FATAL_ERROR "SignPath CI requires a dedicated uninstaller artifact configuration")
+endif()
+file(READ "${source_root}/signing/signpath-uninstaller.xml" uninstaller_signpath_xml)
+foreach(required_xml_guard IN ITEMS "<pe-file" [=[${uninstaller}]=] "<authenticode-sign")
+  string(FIND "${uninstaller_signpath_xml}" "${required_xml_guard}" xml_position)
+  if(xml_position LESS 0)
+    message(FATAL_ERROR "SignPath uninstaller configuration is incomplete: ${required_xml_guard}")
+  endif()
+endforeach()
+if(uninstaller_signpath_xml MATCHES "file-version=")
+  message(FATAL_ERROR "Inno uninstaller FileVersion is not the product version")
+endif()
+
 file(READ "${EXTERNAL_SIGNING_SCRIPT}" signing_source)
 if(NOT signing_source MATCHES "ExpectedSignerThumbprint")
   message(FATAL_ERROR "External signing requires an expected signer thumbprint")

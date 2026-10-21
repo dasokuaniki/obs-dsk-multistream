@@ -69,6 +69,57 @@ optional compatibility path for a working CKA installation, but it is not the
 active release route. A CKA provider failure must never be bypassed by publishing
 an unsigned layer.
 
+## Inactive SignPath CI route
+
+### Reapplication preparation (2026-10-21)
+
+A renewed SignPath Foundation application is being prepared. The previous
+application was not approved, and preparation does not establish approval,
+an active subscription, or completed signing. Public version 0.5.1 remains the
+existing SSL.com-signed release; this work does not replace its files or tag.
+
+The intended request covers future official Windows releases built from this
+repository. Onboarding must confirm the generated Inno Setup uninstaller's
+eligibility and `.e32` acceptance, origin verification, per-request manual
+approval, account MFA, and the independently approved certificate identity.
+No current account MFA state or provider permission is inferred from this policy.
+The project remains subject to the [Foundation conditions](https://signpath.org/terms.html)
+and [application review](https://signpath.org/apply.html).
+
+If Foundation signing is approved and activated, the corresponding release and
+download pages will use its required attribution: "Free code signing provided
+by SignPath.io, certificate by SignPath Foundation". That attribution does not
+describe the existing SSL.com-signed downloads.
+
+### Activation and verification
+
+The legacy SignPath route stays inactive unless the repository variable
+`SIGNPATH_RELEASE_SIGNING_APPROVED` is explicitly `true`. Existing credentials
+alone do not reactivate it. No repository or provider settings are changed by
+this workflow correction.
+
+Before approving activation, configure the dedicated uninstaller artifact
+configuration from `signing/signpath-uninstaller.xml` using
+`SIGNPATH_UNINSTALLER_ARTIFACT_CONFIGURATION_SLUG`, and independently approve
+`SIGNPATH_EXPECTED_SIGNER_THUMBPRINT`. All existing SignPath inputs and the
+product-owned publisher OAuth configuration are also required. An incomplete
+approved configuration fails before any signing request.
+
+CI reuses the existing external-signing phases in this order: StagePlugin,
+DLL signing, PrepareUninstaller, `.e32` signing, BuildInstaller, Setup signing,
+then VerifyRelease. Returned files must be unique, retain the unsigned input's
+version metadata, and have Valid signatures, the approved signer and trusted
+timestamps. Copies must retain their hashes. The uninstaller's Inno FileVersion
+is distinct from the product version, so its XML does not constrain FileVersion.
+
+Actual SignPath service acceptance of `.e32` is not yet qualified. It requires
+provider approval and an isolated end-to-end check before activation; no manual
+extension-renaming fallback is permitted. Any provider or verification failure
+stops the job. Only successful three-layer verification produces a
+`signed-candidate` artifact. It is not a published release: Defender, fresh
+install, upgrade, startup, normal and complete removal, other-product protection
+and official-download checks remain separate mandatory release gates.
+
 ## Privacy
 
 See the project [privacy policy](privacy.md). DSK Multistream has no analytics or advertising and does not transfer information to networked systems unless requested by the user or required by a feature the user configured.

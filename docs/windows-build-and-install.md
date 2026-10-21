@@ -222,18 +222,40 @@ powershell.exe -ExecutionPolicy Bypass -File scripts\diagnose-first-run.ps1 -Out
 
 Release packages intended for other machines are built by `.github/workflows/windows-release.yml`. The workflow downloads pinned OBS dependencies, builds the plugin, runs tests, and creates the installer on a GitHub-hosted Windows runner.
 
-For SignPath release signing, configure these repository values after the SignPath Foundation application is approved:
+SignPath release signing is currently inactive. A renewed Foundation application
+is being prepared; no approval or successful service run is implied. The current
+public 0.5.1 release uses SSL.com eSigner. Follow the
+[code signing policy](code-signing-policy.md) for the complete activation gates.
+
+After provider approval and isolated service qualification, configure these
+repository values using the product-owned accounts and approved publisher
+configuration:
 
 - Secret: `SIGNPATH_API_TOKEN`
 - Variable: `SIGNPATH_ORGANIZATION_ID`
 - Variable: `SIGNPATH_PROJECT_SLUG`
 - Variable: `SIGNPATH_SIGNING_POLICY_SLUG`
 - Variable: `SIGNPATH_PLUGIN_ARTIFACT_CONFIGURATION_SLUG`
+- Variable: `SIGNPATH_UNINSTALLER_ARTIFACT_CONFIGURATION_SLUG`
 - Variable: `SIGNPATH_INSTALLER_ARTIFACT_CONFIGURATION_SLUG`
+- Variable: `SIGNPATH_EXPECTED_SIGNER_THUMBPRINT` (independently approved certificate)
+- Variable: `SIGNPATH_RELEASE_SIGNING_APPROVED` (explicitly `true` only after qualification)
 
-Upload `signing/signpath-plugin.xml` and `signing/signpath-installer.xml` as the two SignPath artifact configurations. The workflow signs the plugin DLL first, verifies it, embeds it into the installer, then signs and verifies the installer. Signing runs only for a `v<version>` tag and requires manual approval in SignPath. The tag must match the version in `buildspec.json` and `CMakeLists.txt`.
+Upload `signing/signpath-plugin.xml`, `signing/signpath-uninstaller.xml`, and
+`signing/signpath-installer.xml` as three dedicated artifact configurations.
+Confirm with SignPath that the generated Inno Setup `.e32` is eligible and
+accepted before activation; do not bypass a rejection by renaming its extension.
+The workflow signs and verifies the plugin DLL, generates and signs the
+uninstaller, builds the installer with both signed inner files, then signs the
+installer and verifies all three layers. Signing runs only for a `v<version>`
+tag and requires manual approval in SignPath. The tag must match the version in
+`buildspec.json` and `CMakeLists.txt`. A `signed-candidate` still needs the
+remaining distribution gates before publication.
 
-The optional `DSK_OAUTH_APP_CONFIG_JSON` repository secret supplies the publisher-managed YouTube OAuth desktop application to release builds. Pull-request builds do not require it and produce a compatible build without bundled publisher credentials.
+The `DSK_OAUTH_APP_CONFIG_JSON` repository secret supplies the publisher-managed
+YouTube OAuth desktop application. It is mandatory for an approved SignPath
+publisher release. Pull-request and other unsigned development builds can omit
+it and use the custom-client workflow.
 
 SignPath Foundation was not approved for this project, so it is not the current
 release route. The active SSL.com route signs interactively on the private home

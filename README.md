@@ -91,6 +91,12 @@ signatures and trusted timestamps on the plugin DLL, generated uninstaller, and
 Windows installer before public download. The unsigned development candidate is
 not the public signed artifact. See the [code signing policy](docs/code-signing-policy.md).
 
+The current public Windows release, 0.5.1, uses SSL.com eSigner signatures.
+The previous SignPath Foundation application was not approved; a renewed
+application is being prepared. SignPath signing remains inactive while approval
+and service validation are pending. This preparation does not replace or
+re-sign the published 0.5.1 download.
+
 ## Support the project
 
 DSK Multistream is free and open-source software. Sponsorships and donations support maintenance, release signing, and compatibility testing. The plugin and its security fixes remain available to everyone under the same GPL license.
